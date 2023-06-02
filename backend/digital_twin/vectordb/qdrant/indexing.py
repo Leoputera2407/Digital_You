@@ -1,0 +1,135 @@
+import uuid
+
+from qdrant_client import QdrantClient
+from qdrant_client.http.exceptions import ResponseHandlingException
+from qdrant_client.http.models.models import UpdateResult, UpdateStatus
+from qdrant_client.models import (
+    CollectionsResponse,
+    Distance,
+    PointStruct,
+    VectorParams,
+)
+
+from digital_twin.config.constants import (
+    BLURB,
+    CHUNK_ID,
+    CONTENT,
+    DOCUMENT_ID,
+    SECTION_CONTINUATION,
+    SEMANTIC_IDENTIFIER,
+    SOURCE_LINKS,
+    SOURCE_TYPE,
+)
+from digital_twin.config.app_config import DOC_EMBEDDING_DIM
+from digital_twin.utils.clients import get_qdrant_client
+from digital_twin.utils.logging import setup_logger
+from digital_twin.vectordb.chunking.models import EmbeddedIndexChunk
+
+logger = setup_logger()
+
+DEFAULT_BATCH_SIZE = 30
+
+
+def list_collections() -> CollectionsResponse:
+    return get_qdrant_client().get_collections()
+
+
+def create_collection(
+    collection_name: str, embedding_dim: int = DOC_EMBEDDING_DIM
+) -> None:
+    logger.info(f"Attempting to create collection {collection_name}")
+    result = get_qdrant_client().create_collection(
+        collection_name=collection_name,
+        vectors_config=VectorParams(
+            size=embedding_dim, distance=Distance.COSINE
+        ),
+    )
+    if not result:
+        raise RuntimeError("Could not create Qdrant collection")
+
+
+def recreate_collection(
+    collection_name: str, embedding_dim: int = DOC_EMBEDDING_DIM
+) -> None:
+    logger.info(f"Attempting to recreate collection {collection_name}")
+    result = get_qdrant_client().recreate_collection(
+        collection_name=collection_name,
+        vectors_config=VectorParams(
+            size=embedding_dim, distance=Distance.COSINE
+        ),
+    )
+    if not result:
+        raise RuntimeError("Could not create Qdrant collection")
+
+
+def get_uuid_from_chunk(chunk: EmbeddedIndexChunk) -> uuid.UUID:
+    unique_identifier_string = "_".join(
+        [chunk.source_document.id, str(chunk.chunk_id)]
+    )
+    return uuid.uuid5(uuid.NAMESPACE_X500, unique_identifier_string)
+
+
+def index_chunks(
+    chunks: list[EmbeddedIndexChunk],
+    collection: str,
+    client: QdrantClient | None = None,
+    batch_upsert: bool = True,
+) -> bool:
+    q_client: QdrantClient = client if client else get_qdrant_client()
+
+    point_structs = []
+    for chunk in chunks:
+        document = chunk.source_document
+        point_structs.append(
+            PointStruct(
+                id=str(get_uuid_from_chunk(chunk)),
+                payload={
+                    DOCUMENT_ID: document.id,
+                    CHUNK_ID: chunk.chunk_id,
+                    BLURB: chunk.blurb,
+                    CONTENT: chunk.content,
+                    SOURCE_TYPE: str(document.source.value),
+                    SOURCE_LINKS: chunk.source_links,
+                    SEMANTIC_IDENTIFIER: document.semantic_identifier,
+                    SECTION_CONTINUATION: chunk.section_continuation,
+                },
+                vector=chunk.embedding,
+            )
+        )
+
+    index_results = None
+    if batch_upsert:
+        point_struct_batches = [
+            point_structs[x : x + DEFAULT_BATCH_SIZE]
+            for x in range(0, len(point_structs), DEFAULT_BATCH_SIZE)
+        ]
+        for point_struct_batch in point_struct_batches:
+
+            def upsert() -> UpdateResult | None:
+                for _ in range(5):
+                    try:
+                        return q_client.upsert(
+                            collection_name=collection,
+                            points=point_struct_batch,
+                        )
+                    except ResponseHandlingException as e:
+                        logger.warning(
+                            f"Failed to upsert batch into qdrant due to error: {e}"
+                        )
+                return None
+
+            index_results = upsert()
+            log_status = index_results.status if index_results else "Failed"
+            logger.info(
+                f"Indexed {len(point_struct_batch)} chunks into collection '{collection}', "
+                f"status: {log_status}"
+            )
+    else:
+        index_results = q_client.upsert(
+            collection_name=collection, points=point_structs
+        )
+        logger.info(f"Batch indexing status: {index_results.status}")
+    return (
+        index_results is not None
+        and index_results.status == UpdateStatus.COMPLETED
+    )
