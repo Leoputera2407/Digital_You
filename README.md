@@ -37,6 +37,7 @@ Go to slack and change the Slash Command and Redirect URI to:
 
 
 ### Front-end 
+Access it on the browser! `localhost:3000`
 ```
 cd front-end
 npm install 
