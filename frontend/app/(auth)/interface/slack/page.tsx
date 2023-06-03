@@ -24,9 +24,9 @@ export default async function authSlack({
 
     const supabase_user_id = session.user.id;
 
-    const redirectUri = `${BACKEND_URL}/slack/server_signup?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&supabase_user_id=${encodeURIComponent(supabase_user_id)}`;
+    const redirectUri = `${process.env.BACKEND_URL}/slack/server_signup?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&supabase_user_id=${encodeURIComponent(supabase_user_id)}`;
 
-
+    console.log(redirectUri)
     const response = await axios.get(
       redirectUri,
       {
