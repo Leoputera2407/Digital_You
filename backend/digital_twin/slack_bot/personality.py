@@ -6,7 +6,7 @@ from langchain.chat_models import ChatOpenAI
 
 from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
 from digital_twin.qa.personality_chain import RephraseChain, PersonalityChain, NULL_DOC_TOKEN
-from digital_twin.slack_bot.views import update_command_modal_text
+from digital_twin.slack_bot.views import get_view, PERSONALITY_TEXT
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
 from digital_twin.utils.clients import get_supabase_client
 from digital_twin.utils.logging import setup_logger
@@ -34,7 +34,7 @@ def get_user_conversation_style(slack_user_id: str, team_id: str) -> Optional[st
         return response.data['conversation_style']
 
 
-def get_and_store_user_conversation_style(slack_user_id: str, team_id: str, chat_pairs: Optional[List[Tuple[str, str]]]) -> Optional[str]:
+def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str, chat_pairs: Optional[List[Tuple[str, str]]]) -> Optional[str]:
     """
     This function generates and stores the conversation style of a user.
 
@@ -78,6 +78,7 @@ def get_and_store_user_conversation_style(slack_user_id: str, team_id: str, chat
         examples=chat_pairs,
         slack_user_id=slack_user_id,
     )
+    logger.info(f"Personality description for {slack_user_id}: {personality_description}")
     try:
         # Update record in the 'slack_users' table
         get_supabase_client().table('slack_users').update(
@@ -99,11 +100,8 @@ def get_and_store_user_conversation_style(slack_user_id: str, team_id: str, chat
 def handle_user_conversation_style(client, command, slack_user_id, team_id, view_id):
     conversation_style = get_user_conversation_style(slack_user_id, team_id)
     if conversation_style is None:
-        update_command_modal_text(
-            client,
-            view_id,
-            "Learning how you speak from your chat history...This will only happen once!"
-        )
+        personality_view = get_view("text_command_modal", text=PERSONALITY_TEXT)
+        client.views_update(view_id=view_id, view=personality_view)
         try:
             _, chat_pairs = scrape_and_store_chat_history(
                 command,
@@ -111,7 +109,7 @@ def handle_user_conversation_style(client, command, slack_user_id, team_id, view
                 team_id, 
                 client
             )
-            conversation_style = get_and_store_user_conversation_style(slack_user_id, team_id, chat_pairs)
+            conversation_style = generate_and_store_user_conversation_style(slack_user_id, team_id, chat_pairs)
         except Exception as e:
             logger.error(f"Error scraping and storing chat history for {slack_user_id}: {e}")
             raise Exception(f"Error scraping and storing chat history for {slack_user_id}: {e}")
