@@ -1,0 +1,38 @@
+import abc
+from collections.abc import Generator
+from typing import Any
+
+from digital_twin.connectors.models import Document
+
+SecondsSinceUnixEpoch = float
+
+GenerateDocumentsOutput = Generator[list[Document], None, None]
+
+
+class BaseConnector(abc.ABC):
+    @abc.abstractmethod
+    def load_credentials(self, credentials: dict[str, Any]) -> dict[str, Any] | None:
+        raise NotImplementedError
+
+
+# Large set update or reindex, generally pulling a complete state or from a savestate file
+class LoadConnector(BaseConnector):
+    @abc.abstractmethod
+    def load_from_state(self) -> GenerateDocumentsOutput:
+        raise NotImplementedError
+
+
+# Small set updates by time
+class PollConnector(BaseConnector):
+    @abc.abstractmethod
+    def poll_source(
+        self, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch
+    ) -> GenerateDocumentsOutput:
+        raise NotImplementedError
+
+
+# Event driven
+class EventConnector(BaseConnector):
+    @abc.abstractmethod
+    def handle_event(self, event: Any) -> GenerateDocumentsOutput:
+        raise NotImplementedError
