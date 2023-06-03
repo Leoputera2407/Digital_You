@@ -7,6 +7,7 @@ from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
 
 NULL_DOC_TOKEN = "?[DOCUMENT]"
+NULL_EXAMPLE_TOKEN = "?[EXAMPLE]"
 EXAMPLE_SEP_PAT = "---NEW EXAMPLE---"
 
 class BasePersonalityChain:
@@ -58,9 +59,12 @@ class BasePersonalityChain:
     def __call__(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
         if examples is None:
            formatted_prompt = self.create_prompt(**kwargs) 
+        elif examples == []:
+            kwargs["examples"] = NULL_EXAMPLE_TOKEN
+            formatted_prompt = self.create_prompt(**kwargs)
         else:
             # Create a copy to avoid altering the original list
-            examples = list(examples)  
+            examples = list(examples)     
             # Keep adding more examples until we hit the token limit
             for idx, _ in enumerate(examples):
                 kwargs["examples"] = self.format_examples(examples[:idx+1])
