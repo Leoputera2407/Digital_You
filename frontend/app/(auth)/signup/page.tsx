@@ -4,15 +4,18 @@ export const metadata = {
 }
 
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import AuthLogo from '../auth-logo'
 import SignUpForm from './signup-form'
 
 import type { Database } from '@/lib/database.types'
 
-export default async function SignUp() {
-
+export default async function SignUp({
+  searchParams,
+} : {
+  searchParams: { [key: string]: string | null };
+}) {
   const supabase = createServerComponentClient<Database>({ cookies })
 
   const {
@@ -20,7 +23,11 @@ export default async function SignUp() {
   } = await supabase.auth.getSession()
 
   if (session) {
-    redirect('/settings')
+    const slack_user_id = searchParams?.slack_user_id || '';
+    const team_id = searchParams?.team_id || '';
+    let redirectUrl: string | null = searchParams['redirect'];
+    redirectUrl = redirectUrl == null ? '/settings' : `${redirectUrl}?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}`;
+    redirect(redirectUrl);
   }
 
   return (
