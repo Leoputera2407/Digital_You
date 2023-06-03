@@ -11,6 +11,9 @@ from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 
+class NoChatPairsException(Exception):
+    pass
+
 def handle_digital_twin_command(context: BoltContext, ack, command, client: WebClient):
     ack()
     slack_user_id = command["user_id"]
@@ -28,6 +31,8 @@ def handle_digital_twin_command(context: BoltContext, ack, command, client: WebC
 
         conversation_style = handle_user_conversation_style(client, command, slack_user_id, team_id, view_id)
         slack_chat_pairs = get_chat_pairs(slack_user_id, team_id)
+        if len(slack_chat_pairs) == 0:
+            raise NoChatPairsException(f"Can't find enough chat history in threads or DMs.")
         collection = get_vectordb_collection_for_slack(slack_user_id, team_id)
         """
         docs = retrieve_documents(
@@ -43,6 +48,11 @@ def handle_digital_twin_command(context: BoltContext, ack, command, client: WebC
         response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=response)
         client.views_update(view_id=view_id, view=response_view)
         return
+    except NoChatPairsException as e:
+        logger.error(f"Error handling digital twin for {slack_user_id}: {e}")
+        error_view = get_view("text_command_modal", text=f"Something went wrong, {e}. ")
+        client.views_update(view_id=view_id, view=error_view)
+        return 
     except Exception as e:
         logger.error(f"Error handling digital twin for {slack_user_id}: {e}")
         error_view = get_view("text_command_modal", text=ERROR_TEXT)
