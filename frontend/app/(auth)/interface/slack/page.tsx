@@ -6,7 +6,6 @@ import { redirect } from 'next/navigation';
 
 import type { Database } from '@/lib/database.types';
 
-const REDIRECT_URI = "https://4599-2600-1700-2f71-4890-e9b4-1af2-b02a-591a.ngrok-free.app/slack/server_signup";
 export default async function authSlack({
   searchParams,
 } : {
@@ -25,7 +24,7 @@ export default async function authSlack({
 
     const supabase_user_id = session.user.id;
 
-    const redirectUri = `${REDIRECT_URI}?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&supabase_user_id=${encodeURIComponent(supabase_user_id)}`;
+    const redirectUri = `${BACKEND_URL}/slack/server_signup?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&supabase_user_id=${encodeURIComponent(supabase_user_id)}`;
 
 
     const response = await axios.get(
