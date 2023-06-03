@@ -4,7 +4,6 @@ from fastapi import APIRouter, Request, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-
 from slack_sdk import WebClient
 from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 from slack_bolt import App, Ack, BoltResponse, BoltContext
@@ -16,9 +15,17 @@ from slack_bolt.request.payload_utils import is_event, is_view, is_action
 # from digital_twin.llm import get_selected_llm_instance
 # from digital_twin.llm.interface import get_selected_model_config
 from digital_twin.llm.config import get_api_key
-from digital_twin.config.app_config import WEB_DOMAIN
+from digital_twin.config.app_config import WEB_DOMAIN, SLACK_USER_TOKEN
+from digital_twin.slack_bot.views import (
+    get_view,
+    LOADING_TEXT,
+    ERROR_TEXT,
+    MODAL_RESPONSE_CALLBACK_ID,
+    EDIT_BUTTON_ACTION_ID,
+    SHUFFLE_BUTTON_ACTION_ID,
+)
 from digital_twin.slack_bot.events.command import handle_digital_twin_command
-from digital_twin.slack_bot.events.messages import respond_to_new_message
+from digital_twin.slack_bot.events.message import respond_to_new_message
 from digital_twin.slack_bot.events.home_tab import build_home_tab
 from digital_twin.slack_bot.config import get_oauth_settings
 from digital_twin.utils.logging import setup_logger
@@ -62,13 +69,15 @@ slack_app.client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_coun
 
 def just_ack(ack: Ack):
     ack()
+
 def register_listeners(slack_app: App):
     #slack_app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     slack_app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
     slack_app.command("/digital-twin")(ack=just_ack, lazy=[handle_digital_twin_command])
+    #slack_app.action(SHUFFLE_BUTTON_ACTION_ID)(ack=just_ack, lazy=[])
+    #slack_app.view(MODAL_RESPONSE_CALLBACK_ID)(lazy=[])
 
 register_listeners(slack_app)
-
 
 app_handler = SlackRequestHandler(slack_app)
 
@@ -93,6 +102,7 @@ async def slack_server_signup(request: Request, signup_info: SlackServerSignup =
 
 @router.post("/slack/events")
 async def handle_slack_event(req: Request):
+   logger.info("Handling slack event")
    return await app_handler.handle(req)
 
 from fastapi.responses import RedirectResponse
@@ -112,6 +122,7 @@ def handle_url_verification(body):
 @slack_app.middleware
 def set_user_info(client: WebClient, context: BoltContext, payload, body, next_):
     event_type = payload.get('event', {}).get('type', '')
+    logger.info(f"Event type: {event_type}")
     if event_type == 'app_home_opened':
         next_()
     if is_action(body) or is_view(body):
@@ -168,21 +179,75 @@ def render_home_tab(client: WebClient, context: BoltContext):
     )
 
 
-@slack_app.view("command_modal")
-def handle_view_submission(ack, body, client, logger):
+@slack_app.view(MODAL_RESPONSE_CALLBACK_ID)
+def handle_view_submission(ack, body, client: WebClient):
     payload = json.loads(body['view']['private_metadata'])
     response = payload['response']
     channel_id = payload['channel_id']
     client.chat_postMessage(
         channel=channel_id,
         text=response,
-        as_user=True,
+        username=body['user']['username'],
+        token=SLACK_USER_TOKEN,
     )
-    logger.info(f"Response sent to channel {channel_id}: {response}")
     ack()
 
-@slack_app.action("shuffle_response")
+@slack_app.action(SHUFFLE_BUTTON_ACTION_ID)
 def handle_shuffle_click(ack, body, client):
-    # Acknowledge the action
+    try:
+        # Acknowledge the action
+        ack()
+        view_id = body['container']['view_id']
+
+        loading_view = get_view("text_command_modal", text=LOADING_TEXT)
+        client.views_update(view_id=view_id, view=loading_view)
+
+        from langchain.chat_models import ChatOpenAI
+        from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
+        from digital_twin.qa.personality_chain import ShuffleChain
+
+        llm = ChatOpenAI(
+                model="gpt-3.5-turbo",
+                openai_api_key=PERSONALITY_CHAIN_API_KEY,
+                temperature=0.8,
+                # About 300 words
+                max_tokens=500,
+        )
+        shuffle_chain = ShuffleChain(
+            llm=llm,
+            # Does nothign for now
+            max_output_tokens=4096,
+        )
+        private_metadata_str = body['view']['private_metadata']
+        private_metadata = json.loads(body['view']['private_metadata'])
+        old_response = private_metadata['response']
+        conversation_style = private_metadata['conversation_style']
+        slack_user_id = body['user']['id']
+        response = shuffle_chain(
+            old_response=old_response,
+            conversation_style=conversation_style,
+            slack_user_id=slack_user_id,
+        )
+        response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=response)
+        client.views_update(view_id=view_id, view=response_view)
+    except Exception as e:
+        logger.error(f"Error in shuffle click: {e}")
+        error_view = get_view("text_command_modal", text=ERROR_TEXT)
+        client.views_update(view_id=view_id, view=error_view)
+        
+
+@slack_app.action(EDIT_BUTTON_ACTION_ID)
+def handle_edit_response(ack, body, client, logger):
     ack()
-    # Shuffle the response and update the modal here
+    try:
+        view_id = body['container']['view_id']
+        metadata_dict = json.loads(body['view']['private_metadata'])
+        private_metadata = body['view']['private_metadata']
+        response = metadata_dict['response']
+
+        edit_view = get_view("edit_command_modal", private_metadata=private_metadata, response=response)
+        client.views_update(view_id=view_id, view=edit_view)
+    except Exception as e:
+        logger.error(f"Error in edit response: {e}")
+        error_view = get_view("text_command_modal", text=ERROR_TEXT)
+        client.views_update(view_id=view_id, view=error_view)

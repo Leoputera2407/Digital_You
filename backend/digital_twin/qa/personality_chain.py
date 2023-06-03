@@ -57,19 +57,18 @@ class BasePersonalityChain:
 
     def __call__(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
         if examples is None:
-            examples = []
+           formatted_prompt = self.create_prompt(**kwargs) 
         else:
             # Create a copy to avoid altering the original list
             examples = list(examples)  
-        # Keep adding more examples until we hit the token limit
-        for idx, _ in enumerate(examples):
-            kwargs["examples"] = examples[:idx+1]
-            formatted_prompt = self.create_prompt(**kwargs)
-            if not self.tokens_within_limit(formatted_prompt):
-                examples.pop(idx)
-                break
-
-        logger.debug(f"Stuffed {len(examples)} examples in the context")
+            # Keep adding more examples until we hit the token limit
+            for idx, _ in enumerate(examples):
+                kwargs["examples"] = self.format_examples(examples[:idx+1])
+                formatted_prompt = self.create_prompt(**kwargs)
+                if not self.tokens_within_limit(formatted_prompt):
+                    examples.pop(idx)
+                    break
+            logger.debug(f"Stuffed {len(examples)} examples in the context")
 
         self.log_filled_prompt(formatted_prompt)
         return self.predict_answer(formatted_prompt)
@@ -91,6 +90,11 @@ class PersonalityChain(BasePersonalityChain):
             f'Each sample interaction below is prefixed with "{EXAMPLE_SEP_PAT}".\n\n'
             "{examples}\n\n---\n\n"
             "Respond with nothing else besides the sample interactions."
+            "Give a verbose list describing the user in the format below\n"
+            "% Start Format %\n"
+            "Tone attributes:\n"
+            "Conversation style:\n"
+            "% End Format %"
         )
         return PromptTemplate(
             template=prompt, input_variables=["examples", "slack_user_id"]
@@ -110,6 +114,7 @@ class RephraseChain(BasePersonalityChain):
          - You are an AI Copilot that provides a response to Slack messages on behalf of your owner,
          {{slack_user_id}}.
          - Your goal is to respond to the question which has been asked in an accurate and insightful way.
+         - Remember, you are no impersonate {{slack_user_id}} and you should have opinions like the user would.
          - You may consult the Document below if it helps to answer the Question, if it's irrelevant, ignore it.
          - Your goal is to impersonate the writing style of your owner as much as possible. The owners writing style is described below.
          - Do not go outside the tone instructions below
@@ -118,7 +123,7 @@ class RephraseChain(BasePersonalityChain):
         {{conversation_style}}
         % End of Owners writing style
 
-        % Owners response examples, each separated by {EXAMPLE_SEP_PAT}
+        % Owners Example Interaction, each separated by {EXAMPLE_SEP_PAT}
         {{examples}}
         % End of Owners response samples
 
@@ -135,8 +140,42 @@ class RephraseChain(BasePersonalityChain):
         % YOUR TASK
         Please respond to the question asked in the same style as the owner would.
         If {NULL_DOC_TOKEN} or none of the documents are relevant to the question, please respond "I'm not sure" or ask clarify questions in the same style as the owner would.
+        Never mention that you're a AI, you're to impersonate {{slack_user_id}} and has opinions as the owner would.
+        Also, never use any information from the Owners Example Interaction, they're just a referrence so you understood the owner' conversation style better.
+        % End of YOUR TASK
+        
+        {{slack_user_id}}:
         """
         return PromptTemplate(
             template=template,
             input_variables=["examples", "conversation_style", "query", "slack_user_id", "document"],
+        )
+
+class ShuffleChain(BasePersonalityChain):
+    """
+    Custom class for generating a response to a Slack message on behalf of a user.
+    """
+
+    @property
+    def default_prompt(self) -> PromptTemplate:
+        """Define the default prompt."""
+        template = f"""
+        % INSTRUCTIONS
+        You are an expert copywriter, who wants to rephrase the old writing below creatively to fit more
+        with the style of the owner, {{slack_user_id}}. 
+
+        % Old Writing %
+        {{old_response}}
+        % End of Old Writing %
+
+        % Owners %
+        {{conversation_style}}
+        & End of Owners %
+        
+        Please rephrase the old writing to creatively fit more into the style of the owner, {{slack_user_id}}.
+        {{slack_user_id}}:
+        """
+        return PromptTemplate(
+            template=template,
+            input_variables=["slack_user_id", "conversation_style", "old_response"],
         )

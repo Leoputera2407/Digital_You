@@ -30,6 +30,7 @@ JWT_ALGORITHM = "HS256"
 # Slack Configurations #
 ########################
 SLACK_BOT_TOKEN=os.environ.get("SLACK_BOT_TOKEN", "")
+SLACK_USER_TOKEN=os.environ.get("SLACK_USER_TOKEN", "")
 SLACK_CLIENT_ID=os.environ.get("SLACK_CLIENT_ID", "")
 SLACK_CLIENT_SECRET=os.environ.get("SLACK_CLIENT_SECRET", "")
 SLACK_SIGNING_SECRET=os.environ.get("SLACK_SIGNING_SECRET", "")

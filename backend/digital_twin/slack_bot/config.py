@@ -229,6 +229,7 @@ def get_oauth_settings():
             "users.profile:read",
             "users:read",
         ],
+        user_scopes=["chat:write"],
         install_page_rendering_enabled=True,
         install_path="/slack/install",
         redirect_uri_path="/slack/oauth_redirect",

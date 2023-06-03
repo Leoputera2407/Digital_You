@@ -37,9 +37,8 @@ def handle_digital_twin_command(context: BoltContext, ack, command, client: WebC
         qa_response = handle_qa_response(supabase_user_id, slack_user_id, query, docs)
         """
         response = rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, {NULL_DOC_TOKEN})
-        loading_view = get_view("response_command_modal", text=LOADING_TEXT)
         private_metadata_str = json.dumps(
-            {"response": response, "channel_id": channel_id, "query": query}
+            {"response": response, "channel_id": channel_id, "query": query, "conversation_style": conversation_style}
         )
         response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=response)
         client.views_update(view_id=view_id, view=response_view)

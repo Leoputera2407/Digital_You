@@ -28,7 +28,7 @@ def get_user_conversation_style(slack_user_id: str, team_id: str) -> Optional[st
     except APIError as e:
         logger.error(f"Supabase Error: {str(e)}")
         raise Exception(f"Supabase Error: {str(e)}")
-    if response.data:
+    if response.data is None:
         return None
     else:
         return response.data['conversation_style']
@@ -66,7 +66,6 @@ def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str,
         max_tokens=500,
     )
 
-
     personality_chain = PersonalityChain(
         llm=llm,
         # Does nothing for now
@@ -78,31 +77,30 @@ def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str,
         examples=chat_pairs,
         slack_user_id=slack_user_id,
     )
-    logger.info(f"Personality description for {slack_user_id}: {personality_description}")
     try:
         # Update record in the 'slack_users' table
         get_supabase_client().table('slack_users').update(
             {
-                "personality_description": personality_description
+                "conversation_style": personality_description
             }
         ).eq(
             'slack_user_id', slack_user_id
         ).eq(
             'team_id', team_id
-        )
+        ).execute()
     except APIError as e:
-        logger.error(f"Error updating `personality_description` into Superbase for {slack_user_id}: {str(e)}")
+        logger.error(f"Error updating `conversation_style` into Superbase for {slack_user_id}: {str(e)}")
         raise Exception(f"Supabase Error: {str(e)}")
 
     return personality_description
 
 
 def handle_user_conversation_style(client, command, slack_user_id, team_id, view_id):
-    conversation_style = get_user_conversation_style(slack_user_id, team_id)
-    if conversation_style is None:
-        personality_view = get_view("text_command_modal", text=PERSONALITY_TEXT)
-        client.views_update(view_id=view_id, view=personality_view)
-        try:
+    try:
+        conversation_style = get_user_conversation_style(slack_user_id, team_id)
+        if conversation_style is None:
+            personality_view = get_view("text_command_modal", text=PERSONALITY_TEXT)
+            client.views_update(view_id=view_id, view=personality_view)
             _, chat_pairs = scrape_and_store_chat_history(
                 command,
                 slack_user_id, 
@@ -110,10 +108,10 @@ def handle_user_conversation_style(client, command, slack_user_id, team_id, view
                 client
             )
             conversation_style = generate_and_store_user_conversation_style(slack_user_id, team_id, chat_pairs)
-        except Exception as e:
-            logger.error(f"Error scraping and storing chat history for {slack_user_id}: {e}")
-            raise Exception(f"Error scraping and storing chat history for {slack_user_id}: {e}")
-            
+    except Exception as e:
+        logger.error(f"Error getting user's conversation style for {slack_user_id}: {e}")
+        raise Exception(f"Error getting user's conversation style for {slack_user_id}: {e}")
+
     return conversation_style
 
 
@@ -134,7 +132,6 @@ def rephrase_response(chat_pairs, conversation_style, query, slack_user_id, qa_r
             # Does nothign for now
             max_output_tokens=4096,
         )
-        logger.info(f"Rephrasing response for {slack_user_id}, with query {query}")
         response = rephrase_chain(
             examples=chat_pairs,
             conversation_style=conversation_style,
