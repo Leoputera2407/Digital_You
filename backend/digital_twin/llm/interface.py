@@ -3,8 +3,7 @@ from postgrest.exceptions import APIError
 
 from digital_twin.config.app_config import DEFAULT_LLM
 from digital_twin.config.model_config import ModelInfo, SupportedModelType
-from digital_twin.utils.clients import get_supabase_client
-
+from digital_twin.db.llm import get_model_config_by_user
 
 class SelectedModelConfig(BaseModel):
     model_info: ModelInfo
@@ -28,27 +27,19 @@ class SelectedModelConfig(BaseModel):
 
 
 def get_selected_model_config(supabase_user_id: str) -> SelectedModelConfig:
-    try:
-        response = get_supabase_client().table('model_config').select('*').eq("user_id", supabase_user_id).single().execute()
-    except APIError as e:
-        raise Exception(e.message)
-    
-    if not response.data:
+    model_config = get_model_config_by_user(supabase_user_id)
+    if not model_config:
         # TODO: Probably raise an error here
         model_config = SelectedModelConfig(
             model_info=SupportedModelType[DEFAULT_LLM].value,
         )
     else:
-        data = response.data
-        model_enum = SupportedModelType[data['supported_model_enum']]
-        temperature = data['temperature'] if 'temperature' in data else 1.0
-
+        model_enum = SupportedModelType[model_config.supported_model_enum]
+        temperature = model_config.temperature
         model_config = SelectedModelConfig(
             model_info=model_enum.value,
             temperature=temperature
         )
         
     return model_config
-
-
 

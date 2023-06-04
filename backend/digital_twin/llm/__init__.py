@@ -14,7 +14,7 @@ def get_selected_llm_instance(
     llm: BaseLanguageModel = None
     api_key = get_api_key(
         user_id,
-        map_model_platform_to_db_api_key_type[model_config.platform],
+        model_config.platform,
     ).key_value
     if not api_key:
         raise ValueError("API key wasn't set for {model_config.platform}}")

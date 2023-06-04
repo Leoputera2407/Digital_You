@@ -151,7 +151,7 @@ def set_user_info(client: WebClient, context: BoltContext, payload, body, next_)
     # TODO: Use model config, to support other models, for now OPENAI only!
     context["OPENAI_API_KEY"] = get_api_key(
         supabase_user_id,
-        "openai_api_key",
+        "openai",
     ).key_value
     context["OPENAI_MODEL"] = "gpt-3.5-turbo"
     next_()

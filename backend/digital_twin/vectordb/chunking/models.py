@@ -2,7 +2,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Any, cast
 
-from digital_twin.connectors.models import Document
+from digital_twin.connectors.model import Document
 
 
 @dataclass

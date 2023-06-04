@@ -4,9 +4,7 @@ from itertools import chain
 from multiprocessing import Pool
 from typing import List, Optional
 
-from digital_twin.connectors.models import Document
-from digital_twin.embedding.biencoder import DefaultEmbedder
-from digital_twin.embedding.type_aliases import Embedder
+from digital_twin.connectors.model import Document
 from digital_twin.vectordb.chunking.chunk import Chunker, DefaultChunker
 from digital_twin.vectordb.chunking.models import EmbeddedIndexChunk
 from digital_twin.vectordb.interface import VectorDB

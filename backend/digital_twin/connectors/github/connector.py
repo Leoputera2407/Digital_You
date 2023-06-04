@@ -13,7 +13,7 @@ from digital_twin.config.app_config import (
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.interfaces import LoadConnector, GenerateDocumentsOutput
-from digital_twin.connectors.models import Document, Section
+from digital_twin.connectors.model import Document, Section
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()

@@ -25,7 +25,4 @@ class SupportedModelType(Enum):
     def platform(self):
         return self.value.platform
 
-map_model_platform_to_db_api_key_type = {
-    "openai": "openai_api_key", 
-    "anthropic": "anthropic_api_key"
-}
+

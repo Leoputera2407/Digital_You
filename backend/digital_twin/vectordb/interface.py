@@ -1,7 +1,7 @@
 import abc
 from typing import Dict, List, Optional, Union
 
-from digital_twin.connectors.models import Document
+from digital_twin.connectors.model import Document
 from digital_twin.vectordb.chunking.models import InferenceChunk
 
 from digital_twin.utils.logging import setup_logger

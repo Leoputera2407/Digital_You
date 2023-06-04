@@ -9,7 +9,7 @@ from fastapi import UploadFile
 
 from digital_twin.config.app_config import OPENAI_API_KEY
 from digital_twin.config.constants import DocumentSource
-from digital_twin.connectors.models import Document, Section
+from digital_twin.connectors.model import Document, Section
 from digital_twin.utils.indexing_pipeline import build_indexing_pipeline
 
 async def process_audio(upload_file: UploadFile):

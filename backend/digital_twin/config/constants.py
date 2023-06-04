@@ -23,3 +23,6 @@ class SupportedPromptType(str, Enum):
     STUFF = "stuff"
     REFINE = "refine"
 
+class UserRole(str, Enum):
+    BASIC = "basic"
+    ADMIN = "admin"

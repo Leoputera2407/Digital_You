@@ -5,7 +5,7 @@ import time
 
 from fastapi import UploadFile
 from digital_twin.config.constants import DocumentSource
-from digital_twin.connectors.models import Document, Section
+from digital_twin.connectors.model import Document, Section
 from digital_twin.utils.indexing_pipeline import build_indexing_pipeline
 
 from utils import compute_sha1_from_file, compute_sha1_from_content, documents_vector_store

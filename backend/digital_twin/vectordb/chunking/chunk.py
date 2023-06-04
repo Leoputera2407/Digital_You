@@ -8,7 +8,7 @@ from digital_twin.config.app_config import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
 )
-from digital_twin.connectors.models import Document, Section
+from digital_twin.connectors.model import Document, Section
 from digital_twin.utils.text_processing import shared_precompare_cleanup
 from digital_twin.vectordb.chunking.models import IndexChunk
 

@@ -2,7 +2,7 @@ import abc
 from collections.abc import Generator
 from typing import Any
 
-from digital_twin.connectors.models import Document
+from digital_twin.connectors.model import Document
 
 SecondsSinceUnixEpoch = float
 

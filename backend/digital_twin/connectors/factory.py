@@ -11,7 +11,7 @@ from digital_twin.connectors.interfaces import (
     LoadConnector,
     PollConnector,
 )
-from digital_twin.connectors.models import Document, InputType
+from digital_twin.connectors.model import Document, InputType
 
 _NUM_SECONDS_IN_DAY = 86400
 

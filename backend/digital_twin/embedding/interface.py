@@ -20,7 +20,7 @@ logger = setup_logger()
 
 _EMBED_MODEL: Optional[Embeddings] = None
 
-# TODO: Make this into a propoer Embedder class
+# TODO: Make this into a proper Embedder class
 def get_default_embedding_model(
     user_id: str,
     model_config: SelectedModelConfig, **kwargs
@@ -29,7 +29,7 @@ def get_default_embedding_model(
     if _EMBED_MODEL is None:
         openai_api_key = get_api_key(
             user_id,
-            map_model_platform_to_db_api_key_type[model_config.platform],
+            model_config.platform,
         )
         _EMBED_MODEL = OpenAIEmbeddings(openai_api_key=openai_api_key)
     return _EMBED_MODEL

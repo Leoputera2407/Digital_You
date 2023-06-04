@@ -86,7 +86,7 @@ def get_auth_url(
 def update_credential_access_tokens(
     auth_code: str,
     credential_id: int,
-    supabase_user_id: str,
+    user_id: str,
 ) -> Credentials | None:
     app_credentials = get_google_app_cred()
     flow = InstalledAppFlow.from_client_config(

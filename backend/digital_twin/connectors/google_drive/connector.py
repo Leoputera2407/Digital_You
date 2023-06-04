@@ -15,7 +15,7 @@ from digital_twin.connectors.google_drive.connector_auth import (
     get_drive_tokens,
 )
 from digital_twin.connectors.interfaces import GenerateDocumentsOutput, LoadConnector
-from digital_twin.connectors.models import Document, Section
+from digital_twin.connectors.model import Document, Section
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
