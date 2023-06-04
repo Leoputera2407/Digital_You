@@ -1,7 +1,6 @@
 # Specific to this project
 source_documents/
 models/
-db/
 
 # OSX
 .DS_STORE
