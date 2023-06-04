@@ -1,5 +1,7 @@
 import logging
 from logging import Logger
+from functools import wraps
+from postgrest.exceptions import APIError
 
 
 def setup_logger(
@@ -25,3 +27,16 @@ def setup_logger(
     logger.addHandler(handler)
 
     return logger
+
+
+def log_supabase_api_error(logger):
+    def decorator(func):
+        @wraps(func)
+        def wrapped(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except APIError as e:
+                logger.error(f"API error in {func.__name__}: {e}")
+                return None
+        return wrapped
+    return decorator

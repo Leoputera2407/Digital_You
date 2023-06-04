@@ -1,116 +1,131 @@
-import json
-from typing import cast
-from urllib.parse import ParseResult, parse_qs, urlparse
+import io
+from collections.abc import Generator
+from typing import Any
 
 from google.auth.transport.requests import Request  # type: ignore
 from google.oauth2.credentials import Credentials  # type: ignore
 from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
+from googleapiclient import discovery  # type: ignore
+from PyPDF2 import PdfReader
 
-from digital_twin.config.app_config import WEB_DOMAIN
-#from digital_twin.db.credentials import update_credential_json
-
-#from danswer.dynamic_configs import get_dynamic_config_store
-
-from digital_twin.server.model import GoogleAppCredentials
+from digital_twin.config.app_config import GOOGLE_DRIVE_INCLUDE_SHARED, INDEX_BATCH_SIZE
+from digital_twin.config.constants import DocumentSource
+from digital_twin.connectors.google_drive.connector_auth import (
+    DB_CREDENTIALS_DICT_KEY,
+    get_drive_tokens,
+)
+from digital_twin.connectors.interfaces import GenerateDocumentsOutput, LoadConnector
+from digital_twin.connectors.models import Document, Section
 from digital_twin.utils.logging import setup_logger
-from sqlalchemy.orm import Session
 
 logger = setup_logger()
 
-DB_CREDENTIALS_DICT_KEY = "google_drive_tokens"
-CRED_KEY = "credential_id_{}"
-GOOGLE_DRIVE_CRED_KEY = "google_drive_app_credential"
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+SUPPORTED_DRIVE_DOC_TYPES = [
+    "application/vnd.google-apps.document",
+    "application/pdf",
+    "application/vnd.google-apps.spreadsheet",
+]
+ID_KEY = "id"
+LINK_KEY = "link"
+TYPE_KEY = "type"
 
 
-def _build_frontend_google_drive_redirect() -> str:
-    return f"{WEB_DOMAIN}/google-drive/auth/callback"
-
-
-def get_drive_tokens(
-    *, creds: Credentials | None = None, token_json_str: str | None = None
-) -> Credentials | None:
-    if creds is None and token_json_str is None:
-        return None
-
-    if token_json_str is not None:
-        creds_json = json.loads(token_json_str)
-        creds = Credentials.from_authorized_user_info(creds_json, SCOPES)
-
-    if not creds:
-        return None
-    if creds.valid:
-        return creds
-
-    if creds.expired and creds.refresh_token:
-        try:
-            creds.refresh(Request())
-            if creds.valid:
-                return creds
-        except Exception as e:
-            logger.exception(f"Failed to refresh google drive access token due to: {e}")
-            return None
-    return None
-
-
-def verify_csrf(credential_id: int, state: str) -> None:
-    # TODO: Store this csrf thingy in the DB
-    # csrf = get_dynamic_config_store().load(CRED_KEY.format(str(credential_id)))
-    csrf = ''
-    if csrf != state:
-        raise PermissionError(
-            "State from Google Drive Connector callback does not match expected"
+def get_file_batches(
+    service: discovery.Resource,
+    include_shared: bool = GOOGLE_DRIVE_INCLUDE_SHARED,
+    batch_size: int = INDEX_BATCH_SIZE,
+) -> Generator[list[dict[str, str]], None, None]:
+    next_page_token = ""
+    while next_page_token is not None:
+        results = (
+            service.files()
+            .list(
+                pageSize=batch_size,
+                supportsAllDrives=include_shared,
+                fields="nextPageToken, files(mimeType, id, name, webViewLink)",
+                pageToken=next_page_token,
+            )
+            .execute()
         )
+        next_page_token = results.get("nextPageToken")
+        files = results["files"]
+        valid_files: list[dict[str, str]] = []
+        for file in files:
+            if file["mimeType"] in SUPPORTED_DRIVE_DOC_TYPES:
+                valid_files.append(file)
+        logger.info(
+            f"Parseable Documents in batch: {[file['name'] for file in valid_files]}"
+        )
+        yield valid_files
 
 
-def get_auth_url(
-    credential_id: int,
-) -> str:
-   
-    # TODO: Store Google Drive Tokens in the DB
-    # creds_str = str(get_dynamic_config_store().load(GOOGLE_DRIVE_CRED_KEY))
-    creds_str = ''
-    credential_json = json.loads(creds_str)
-    flow = InstalledAppFlow.from_client_config(
-        credential_json,
-        scopes=SCOPES,
-        redirect_uri=_build_frontend_google_drive_redirect(),
-    )
-    auth_url, _ = flow.authorization_url(prompt="consent")
+def extract_text(file: dict[str, str], service: discovery.Resource) -> str:
+    mime_type = file["mimeType"]
+    if mime_type == "application/vnd.google-apps.document":
+        return (
+            service.files()
+            .export(fileId=file["id"], mimeType="text/plain")
+            .execute()
+            .decode("utf-8")
+        )
+    elif mime_type == "application/vnd.google-apps.spreadsheet":
+        return (
+            service.files()
+            .export(fileId=file["id"], mimeType="text/csv")
+            .execute()
+            .decode("utf-8")
+        )
+    # Default download to PDF since most types can be exported as a PDF
+    else:
+        response = service.files().get_media(fileId=file["id"]).execute()
+        pdf_stream = io.BytesIO(response)
+        pdf_reader = PdfReader(pdf_stream)
+        return "\n".join(page.extract_text() for page in pdf_reader.pages)
 
-    parsed_url = cast(ParseResult, urlparse(auth_url))
-    params = parse_qs(parsed_url.query)
-    # TODO: Store this csrf thingy in the DB
-    #get_dynamic_config_store().store(CRED_KEY.format(credential_id), params.get("state", [None])[0])  # type: ignore
-    return str(auth_url)
 
+class GoogleDriveConnector(LoadConnector):
+    def __init__(
+        self,
+        batch_size: int = INDEX_BATCH_SIZE,
+        include_shared: bool = GOOGLE_DRIVE_INCLUDE_SHARED,
+    ) -> None:
+        self.batch_size = batch_size
+        self.include_shared = include_shared
+        self.creds: Credentials | None = None
 
-def update_credential_access_tokens(
-    auth_code: str,
-    credential_id: int,
-    user: User,
-    db_session: Session,
-) -> Credentials | None:
-    app_credentials = get_google_app_cred()
-    flow = InstalledAppFlow.from_client_config(
-        app_credentials.dict(),
-        scopes=SCOPES,
-        redirect_uri=_build_frontend_google_drive_redirect(),
-    )
-    flow.fetch_token(code=auth_code)
-    creds = flow.credentials
-    token_json_str = creds.to_json()
-    new_creds_dict = {DB_CREDENTIALS_DICT_KEY: token_json_str}
-
-    if not update_credential_json(credential_id, new_creds_dict, user, db_session):
+    def load_credentials(self, credentials: dict[str, Any]) -> dict[str, Any] | None:
+        access_token_json_str = credentials[DB_CREDENTIALS_DICT_KEY]
+        creds = get_drive_tokens(token_json_str=access_token_json_str)
+        if creds is None:
+            raise PermissionError("Unable to access Google Drive.")
+        self.creds = creds
+        new_creds_json_str = creds.to_json()
+        if new_creds_json_str != access_token_json_str:
+            return {DB_CREDENTIALS_DICT_KEY: new_creds_json_str}
         return None
-    return creds
 
+    def load_from_state(self) -> GenerateDocumentsOutput:
+        if self.creds is None:
+            raise PermissionError("Not logged into Google Drive")
 
-def get_google_app_cred() -> GoogleAppCredentials:
-    creds_str = str(get_dynamic_config_store().load(GOOGLE_DRIVE_CRED_KEY))
-    return GoogleAppCredentials(**json.loads(creds_str))
+        service = discovery.build("drive", "v3", credentials=self.creds)
+        for files_batch in get_file_batches(
+            service, self.include_shared, self.batch_size
+        ):
+            doc_batch = []
+            for file in files_batch:
+                text_contents = extract_text(file, service)
+                full_context = file["name"] + " - " + text_contents
 
+                doc_batch.append(
+                    Document(
+                        id=file["webViewLink"],
+                        sections=[Section(link=file["webViewLink"], text=full_context)],
+                        source=DocumentSource.GOOGLE_DRIVE,
+                        semantic_identifier=file["name"],
+                        metadata={},
+                    )
+                )
 
-def upsert_google_app_cred(app_credentials: GoogleAppCredentials) -> None:
-    get_dynamic_config_store().store(GOOGLE_DRIVE_CRED_KEY, app_credentials.json())
+            yield doc_batch

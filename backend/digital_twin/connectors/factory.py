@@ -2,23 +2,16 @@ import time
 from collections.abc import Generator
 from typing import Any
 
-from digital_twin_turbo.configs.constants import DocumentSource
-from digital_twin_turbo.connectors.confluence.connector import (
-    ConfluenceConnector,
-)
-from digital_twin_turbo.connectors.github.connector import GithubConnector
-from digital_twin_turbo.connectors.google_drive.connector import (
-    GoogleDriveConnector,
-)
-from digital_twin_turbo.connectors.interfaces import (
+from digital_twin.config.constants import DocumentSource
+from digital_twin.connectors.github.connector import GithubConnector
+from digital_twin.connectors.google_drive.connector import GoogleDriveConnector
+from digital_twin.connectors.interfaces import (
     BaseConnector,
     EventConnector,
     LoadConnector,
     PollConnector,
 )
-from digital_twin_turbo.connectors.models import Document, InputType
-from digital_twin_turbo.connectors.slack.connector import SlackConnector
-from digital_twin_turbo.connectors.web.connector import WebConnector
+from digital_twin.connectors.models import Document, InputType
 
 _NUM_SECONDS_IN_DAY = 86400
 
@@ -32,16 +25,19 @@ def build_connector(
     input_type: InputType,
     connector_specific_config: dict[str, Any],
 ) -> BaseConnector:
+    """
     if source == DocumentSource.SLACK:
         connector: BaseConnector = SlackConnector(**connector_specific_config)
-    elif source == DocumentSource.GOOGLE_DRIVE:
-        connector = GoogleDriveConnector(**connector_specific_config)
-    elif source == DocumentSource.GITHUB:
-        connector = GithubConnector(**connector_specific_config)
     elif source == DocumentSource.WEB:
         connector = WebConnector(**connector_specific_config)
     elif source == DocumentSource.CONFLUENCE:
         connector = ConfluenceConnector(**connector_specific_config)
+
+    """
+    if source == DocumentSource.GOOGLE_DRIVE:
+        connector = GoogleDriveConnector(**connector_specific_config)
+    elif source == DocumentSource.GITHUB:
+        connector = GithubConnector(**connector_specific_config)
     else:
         raise ConnectorMissingException(
             f"Connector not found for source={source}"
