@@ -8,7 +8,6 @@ from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
 from digital_twin.qa.personality_chain import RephraseChain, PersonalityChain, NULL_DOC_TOKEN
 from digital_twin.slack_bot.views import get_view, PERSONALITY_TEXT
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
-from digital_twin.utils.clients import get_supabase_client
 from digital_twin.utils.logging import setup_logger
 from digital_twin.db.slack_bot import get_convo_style, update_convo_style
 

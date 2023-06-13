@@ -55,3 +55,23 @@ def delete_model_config(model_config_id: int) -> Optional[ModelConfig]:
     response = supabase.table("model_config").delete().eq("id", model_config_id).execute()
     data = response.data
     return ModelConfig(**data[0]) if data else None
+
+@log_supabase_api_error(logger)
+def single_item_query(table_name, query_params) -> Optional[ModelConfig]:
+    client = get_supabase_client()
+    query = client.table(table_name).select('*')
+    for key, value in query_params.items():
+        if value is not None:
+            query = query.eq(key, value)
+    response = query.single().execute()
+    return response.data if response.data else None
+
+@log_supabase_api_error(logger)
+def multi_item_query(table_name, query_params) -> Optional[ModelConfig]:
+    client = get_supabase_client()
+    query = client.table(table_name).select('*')
+    for key, value in query_params.items():
+        if value is not None:
+            query = query.eq(key, value)
+    response = query.execute()
+    return response.data[0] if response.data else None

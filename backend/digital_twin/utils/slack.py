@@ -6,38 +6,20 @@ from slack_bolt import BoltContext
 from typing import Optional, List
 from postgrest.exceptions import APIError 
 
-from digital_twin.utils.clients import get_supabase_client
 from digital_twin.utils.logging import setup_logger
+from digital_twin.db.utils import get_slack_user, insert_slack_user, get_qdrant_key
 
 logger = setup_logger()
 
 
 def get_slack_supabase_user(slack_id: str, team_id: str) -> Optional[str]:
-    try:
-        response = get_supabase_client().table('slack_users').select('*').eq(
-        'slack_user_id', slack_id).eq('team_id', team_id).single().execute()
-    except APIError as e:
-        logger.error(f"Error getting user id from slack ids: {e}")
-        raise Exception("Can't find Supabase user for slack user {slack_id}")
+    response = get_slack_user(slack_id, team_id)
     return response.data['user_id']
 
 
 def insert_slack_supabase_user(slack_user_id: str, team_id: str, supabase_user_id: str) -> Optional[dict]:
-    try:
-        supabase = get_supabase_client()
-        response = supabase.table('slack_users').insert({
-            'slack_user_id': slack_user_id,
-            'team_id': team_id,
-            'user_id': supabase_user_id
-        }).execute()
-        if len(response.data) == 0:
-            logger.error(f"Error inserting the user: {response}")
-            raise Exception("Error inserting the user")
-        return response
-
-    except APIError as e:
-        logger.error(f"Supabase Error: {str(e)}")
-        return None
+    response = insert_slack_user(slack_user_id, team_id, supabase_user_id)
+    return response
 
 def get_vectordb_collection_for_slack(slack_user_id: str, team_id: str) -> str:
     """
@@ -54,25 +36,9 @@ def get_vectordb_collection_for_slack(slack_user_id: str, team_id: str) -> str:
     Raises:
     Exception: If no user is found for the provided parameters.
     """
-    try:
-        response = get_supabase_client().table('slack_users').select(
-            'users(qdrant_collection_key)'
-        ).eq(
-            'slack_user_id', slack_user_id
-        ).eq(
-            'team_id', team_id
-        ).single().execute()
-
-        if len(response.data) == 0:
-            raise Exception(f"No user found for slack_user_id={slack_user_id} and team_id={team_id}")
-
-        qdrant_collection_key = response.data['users']['qdrant_collection_key']
-
-        return qdrant_collection_key
-    except APIError as e:
-        logger.error(f"Error fetching vectordb collection for slack_user_id={slack_user_id} and team_id={team_id}: {str(e)}")
-        raise Exception(f"Supabase Error: {str(e)}")
-
+    qdrant_collection_key = get_qdrant_key(slack_user_id, team_id)
+    return qdrant_collection_key
+   
 def retrieve_sorted_past_messages(
     client: WebClient, 
     context: BoltContext,
