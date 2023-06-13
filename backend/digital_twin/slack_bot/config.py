@@ -15,9 +15,9 @@ from digital_twin.config.app_config import (
     SLACK_CLIENT_ID, 
     SLACK_CLIENT_SECRET, 
 )
-from digital_twin.utils.clients import get_supabase_client
+
 from digital_twin.utils.logging import setup_logger
-from digital_twin.db.slack_bot import log_api_error
+from digital_twin.db.slack_bot import delete_installations, insert_installations, get_installations, get_bots, update_bots, insert_bot, find_bot, delete_installs, insert_state, get_and_update_state
 
 logger = setup_logger()
 
@@ -56,7 +56,7 @@ class BotTokenEncoder:
 
 
 class SupabaseInstallationStore(InstallationStore):
-    @log_api_error
+    
     def save(self, installation: Installation):
         logger.info("We're being called here from installations.")
         # Encode bot_data into a JSON string
@@ -70,9 +70,9 @@ class SupabaseInstallationStore(InstallationStore):
             'installed_at': bot_dict_decoded.get('installed_at'),
             'bot': bot_dict_json,
         } 
-        get_supabase_client().table('slack_installations').insert(data).execute()
+        insert_installations(data)
 
-    @log_api_error
+    
     def find_installation(
         self,
         *,
@@ -81,15 +81,8 @@ class SupabaseInstallationStore(InstallationStore):
         user_id: Optional[str] = None,
         is_enterprise_install: Optional[bool] = False,
     ) -> Optional[Installation]:
-        query = get_supabase_client().table('slack_installations').select('*')
-        if enterprise_id:
-            query = query.eq('enterprise_id', enterprise_id)
-        if team_id:
-            query = query.eq('team_id', team_id)
-        if user_id:
-            query = query.eq('user_id', user_id)
-
-        response = query.order('installed_at', desc=True).execute()
+        response = get_installations(enterprise_id, team_id, user_id)
+       
         
         if len(response.data) == 0:
           return None
@@ -114,27 +107,22 @@ class SupabaseInstallationStore(InstallationStore):
           )
  
           
-    @log_api_error
+    
     def delete_installation(self, *, enterprise_id: Optional[str], team_id: Optional[str], user_id: Optional[str]=None):
-        get_supabase_client().table('slack_installations').delete().eq('enterprise_id', enterprise_id).eq('team_id', team_id).execute()
+        delete_installations(enterprise_id, team_id)
 
-    @log_api_error
+    
     def save_bot(self, bot: Bot):
         bot_dict = BotTokenEncoder.encode(bot.to_dict())
-
-        query = get_supabase_client().table('slack_bots').select('*').eq('team_id', bot.team_id)
-        if bot.enterprise_id:
-            query = query.eq('enterprise_id', bot.enterprise_id) 
-
-        response = query.execute()
+        response = get_bots(bot)
         
         if len(response.data) > 0:
             # Bot exists, so update the existing row
-            get_supabase_client().table('slack_bots').update(bot_dict).eq('team_id', bot.team_id).eq('enterprise_id', bot.enterprise_id).execute()
+            update_bots(bot, bot_dict)
         else:
             # Bot does not exist, so insert a new row
 
-            get_supabase_client().table('slack_bots').insert(bot_dict).execute()
+            insert_bot(bot_dict)
 
 
     def find_bot(
@@ -143,15 +131,7 @@ class SupabaseInstallationStore(InstallationStore):
         team_id: Optional[str],   
         is_enterprise_install: Optional[bool] = False,
     ) -> Optional[Bot]:
-        try:
-            query = get_supabase_client().table('slack_bots').select('*').eq('team_id', team_id)
-            if enterprise_id:
-                query = query.eq('enterprise_id', enterprise_id) 
-
-            response = query.order('installed_at', desc=True).execute()
-        except APIError as e:
-            raise Exception(f"Supabase Error when finding bot: {str(e)}")
-        
+        response = find_bot(enterprise_id, team_id)
         rows = response.data
         if len(rows) == 0:
             return None
@@ -172,38 +152,18 @@ class SupabaseInstallationStore(InstallationStore):
 
 
     def delete_installation(self, *, enterprise_id: Optional[str], team_id: Optional[str], user_id: Optional[str]=None):
-        try:
-            query =get_supabase_client().table('slack_installations').delete()
-            if enterprise_id:
-                query = query.eq('enterprise_id', enterprise_id)
-            if team_id:
-                query = query.eq('team_id', team_id)
-            if user_id:
-                query = query.eq('user_id', user_id)
-            query.execute()
-        except APIError as e:
-            raise Exception(f"Supabase Error when deleting installations: {str(e)}")
+        delete_installs(enterprise_id, team_id, user_id)
 
     
 class SupabaseOAuthStateStore(OAuthStateStore):
 
     def issue(self) -> str:
         state = str(uuid4())
-        try:
-            get_supabase_client().table('slack_states').insert({'state': state}).execute()
-        except APIError as e:
-            raise Exception(f"Supabase Error when issue slack_states: {str(e)}")
+        insert_state(state)
         return state
 
     def consume(self, state: str) -> bool:
-        try:
-            response = get_supabase_client().table('slack_states').select('*').eq('state', state).execute()
-            if len(response.data) == 0:
-                return False
-            get_supabase_client().table('slack_states').update({"consumed": True}).eq('state', state).execute()
-        except APIError as e:
-            raise Exception(f"Supabase Error when consuming oauth states: {str(e)}")
-
+        get_and_update_state(state)
         return True
 
 def get_oauth_settings():
