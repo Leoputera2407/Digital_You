@@ -3,12 +3,11 @@ from slack_sdk import WebClient
 from slack_bolt.context import BoltContext
 
 from digital_twin.qa.personality_chain import NULL_DOC_TOKEN
-from digital_twin.slack_bot.scrape import get_chat_pairs
 from digital_twin.slack_bot.personality import handle_user_conversation_style, rephrase_response
 from digital_twin.slack_bot.views import get_view, LOADING_TEXT, ERROR_TEXT
 from digital_twin.utils.slack import get_vectordb_collection_for_slack, retrieve_sorted_past_messages
 from digital_twin.utils.logging import setup_logger
-
+from digital_twin.db.slack_bot import get_chat_pairs
 logger = setup_logger()
 
 class NoChatPairsException(Exception):

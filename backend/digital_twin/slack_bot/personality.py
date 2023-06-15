@@ -21,11 +21,11 @@ def get_user_conversation_style(slack_user_id: str, team_id: str) -> Optional[st
     If found on table, return the conversation style.
     Else, return None.
     """
-    response = get_convo_style(slack_user_id, team_id)
-    if response.data is None:
+    data = get_convo_style(slack_user_id, team_id)
+    if data is None:
         return None
     else:
-        return response.data['conversation_style']
+        return data['conversation_style']
 
 
 def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str, chat_pairs: Optional[List[Tuple[str, str]]]) -> Optional[str]:
@@ -71,7 +71,7 @@ def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str,
         examples=chat_pairs,
         slack_user_id=slack_user_id,
     )
-    response = update_convo_style(personality_description, slack_user_id, team_id)
+    data = update_convo_style(personality_description, slack_user_id, team_id)
 
     return personality_description
 

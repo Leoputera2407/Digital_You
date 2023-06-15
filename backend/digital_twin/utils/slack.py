@@ -13,13 +13,13 @@ logger = setup_logger()
 
 
 def get_slack_supabase_user(slack_id: str, team_id: str) -> Optional[str]:
-    response = get_slack_user(slack_id, team_id)
-    return response.data['user_id']
+    data = get_slack_user(slack_id, team_id)
+    return data['user_id']
 
 
 def insert_slack_supabase_user(slack_user_id: str, team_id: str, supabase_user_id: str) -> Optional[dict]:
-    response = insert_slack_user(slack_user_id, team_id, supabase_user_id)
-    return response
+    data = insert_slack_user(slack_user_id, team_id, supabase_user_id)
+    return data
 
 def get_vectordb_collection_for_slack(slack_user_id: str, team_id: str) -> str:
     """
@@ -36,7 +36,8 @@ def get_vectordb_collection_for_slack(slack_user_id: str, team_id: str) -> str:
     Raises:
     Exception: If no user is found for the provided parameters.
     """
-    qdrant_collection_key = get_qdrant_key(slack_user_id, team_id)
+    data = get_qdrant_key(slack_user_id, team_id)
+    qdrant_collection_key = data['users']['qdrant_collection_key']
     return qdrant_collection_key
    
 def retrieve_sorted_past_messages(

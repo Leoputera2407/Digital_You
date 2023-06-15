@@ -136,9 +136,4 @@ def scrape_and_store_chat_history(
         logger.info(f"Chat history for {slack_user_id} is too short.")
         return None
     response = update_chat_pairs(chat_transcript, chat_pairs, slack_user_id, team_id)
-    return chat_transcript, chat_pairs    
-
-
-def get_chat_pairs(slack_user_id, team_id):
-    slack_chat_pairs = get_chat_pairs(slack_user_id, team_id)
-    return slack_chat_pairs
+    return chat_transcript, chat_pairs

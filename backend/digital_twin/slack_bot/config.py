@@ -81,13 +81,11 @@ class SupabaseInstallationStore(InstallationStore):
         user_id: Optional[str] = None,
         is_enterprise_install: Optional[bool] = False,
     ) -> Optional[Installation]:
-        response = get_installations(enterprise_id, team_id, user_id)
+        data = get_installations(enterprise_id, team_id, user_id)
        
         
-        if len(response.data) == 0:
+        if data == 0:
           return None
-
-        data = response.data[0]
         bot = BotTokenEncoder.decode(data['bot'])
         return Installation(
             app_id=bot['app_id'],
@@ -114,9 +112,9 @@ class SupabaseInstallationStore(InstallationStore):
     
     def save_bot(self, bot: Bot):
         bot_dict = BotTokenEncoder.encode(bot.to_dict())
-        response = get_bots(bot)
+        data = get_bots(bot)
         
-        if len(response.data) > 0:
+        if data > 0:
             # Bot exists, so update the existing row
             update_bots(bot, bot_dict)
         else:
@@ -131,12 +129,11 @@ class SupabaseInstallationStore(InstallationStore):
         team_id: Optional[str],   
         is_enterprise_install: Optional[bool] = False,
     ) -> Optional[Bot]:
-        response = find_bot(enterprise_id, team_id)
-        rows = response.data
+        rows = find_bot(enterprise_id, team_id)
         if len(rows) == 0:
             return None
 
-        data = json.loads(rows[0])  # Assuming only one bot per team
+        data = json.loads(rows)  # Assuming only one bot per team
         return Bot(
             app_id=data['app_id'],
             enterprise_id=data['enterprise_id'],

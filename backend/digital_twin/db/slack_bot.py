@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import ast
 from digital_twin.utils.clients import get_supabase_client
 from digital_twin.utils.logging import setup_logger, log_supabase_api_error
@@ -144,7 +144,7 @@ def update_chat_pairs(chat_transcript, chat_pairs, slack_user_id, team_id) -> Op
     return SlackUser(**data[0]) if data else None
 
 @log_supabase_api_error(logger)
-def get_chat_pairs(slack_user_id, team_id) -> Optional[SlackUser]:
+def get_chat_pairs(slack_user_id, team_id) -> List[Tuple[str, str]]:
     supabase = get_supabase_client()
     response = supabase.table('slack_users').select('chat_pairs').eq('slack_user_id', slack_user_id).eq('team_id', team_id).single().execute()
     if len(response.data) == 0:
