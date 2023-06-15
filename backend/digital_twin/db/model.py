@@ -75,3 +75,47 @@ class ModelConfig(BaseModel):
     supported_model_enum: DBSupportedModelType
     temperature: float
     user_id: str
+    
+    
+# slack_installations
+class Installation(BaseModel):
+    id: int
+    enterprise_id: str
+    team_id: str
+    user_id: str
+    bot: dict
+    installed_at: str
+    
+
+# slack_bots
+class SlackBot(BaseModel):
+    id: int
+    app_id: str
+    enterprise_id: str
+    team_id: str
+    user_id: str
+    bot_token: str
+    bot_refresh_token: str
+    bot_token_expires_at: str
+    bot_id: str
+    bot_user_id: str
+    bot_scopes: str
+    installed_at: str
+    
+# slack_states
+class SlackState(BaseModel):
+    id: int
+    state: str # HG: supabase says 'uuid' so not sure about this type
+    consumed: bool
+    created_at: str
+
+# slack_users
+class SlackUser(BaseModel):
+    id: int
+    team_id: str
+    slack_user_id: str
+    user_id: str
+    slack_display_name: str
+    conversation_style: str
+    contiguous_chat_transcript: str
+    chat_pairs: str
