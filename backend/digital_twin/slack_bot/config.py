@@ -114,7 +114,7 @@ class SupabaseInstallationStore(InstallationStore):
         bot_dict = BotTokenEncoder.encode(bot.to_dict())
         data = get_bots(bot)
         
-        if data > 0:
+        if len(data) > 0:
             # Bot exists, so update the existing row
             update_bots(bot, bot_dict)
         else:

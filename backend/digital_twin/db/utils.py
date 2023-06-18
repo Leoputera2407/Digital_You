@@ -24,17 +24,12 @@ def insert_slack_user(slack_user_id, team_id, supabase_user_id) -> Optional[Slac
     })
     response = query.execute()
     data = response.data
-    if not data:
-        logger.error(f"Error inserting the user: {response}")
-        raise Exception("Error inserting the user")
     return SlackUser(**data[0]) if data else None
 
 @log_supabase_api_error(logger)
-def get_qdrant_key(slack_user_id, team_id) -> Optional[SlackUser]:
+def get_qdrant_key(slack_user_id, team_id) -> Optional[str]:
     supabase = get_supabase_client()
     query = supabase.table('slack_users').select('users(qdrant_collection_key)').eq('slack_user_id', slack_user_id).eq('team_id', team_id)
     response = query.single().execute()
     data = response.data
-    if not data:
-        raise Exception(f"No user found for slack_user_id={slack_user_id} and team_id={team_id}")
-    return SlackUser(**data[0]) if data else None
+    return SlackUser(**data[0]).qdrant_collection_key if data else None

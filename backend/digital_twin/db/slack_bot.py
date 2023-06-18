@@ -37,7 +37,7 @@ def get_installations(enterprise_id, team_id, user_id) -> List[Installation]:
 
     response = query.order('installed_at', desc=True).execute()
     data = response.data
-    return [Installation(**install) for install in data] if data else None
+    return [Installation(**install) for install in data] if data else []
 
 @log_supabase_api_error(logger)
 def get_bots(bot) -> List[SlackBot]:
@@ -47,7 +47,7 @@ def get_bots(bot) -> List[SlackBot]:
         query = query.eq('enterprise_id', bot.enterprise_id)
     response = query.execute()
     data = response.data
-    return [SlackBot(**bot) for bot in data]  if data else None
+    return [SlackBot(**bot) for bot in data] if data else []
 
 @log_supabase_api_error(logger)
 def update_bots(bot, bot_dict) -> Optional[SlackBot]:
@@ -74,7 +74,7 @@ def find_bot(enterprise_id, team_id) -> List[SlackBot]:
 
     response = query.order('installed_at', desc=True).execute()
     data = response.data
-    return [SlackBot(**bot) for bot in data] if data else None
+    return [SlackBot(**bot) for bot in data] if data else []
 
 
 @log_supabase_api_error(logger)
