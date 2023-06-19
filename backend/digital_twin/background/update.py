@@ -6,7 +6,7 @@ from digital_twin.connectors.interfaces import LoadConnector, PollConnector
 from digital_twin.connectors.model import InputType
 
 from digital_twin.db.connectors.connectors import fetch_connectors, disable_connector
-from digital_twin.db.connectors.credentials import update_credential_json
+from digital_twin.db.connectors.credentials import update_credential_json, fetch_credential_by_id
 from digital_twin.db.connectors.index_attempt import (
     create_index_attempt,
     get_inprogress_index_attempts,
@@ -18,7 +18,7 @@ from digital_twin.db.connectors.index_attempt import (
 )
 from digital_twin.vectordb.qdrant.indexing import list_collections, create_collection
 from digital_twin.db.model import Connector, IndexAttempt
-from digital_twin.db.connectors.connectors import get_connector_credentials, fetch_connector_by_id, fetch_credential_by_id
+from digital_twin.db.connectors.connectors import get_connector_credentials, fetch_connector_by_id
 from digital_twin.db.user import get_qdrant_collection_for_user
 from digital_twin.db.admin import get_db_current_time
 from digital_twin.utils.indexing_pipeline import build_indexing_pipeline
@@ -80,6 +80,11 @@ def run_indexing_jobs(last_run_time: float) -> None:
     for attempt in new_indexing_attempts:
         connector = fetch_connector_by_id(attempt.connector_id)
         credential = fetch_credential_by_id(attempt.credential_id)
+        
+        if connector is None or credential is None:
+            logger.warning("Can't find connector or credential for indexing attempt")
+            continue
+
         logger.info(
             f"Starting new indexing attempt for connector: '{connector.name}', "
             f"with config: '{connector.connector_specific_config}', and "
@@ -93,7 +98,8 @@ def run_indexing_jobs(last_run_time: float) -> None:
             qdrant_collection_id = get_qdrant_collection_for_user(credential.user_id)
             if not qdrant_collection_id:
                 raise Exception("No Qdrant collection found for user")
-            if qdrant_collection_id not in list_collections():
+            collections_list = [cd.name for cd in list_collections().collections]
+            if str(qdrant_collection_id) not in collections_list:
                 create_collection(qdrant_collection_id)
                 logger.info(f"Created Qdrant collection {qdrant_collection_id} for user {credential.user_id}")
         except Exception as e:
@@ -115,7 +121,8 @@ def run_indexing_jobs(last_run_time: float) -> None:
             logger.exception(f"Unable to instantiate connector due to {e}")
             disable_connector(connector.user_id, connector.id)
             continue
-
+        
+        net_doc_change = 0
         try:
             if task == InputType.LOAD_STATE:
                 assert isinstance(runnable_connector, LoadConnector)
@@ -130,14 +137,16 @@ def run_indexing_jobs(last_run_time: float) -> None:
             else:
                 # Event types cannot be handled by a background type, leave these untouched
                 continue
-
             document_ids: list[str] = []
             for doc_batch in doc_batch_generator:
-                indexing_pipeline(documents=doc_batch, user_id=credential.user_id)
+                index_user_id = (
+                    None if credential.public_doc else credential.user_id
+                )
+                net_doc_change += indexing_pipeline(documents=doc_batch, user_id=index_user_id)
                 document_ids.extend([doc.id for doc in doc_batch])
 
             mark_attempt_succeeded(attempt.id, document_ids)
-
+            logger.info(f"Indexed {net_doc_change} documents for attempt {attempt.id}")
         except Exception as e:
             logger.exception(f"Indexing job with id {attempt.id} failed due to {e}")
             mark_attempt_failed(attempt.id, failure_reason=str(e))
