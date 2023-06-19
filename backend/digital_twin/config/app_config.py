@@ -28,18 +28,32 @@ DEFAULT_VECTOR_STORE = os.environ.get("VECTOR_DB", "qdrant")
 QDRANT_API_KEY=os.environ.get("QDRANT_API_KEY", "")
 QDRANT_URL=os.environ.get("QDRANT_URL", "")
 QDRANT_DEFAULT_COLLECTION=os.environ.get("QDRANT_DEFAULT_COLLECTION", "testing")
+
 # The first few sentences for each Section in a Chunk
-BLURB_LENGTH = 200 
+BLURB_LENGTH = 500 
 # Chunking docs to this number of characters not including finishing the last word and the overlap words below
 # Calculated by ~4000 to 8192 tokens max * average 4 chars per token
-# I'll be consersative and pick 4000 tokens
-CHUNK_SIZE = 16000
+# I'll be consersative and pick 2000 tokens
+CHUNK_SIZE = 8000
+BATCH_SIZE_ENCODE_CHUNKS = 8
 # Each chunk includes an additional 5 `words` from previous chunk
 # in extreme cases, may cause some words at the end to be truncated by embedding model
 CHUNK_OVERLAP = 5
-NUM_RETURNED_VECTORDB_HITS = 15
 # Number of documents in a batch during indexing (further batching done by chunks before passing to bi-encoder)
 INDEX_BATCH_SIZE = 16
+
+NUM_RETURNED_VECTORDB_HITS = 15
+# Better to keep it loose, surfacing more results better than missing results
+SEARCH_DISTANCE_CUTOFF = 0.1  # Cosine similarity (currently), range of -1 to 1 with -1 being completely opposite
+
+# More accurate results at the expense of indexing speed 
+# and index size (stores additional 4 MINI_CHUNK vectors)
+ENABLE_MINI_CHUNK = False
+# Mini chunks for fine-grained embedding, 
+# calculated as 128 tokens for 4 additional vectors for 512 chunk size above
+# Not rounded down to not lose any context in full chunk.
+MINI_CHUNK_SIZE = 512
+
 
 
 ########################

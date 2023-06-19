@@ -39,6 +39,10 @@ from digital_twin.connectors.google_drive.connector_auth import (
     # upsert_google_app_cred,
     verify_csrf as verify_gdrive_csrf,
 )
+from digital_twin.db.connectors.connector_credential_association import (
+    add_credential_to_connector,
+    remove_credential_from_connector,
+)
 from digital_twin.db.connectors.connectors import (
     create_connector,
     delete_connector,
@@ -48,8 +52,6 @@ from digital_twin.db.connectors.connectors import (
     fetch_latest_index_attempt_by_connector,
     fetch_latest_index_attempts_by_status,
     get_connector_credentials,
-    add_credential_to_connector,
-    remove_credential_from_connector,
     fetch_connector_by_list_of_id,    
 )
 from digital_twin.db.connectors.credentials import (

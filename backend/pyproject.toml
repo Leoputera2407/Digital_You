@@ -40,6 +40,7 @@ playwright = "^1.35.0"
 pypdf2 = "^3.0.1"
 supervisor = "^4.2.5"
 bs4 = "^0.0.1"
+sentence-transformers = "^2.2.2"
 
 [build-system]
 requires = ["poetry-core"]

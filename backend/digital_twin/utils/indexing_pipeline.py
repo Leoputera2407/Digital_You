@@ -3,15 +3,15 @@ from functools import partial
 from itertools import chain
 from multiprocessing import Pool
 from typing import List, Optional
-from langchain.embeddings.base import Embeddings
 
+from digital_twin.config.app_config import QDRANT_DEFAULT_COLLECTION
 from digital_twin.connectors.model import Document
 from digital_twin.vectordb.chunking.chunk import Chunker, DefaultChunker
 from digital_twin.vectordb.chunking.models import EmbeddedIndexChunk
 from digital_twin.vectordb.interface import VectorDB
-from digital_twin.embedding.interface import get_default_embedding_model
-
-from digital_twin.vectordb.qdrant.store import QdrantDatastore
+from digital_twin.embedding.interface import DefaultEmbedder
+from digital_twin.embedding.models import Embedder
+from digital_twin.vectordb.qdrant.store import QdrantVectorDB
 
 
 """ 
@@ -32,25 +32,27 @@ def _indexing_pipeline(
     return chunks_with_embeddings
  """
 
+
 def _indexing_pipeline(
     chunker: Chunker,
-    embedder: Embeddings,
+    embedder: Embedder,
     datastore: VectorDB,
     documents: list[Document],
     user_id: str | None,
-) -> list[EmbeddedIndexChunk]:
+) -> int:
     # TODO: make entire indexing pipeline async to not block the entire process
     # when running on async endpoints
     chunks = list(chain(*[chunker.chunk(document) for document in documents]))
-    chunks_with_embeddings = embedder.embed_documents([chunk.content for chunk in chunks])
-    datastore.index(chunks_with_embeddings, user_id)
-    return chunks_with_embeddings
+    chunks_with_embeddings = embedder.embed(chunks)
+    net_doc_count_vector = datastore.index(chunks_with_embeddings, user_id)
+    return net_doc_count_vector
 
 def build_indexing_pipeline(
     *,
     chunker: Optional[Chunker] = None,
-    embedder: Optional[Embeddings] = None,
+    embedder: Optional[Embedder] = None,
     datastore: Optional[VectorDB] = None,
+    qdrant_collection_name: Optional[str] = None,
 ) -> Callable[[List[Document]], List[EmbeddedIndexChunk]]:
     """Builds a pipline which takes in a list of docs and indexes them.
 
@@ -59,9 +61,9 @@ def build_indexing_pipeline(
         chunker = DefaultChunker()
 
     if embedder is None:
-        embedder = get_default_embedding_model()
+        embedder = DefaultEmbedder()
 
     if datastore is None:
-        datastore = QdrantDatastore()
+        datastore = QdrantVectorDB(qdrant_collection_name if qdrant_collection_name else QDRANT_DEFAULT_COLLECTION)
 
     return partial(_indexing_pipeline, chunker, embedder, datastore)

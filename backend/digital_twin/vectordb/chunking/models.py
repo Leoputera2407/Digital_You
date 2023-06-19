@@ -23,7 +23,7 @@ class IndexChunk(BaseChunk):
 
 @dataclass
 class EmbeddedIndexChunk(IndexChunk):
-    embedding: list[float]
+    embeddings: list[float]
 
 
 @dataclass

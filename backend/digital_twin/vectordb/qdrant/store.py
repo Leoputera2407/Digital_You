@@ -1,3 +1,4 @@
+from uuid import UUID
 from qdrant_client.http.exceptions import (
     ResponseHandlingException,
     UnexpectedResponse,
@@ -9,29 +10,78 @@ from qdrant_client.http.models import (
     MatchValue,
 )
 
-from digital_twin.config.app_config import QDRANT_DEFAULT_COLLECTION
+from digital_twin.config.app_config import QDRANT_DEFAULT_COLLECTION, NUM_RETURNED_VECTORDB_HITS, SEARCH_DISTANCE_CUTOFF
 from digital_twin.config.constants import ALLOWED_USERS, PUBLIC_DOC_PAT
+
 from digital_twin.embedding.interface import get_default_embedding_model
-from digital_twin.utils.clients import get_qdrant_client
-from digital_twin.utils.logging import setup_logger
-from digital_twin.utils.timing import log_function_time
+from digital_twin.vectordb.utils import get_uuid_from_chunk
 from digital_twin.vectordb.chunking.models import (
     EmbeddedIndexChunk,
     InferenceChunk,
 )
 from digital_twin.vectordb.interface import VectorDB, VectorDBFilter
-from digital_twin.vectordb.qdrant.indexing import index_chunks
+from digital_twin.vectordb.qdrant.indexing import index_qdrant_chunks
+from digital_twin.utils.clients import get_qdrant_client
+from digital_twin.utils.timing import log_function_time
+from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 
 
-class QdrantDatastore(VectorDB):
+def _build_qdrant_filters(
+    user_id: UUID | None, filters: list[VectorDBFilter] | None
+) -> list[FieldCondition]:
+    filter_conditions: list[FieldCondition] = []
+    # Permissions filter
+    if user_id:
+        filter_conditions.append(
+            FieldCondition(
+                key=ALLOWED_USERS,
+                match=MatchAny(any=[str(user_id), PUBLIC_DOC_PAT]),
+            )
+        )
+    else:
+        filter_conditions.append(
+            FieldCondition(
+                key=ALLOWED_USERS,
+                match=MatchValue(value=PUBLIC_DOC_PAT),
+            )
+        )
+
+    # Provided query filters
+    if filters:
+        for filter_dict in filters:
+            valid_filters = {
+                key: value for key, value in filter_dict.items() if value is not None
+            }
+            for filter_key, filter_val in valid_filters.items():
+                if isinstance(filter_val, str):
+                    filter_conditions.append(
+                        FieldCondition(
+                            key=filter_key,
+                            match=MatchValue(value=filter_val),
+                        )
+                    )
+                elif isinstance(filter_val, list):
+                    filter_conditions.append(
+                        FieldCondition(
+                            key=filter_key,
+                            match=MatchAny(any=filter_val),
+                        )
+                    )
+                else:
+                    raise ValueError("Invalid filters provided")
+
+    return filter_conditions
+
+
+class QdrantVectorDB(VectorDB):
     def __init__(self, collection: str = QDRANT_DEFAULT_COLLECTION) -> None:
         self.collection = collection
         self.client = get_qdrant_client()
 
-    def index(self, chunks: list[EmbeddedIndexChunk], user_id: int | None) -> bool:
-        return index_chunks(
+    def index(self, chunks: list[EmbeddedIndexChunk], user_id: UUID | None) -> int:
+        return index_qdrant_chunks(
             chunks=chunks,
             user_id=user_id,
             collection=self.collection,
@@ -42,9 +92,11 @@ class QdrantDatastore(VectorDB):
     def semantic_retrieval(
         self,
         query: str,
-        user_id: int | None,
+        user_id: UUID | None,
         filters: list[VectorDBFilter] | None,
-        num_to_retrieve: int,
+        num_to_retrieve: int = NUM_RETURNED_VECTORDB_HITS,
+        page_size: int = NUM_RETURNED_VECTORDB_HITS,
+        distance_cutoff: float | None = SEARCH_DISTANCE_CUTOFF,
     ) -> list[InferenceChunk]:
         query_embedding = get_default_embedding_model().encode(
             query
@@ -52,68 +104,48 @@ class QdrantDatastore(VectorDB):
         if not isinstance(query_embedding, list):
             query_embedding = query_embedding.tolist()
 
-        hits = []
-        filter_conditions = []
-        try:
-            # Permissions filter
-            if user_id:
-                filter_conditions.append(
-                    FieldCondition(
-                        key=ALLOWED_USERS,
-                        match=MatchAny(any=[str(user_id), PUBLIC_DOC_PAT]),
-                    )
-                )
-            else:
-                filter_conditions.append(
-                    FieldCondition(
-                        key=ALLOWED_USERS,
-                        match=MatchValue(value=PUBLIC_DOC_PAT),
-                    )
-                )
+        filter_conditions = _build_qdrant_filters(user_id, filters)
 
-            # Provided query filters
-            if filters:
-                for filter_dict in filters:
-                    valid_filters = {
-                        key: value
-                        for key, value in filter_dict.items()
-                        if value is not None
-                    }
-                    for filter_key, filter_val in valid_filters.items():
-                        if isinstance(filter_val, str):
-                            filter_conditions.append(
-                                FieldCondition(
-                                    key=filter_key,
-                                    match=MatchValue(value=filter_val),
-                                )
-                            )
-                        elif isinstance(filter_val, list):
-                            filter_conditions.append(
-                                FieldCondition(
-                                    key=filter_key,
-                                    match=MatchAny(any=filter_val),
-                                )
-                            )
-                        else:
-                            raise ValueError("Invalid filters provided")
+        page_offset = 0
+        found_inference_chunks: list[InferenceChunk] = []
+        found_chunk_uuids: set[UUID] = set()
+        while len(found_inference_chunks) < num_to_retrieve:
+            try:
+                hits = self.client.search(
+                    collection_name=self.collection,
+                    query_vector=query_embedding,
+                    query_filter=Filter(must=list(filter_conditions)),
+                    limit=page_size,
+                    offset=page_offset,
+                    score_threshold=distance_cutoff,
+                )
+                page_offset += page_size
+                if not hits:
+                    break
+            except ResponseHandlingException as e:
+                logger.exception(
+                    f'Qdrant querying failed due to: "{e}", is Qdrant set up?'
+                )
+                break
+            except UnexpectedResponse as e:
+                logger.exception(
+                    f'Qdrant querying failed due to: "{e}", has ingestion been run?'
+                )
+                break
 
-            hits = self.client.search(
-                collection_name=self.collection,
-                query_vector=query_embedding,
-                query_filter=Filter(must=list(filter_conditions)),
-                limit=num_to_retrieve,
-            )
-        except ResponseHandlingException as e:
-            logger.exception(f'Qdrant querying failed due to: "{e}", is Qdrant set up?')
-        except UnexpectedResponse as e:
-            logger.exception(
-                f'Qdrant querying failed due to: "{e}", has ingestion been run?'
-            )
-        return [
-            InferenceChunk.from_dict(hit.payload)
-            for hit in hits
-            if hit.payload is not None
-        ]
+            inference_chunks_from_hits = [
+                InferenceChunk.from_dict(hit.payload)
+                for hit in hits
+                if hit.payload is not None
+            ]
+            for inf_chunk in inference_chunks_from_hits:
+                # remove duplicate chunks which happen if minichunks are used
+                inf_chunk_id = get_uuid_from_chunk(inf_chunk)
+                if inf_chunk_id not in found_chunk_uuids:
+                    found_inference_chunks.append(inf_chunk)
+                    found_chunk_uuids.add(inf_chunk_id)
+
+        return found_inference_chunks
 
     def get_from_id(self, object_id: str) -> InferenceChunk | None:
         matches, _ = self.client.scroll(
