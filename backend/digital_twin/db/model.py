@@ -2,6 +2,7 @@ from typing import Optional, List
 from enum import Enum
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
@@ -86,40 +87,38 @@ class ModelConfig(BaseModel):
     supported_model_enum: DBSupportedModelType
     temperature: float
     user_id: str
-<<<<<<< HEAD
     
-    
-# slack_installations
-class Installation(BaseModel):
-    id: int
-    enterprise_id: str
-    team_id: str
-    user_id: str
-    bot: dict
-    installed_at: str
-    
-
 # slack_bots
 class SlackBot(BaseModel):
     id: int
     app_id: str
-    enterprise_id: str
+    enterprise_id: Optional[str]
     team_id: str
     user_id: str
     bot_token: str
-    bot_refresh_token: str
-    bot_token_expires_at: str
+    bot_refresh_token: Optional[str]
+    bot_token_expires_at: Optional[datetime]
     bot_id: str
     bot_user_id: str
     bot_scopes: str
-    installed_at: str
+    installed_at: datetime
+    
+# slack_installations
+class Installation(BaseModel):
+    id: int
+    enterprise_id: Optional[str]
+    team_id: str
+    user_id: str
+    bot: str
+    installed_at: datetime
+
     
 # slack_states
 class SlackState(BaseModel):
     id: int
-    state: str # HG: supabase says 'uuid' so not sure about this type
+    state: str # confirm this type
     consumed: bool
-    created_at: str
+    created_at: datetime
 
 # slack_users
 class SlackUser(BaseModel):
@@ -127,11 +126,11 @@ class SlackUser(BaseModel):
     team_id: str
     slack_user_id: str
     user_id: str
-    slack_display_name: str
-    conversation_style: str
-    contiguous_chat_transcript: str
-    chat_pairs: str
-=======
+    slack_display_name: Optional[str]
+    conversation_style: Optional[str]
+    contiguous_chat_transcript: Optional[str]
+    chat_pairs: Optional[str]
+
 
 
 class DBGoogleAppCredential(BaseModel):
@@ -144,4 +143,3 @@ class DBCSRFToken(BaseModel):
     csrf_token: str
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
->>>>>>> gdrive-connector

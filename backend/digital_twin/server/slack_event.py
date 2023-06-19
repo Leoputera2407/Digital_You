@@ -137,6 +137,8 @@ def set_user_info(client: WebClient, context: BoltContext, payload, body, next_)
     try:
         # Look up user in external system using their Slack user ID
         supabase_user_id = get_slack_supabase_user(slack_user_id, team_id)
+        if supabase_user_id is None:
+            raise ValueError("no ID found")
         context["SUPABASE_USER_ID"] = supabase_user_id
     except Exception:
         search_params = f"?slack_user_id={slack_user_id}&team_id={team_id}"
@@ -144,7 +146,7 @@ def set_user_info(client: WebClient, context: BoltContext, payload, body, next_)
         client.chat_postEphemeral(
             channel=payload.get("channel_id", ''),
             user=slack_user_id,
-            text=f"Sorry <@{slack_user_id}>, you aren't registered for Digital Twin Service. Please sign up here <{WEB_DOMAIN}/interface/slack{search_params} | Digital Twin Website>"
+            text=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN}/slack/interface/{search_params} | Prosona Website>"
         )
         raise BoltError(f'Error while verifying the slack token')
     
@@ -152,7 +154,7 @@ def set_user_info(client: WebClient, context: BoltContext, payload, body, next_)
     context["OPENAI_API_KEY"] = get_api_key(
         supabase_user_id,
         "openai",
-    ).key_value
+    )
     context["OPENAI_MODEL"] = "gpt-3.5-turbo"
     next_()
 

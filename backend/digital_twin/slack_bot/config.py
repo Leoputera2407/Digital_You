@@ -82,14 +82,14 @@ class SupabaseInstallationStore(InstallationStore):
         is_enterprise_install: Optional[bool] = False,
     ) -> Optional[Installation]:
         data = get_installations(enterprise_id, team_id, user_id)
-       
         
-        if data == 0:
+        if len(data) == 0:
           return None
-        bot = BotTokenEncoder.decode(data['bot'])
+        installation_data = data[0]
+        bot = BotTokenEncoder.decode(installation_data.bot)
         return Installation(
             app_id=bot['app_id'],
-            user_id=data['user_id'],
+            user_id=installation_data.user_id,
             enterprise_id=bot['enterprise_id'],
             enterprise_name=bot['enterprise_name'],
             team_id=bot['team_id'],

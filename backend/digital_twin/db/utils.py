@@ -10,7 +10,7 @@ logger = setup_logger()
 def get_slack_user(slack_id, team_id) -> Optional[SlackUser]:
     supabase = get_supabase_client()
     query = supabase.table('slack_users').select('*').eq('slack_user_id', slack_id).eq('team_id', team_id)
-    response = query.single().execute()
+    response = query.execute()
     data = response.data
     return SlackUser(**data[0]) if data else None
 
@@ -30,6 +30,7 @@ def insert_slack_user(slack_user_id, team_id, supabase_user_id) -> Optional[Slac
 def get_qdrant_key(slack_user_id, team_id) -> Optional[str]:
     supabase = get_supabase_client()
     query = supabase.table('slack_users').select('users(qdrant_collection_key)').eq('slack_user_id', slack_user_id).eq('team_id', team_id)
-    response = query.single().execute()
+    response = query.execute()
     data = response.data
-    return SlackUser(**data[0]).qdrant_collection_key if data else None
+    print(data)
+    return data[0]['users']['qdrant_collection_key'] if data else None
