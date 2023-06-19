@@ -2,17 +2,12 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+IS_DEV = os.environ.get("IS_DEV", "false").lower() == "true" 
 #####################
 # DB Configurations #
 #####################
-DEFAULT_VECTOR_STORE = os.environ.get("VECTOR_DB", "qdrant")
 SUPABASE_URL=os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY=os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-QDRANT_API_KEY=os.environ.get("QDRANT_API_KEY", "")
-QDRANT_URL=os.environ.get("QDRANT_URL", "")
-QDRANT_DEFAULT_COLLECTION=os.environ.get("QDRANT_DEFAULT_COLLECTION", "testing")
-
-
 
 #####################
 # Authentication    #
@@ -26,21 +21,13 @@ JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", "")
 JWT_ALGORITHM = "HS256"
 
 
-########################
-# Slack Configurations #
-########################
-SLACK_BOT_TOKEN=os.environ.get("SLACK_BOT_TOKEN", "")
-SLACK_USER_TOKEN=os.environ.get("SLACK_USER_TOKEN", "")
-SLACK_CLIENT_ID=os.environ.get("SLACK_CLIENT_ID", "")
-SLACK_CLIENT_SECRET=os.environ.get("SLACK_CLIENT_SECRET", "")
-SLACK_SIGNING_SECRET=os.environ.get("SLACK_SIGNING_SECRET", "")
-SLACK_REDIRECT_URI=os.environ.get("SLACK_REDIRECT_URI", f"https://{APP_HOST}:{APP_PORT}/slack/oauth_redirect")
-
 #####################
-# QA Config         #
+# VectorDB Config   #
 #####################
-# OPENAI
-DOC_EMBEDDING_DIM = 1536
+DEFAULT_VECTOR_STORE = os.environ.get("VECTOR_DB", "qdrant")
+QDRANT_API_KEY=os.environ.get("QDRANT_API_KEY", "")
+QDRANT_URL=os.environ.get("QDRANT_URL", "")
+QDRANT_DEFAULT_COLLECTION=os.environ.get("QDRANT_DEFAULT_COLLECTION", "testing")
 # The first few sentences for each Section in a Chunk
 BLURB_LENGTH = 200 
 # Chunking docs to this number of characters not including finishing the last word and the overlap words below
@@ -51,9 +38,34 @@ CHUNK_SIZE = 16000
 # in extreme cases, may cause some words at the end to be truncated by embedding model
 CHUNK_OVERLAP = 5
 NUM_RETURNED_VECTORDB_HITS = 15
+# Number of documents in a batch during indexing (further batching done by chunks before passing to bi-encoder)
+INDEX_BATCH_SIZE = 16
+
+
+########################
+# Slack Configurations #
+########################
+SLACK_BOT_TOKEN=os.environ.get("SLACK_BOT_TOKEN", "")
+SLACK_USER_TOKEN=os.environ.get("SLACK_USER_TOKEN", "")
+SLACK_CLIENT_ID=os.environ.get("SLACK_CLIENT_ID", "")
+SLACK_CLIENT_SECRET=os.environ.get("SLACK_CLIENT_SECRET", "")
+SLACK_SIGNING_SECRET=os.environ.get("SLACK_SIGNING_SECRET", "")
+SLACK_REDIRECT_URI=os.environ.get("SLACK_REDIRECT_URI", f"https://{APP_HOST}:{APP_PORT}/slack/oauth_redirect")
+
+#########################
+# Notion Configurations #
+#########################
+NOTION_CLIENT_ID=os.environ.get("NOTION_CLIENT_ID", "")
+NOTION_CLIENT_SECRET=os.environ.get("NOTION_CLIENT_SECRET", "")
+
+
+#####################
+# QA Config         #
+#####################
+# OPENAI
+DOC_EMBEDDING_DIM = 1536
 NUM_DOCS=5
 MIN_SCRAPED_THRESHOLD = 5
-
 
 
 #####################
@@ -64,3 +76,7 @@ PERSONALITY_CHAIN_API_KEY="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"
 OPENAI_API_KEY=os.environ.get("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY="XXXXXX"
 
+#####################
+# Connector Configs #
+#####################
+GOOGLE_DRIVE_INCLUDE_SHARED = False

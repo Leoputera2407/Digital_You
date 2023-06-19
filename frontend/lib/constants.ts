@@ -1,0 +1,1 @@
+export const GOOGLE_CALLBACK_COOKIES = "google-setup"

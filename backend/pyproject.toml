@@ -30,6 +30,16 @@ qdrant-client = "^1.2.0"
 grpcio-tools = "^1.54.2"
 python-dotenv = "^1.0.0"
 langchain = "^0.0.186"
+pydantic = {extras = ["email"], version = "^1.10.8"}
+google-api-python-client = "2.86.0"
+google-auth-httplib2 = "0.1.0"
+google-auth-oauthlib = "1.0.0"
+pygithub = "1.58.2"
+atlassian-python-api = "^3.38.0"
+playwright = "^1.35.0"
+pypdf2 = "^3.0.1"
+supervisor = "^4.2.5"
+bs4 = "^0.0.1"
 
 [build-system]
 requires = ["poetry-core"]

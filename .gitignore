@@ -1,4 +1,3 @@
-secondbrain/
 .env
 .streamlit/secrets.toml
 **/*.pyc

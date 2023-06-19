@@ -1,6 +1,7 @@
 # Specific to this project
 source_documents/
 models/
+test/localhost_google_app_credentials.json
 
 # OSX
 .DS_STORE

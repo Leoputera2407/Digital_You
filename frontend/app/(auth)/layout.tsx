@@ -1,5 +1,5 @@
-import Image from 'next/image'
 import Illustration from '@/public/images/auth-illustration.svg'
+import Image from 'next/image'
 
 export default function AuthLayout({
   children,
