@@ -105,3 +105,9 @@ remake-poetry-toml:
 	@rm -rf "$(poetry env info --path)"
 	@rm -rf "$(poetry config cache-dir)/artifacts"
 	@poetry install
+
+.PHONY: switch-to-pip
+switch-to-pip:
+	@echo "Switching to pip ..."
+	@rm requirements.txt
+	@poetry export -f requirements.txt --without-hashes > requirements.txt

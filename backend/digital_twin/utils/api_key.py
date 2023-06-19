@@ -1,5 +1,8 @@
 import openai
-from openai.error import AuthenticationError, Timeout
+from openai.error import RateLimitError, AuthenticationError, Timeout
+from digital_twin.utils.logging import setup_logger
+
+logger = setup_logger()
 
 def check_api_key_is_valid(api_key: str, key_type: str) -> bool:
     if not api_key:
@@ -11,12 +14,13 @@ def check_api_key_is_valid(api_key: str, key_type: str) -> bool:
         for _ in range(3):
             try:
                 openai.Completion.create(
+                    engine="text-davinci-003",
                     api_key=api_key,
-                    model="gpt-3.5-turbo",
                     prompt="Don't response",
                 )
                 return True
-            except AuthenticationError:
+            except (AuthenticationError, RateLimitError) as e:
+                logger.warning(f"API key validation failed: {e}")
                 return False
             except Timeout:
                 pass

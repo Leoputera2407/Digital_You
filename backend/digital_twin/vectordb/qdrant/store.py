@@ -10,6 +10,7 @@ from qdrant_client.http.models import (
 )
 
 from digital_twin.config.app_config import QDRANT_DEFAULT_COLLECTION
+from digital_twin.config.constants import ALLOWED_USERS, PUBLIC_DOC_PAT
 from digital_twin.embedding.interface import get_default_embedding_model
 from digital_twin.utils.clients import get_qdrant_client
 from digital_twin.utils.logging import setup_logger
@@ -29,15 +30,19 @@ class QdrantDatastore(VectorDB):
         self.collection = collection
         self.client = get_qdrant_client()
 
-    def index(self, chunks: list[EmbeddedIndexChunk]) -> bool:
+    def index(self, chunks: list[EmbeddedIndexChunk], user_id: int | None) -> bool:
         return index_chunks(
-            chunks=chunks, collection=self.collection, client=self.client
+            chunks=chunks,
+            user_id=user_id,
+            collection=self.collection,
+            client=self.client,
         )
 
     @log_function_time()
     def semantic_retrieval(
         self,
         query: str,
+        user_id: int | None,
         filters: list[VectorDBFilter] | None,
         num_to_retrieve: int,
     ) -> list[InferenceChunk]:
@@ -50,6 +55,23 @@ class QdrantDatastore(VectorDB):
         hits = []
         filter_conditions = []
         try:
+            # Permissions filter
+            if user_id:
+                filter_conditions.append(
+                    FieldCondition(
+                        key=ALLOWED_USERS,
+                        match=MatchAny(any=[str(user_id), PUBLIC_DOC_PAT]),
+                    )
+                )
+            else:
+                filter_conditions.append(
+                    FieldCondition(
+                        key=ALLOWED_USERS,
+                        match=MatchValue(value=PUBLIC_DOC_PAT),
+                    )
+                )
+
+            # Provided query filters
             if filters:
                 for filter_dict in filters:
                     valid_filters = {
@@ -82,9 +104,7 @@ class QdrantDatastore(VectorDB):
                 limit=num_to_retrieve,
             )
         except ResponseHandlingException as e:
-            logger.exception(
-                f'Qdrant querying failed due to: "{e}", is Qdrant set up?'
-            )
+            logger.exception(f'Qdrant querying failed due to: "{e}", is Qdrant set up?')
         except UnexpectedResponse as e:
             logger.exception(
                 f'Qdrant querying failed due to: "{e}", has ingestion been run?'
@@ -99,9 +119,7 @@ class QdrantDatastore(VectorDB):
         matches, _ = self.client.scroll(
             collection_name=self.collection,
             scroll_filter=Filter(
-                must=[
-                    FieldCondition(key="id", match=MatchValue(value=object_id))
-                ]
+                must=[FieldCondition(key="id", match=MatchValue(value=object_id))]
             ),
         )
         if not matches:

@@ -5,9 +5,7 @@ from pydantic.generics import GenericModel
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
-from digital_twin.vectordb.interface import VectorDBFilter
 from digital_twin.db.model import Connector, IndexingStatus, DBAPIKeyType, DBSupportedModelType
-from digital_twin.db.connectors.connectors import get_connector_credentials
 
 DataT = TypeVar("DataT")
 
@@ -21,7 +19,7 @@ class DataRequest(BaseModel):
     data: str
 
 
-class GoogleAppWebCredentials(BaseModel):
+class GoogleAppCredentials(BaseModel):
     client_id: str
     project_id: str
     auth_uri: str
@@ -29,11 +27,11 @@ class GoogleAppWebCredentials(BaseModel):
     auth_provider_x509_cert_url: str
     client_secret: str
     redirect_uris: list[str]
-    javascript_origins: list[str]
+    javascript_origins: Optional[list[str]]
 
 
-class GoogleAppCredentials(BaseModel):
-    web: GoogleAppWebCredentials
+class GoogleAppWebCredentials(BaseModel):
+    web: GoogleAppCredentials
 
 
 class HealthCheckResponse(BaseModel):
@@ -56,6 +54,8 @@ class GDriveCallback(BaseModel):
     state: str
     code: str
 
+class NotionCallback(BaseModel):
+    code: str
 
 class UserRoleResponse(BaseModel):
     role: str
@@ -84,15 +84,19 @@ class ConnectorBase(BaseModel):
 
 class ConnectorSnapshot(ConnectorBase):
     id: int
+    user_id: str
     credential_ids: list[int]
     created_at: datetime
     updated_at: datetime
 
     @classmethod
-    def from_connector_db_model(cls, connector: Connector) -> "ConnectorSnapshot":
-        credentials = get_connector_credentials(connector.id)
+    def from_connector_db_model(cls, user_id: str ,connector: Connector) -> "ConnectorSnapshot":
+        # To prevent circular imports.
+        from digital_twin.db.connectors.connectors import get_connector_credentials
+        credentials = get_connector_credentials(user_id, connector.id)
         return ConnectorSnapshot(
             id=connector.id,
+            user_id=connector.user_id,
             name=connector.name,
             source=connector.source,
             input_type=connector.input_type,
@@ -108,6 +112,8 @@ class ConnectorIndexingStatus(BaseModel):
     """Represents the latest indexing status of a connector"""
 
     connector: ConnectorSnapshot
+    owner: str
+    public_doc: bool
     last_status: IndexingStatus
     last_success: datetime | None
     docs_indexed: int
@@ -125,7 +131,7 @@ class CredentialBase(BaseModel):
 
 class CredentialSnapshot(CredentialBase):
     id: int
-    user_id: int | None
+    user_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -139,17 +145,10 @@ class IndexAttemptSnapshot(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-
-class ApiKey(BaseModel):
-    api_key: str
-
 class APIKeyBase(BaseModel):
     key_type: DBAPIKeyType
     key_value: str
-    user_id: str
-
 
 class BaseModelConfig(BaseModel):
     supported_model_enum: DBSupportedModelType
     temperature: float
-    user_id: str

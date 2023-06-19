@@ -4,6 +4,7 @@ from typing import Any
 
 from digital_twin.connectors.model import Document
 
+
 SecondsSinceUnixEpoch = float
 
 GenerateDocumentsOutput = Generator[list[Document], None, None]

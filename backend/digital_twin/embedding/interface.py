@@ -4,14 +4,9 @@ from typing import List, Optional
 from langchain.embeddings.base import Embeddings
 from langchain.embeddings import OpenAIEmbeddings
 
-
-
-from digital_twin.config.app_config import NUM_RETURNED_VECTORDB_HITS
-from digital_twin.config.model_config import map_model_platform_to_db_api_key_type
+from digital_twin.config.app_config import NUM_RETURNED_VECTORDB_HITS, OPENAI_API_KEY
 from digital_twin.utils.logging import setup_logger
 from digital_twin.utils.timing import log_function_time
-from digital_twin.llm.config import get_api_key
-from digital_twin.llm.interface import SelectedModelConfig
 from digital_twin.vectordb.chunking.models import InferenceChunk
 from digital_twin.vectordb.interface import VectorDB, VectorDBFilter
 
@@ -22,16 +17,11 @@ _EMBED_MODEL: Optional[Embeddings] = None
 
 # TODO: Make this into a proper Embedder class
 def get_default_embedding_model(
-    user_id: str,
-    model_config: SelectedModelConfig, **kwargs
+    **kwargs
 ) -> Embeddings:
     global _EMBED_MODEL
     if _EMBED_MODEL is None:
-        openai_api_key = get_api_key(
-            user_id,
-            model_config.platform,
-        )
-        _EMBED_MODEL = OpenAIEmbeddings(openai_api_key=openai_api_key)
+        _EMBED_MODEL = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
     return _EMBED_MODEL
 
 #TODO: Use re-ranker (possibly use Cohere's re-ranker)

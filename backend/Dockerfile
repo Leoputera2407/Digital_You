@@ -1,11 +1,16 @@
-FROM python:3.11
+FROM python:3.11-slim-bullseye
 
-WORKDIR /code
+RUN apt-get update \
+    && apt-get install -y git cmake pkg-config libprotobuf-c-dev protobuf-compiler \ 
+       libprotobuf-dev libgoogle-perftools-dev libpq-dev build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY ./requirements.txt /code/requirements.txt
+COPY ./requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /tmp/requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt --timeout 100
+WORKDIR /app
+COPY ./digital_twin /app/digital_twin
 
-COPY . /code/
 
-CMD ["uvicorn", "api:app", "--reload", "--host", "0.0.0.0", "--port", "5050"]
+ENV PYTHONPATH /app
+CMD ["/bin/sh", "-c", "uvicorn digital_twin.main:app --host 0.0.0.0 --port 8080"]

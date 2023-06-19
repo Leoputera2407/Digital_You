@@ -3,11 +3,14 @@ from functools import partial
 from itertools import chain
 from multiprocessing import Pool
 from typing import List, Optional
+from langchain.embeddings.base import Embeddings
 
 from digital_twin.connectors.model import Document
 from digital_twin.vectordb.chunking.chunk import Chunker, DefaultChunker
 from digital_twin.vectordb.chunking.models import EmbeddedIndexChunk
 from digital_twin.vectordb.interface import VectorDB
+from digital_twin.embedding.interface import get_default_embedding_model
+
 from digital_twin.vectordb.qdrant.store import QdrantDatastore
 
 
@@ -31,21 +34,22 @@ def _indexing_pipeline(
 
 def _indexing_pipeline(
     chunker: Chunker,
-    embedder: Embedder,
+    embedder: Embeddings,
     datastore: VectorDB,
     documents: list[Document],
+    user_id: str | None,
 ) -> list[EmbeddedIndexChunk]:
     # TODO: make entire indexing pipeline async to not block the entire process
     # when running on async endpoints
     chunks = list(chain(*[chunker.chunk(document) for document in documents]))
-    chunks_with_embeddings = embedder.embed(chunks)
-    datastore.index(chunks_with_embeddings)
+    chunks_with_embeddings = embedder.embed_documents([chunk.content for chunk in chunks])
+    datastore.index(chunks_with_embeddings, user_id)
     return chunks_with_embeddings
 
 def build_indexing_pipeline(
     *,
     chunker: Optional[Chunker] = None,
-    embedder: Optional[Embedder] = None,
+    embedder: Optional[Embeddings] = None,
     datastore: Optional[VectorDB] = None,
 ) -> Callable[[List[Document]], List[EmbeddedIndexChunk]]:
     """Builds a pipline which takes in a list of docs and indexes them.
@@ -55,7 +59,7 @@ def build_indexing_pipeline(
         chunker = DefaultChunker()
 
     if embedder is None:
-        embedder = DefaultEmbedder()
+        embedder = get_default_embedding_model()
 
     if datastore is None:
         datastore = QdrantDatastore()

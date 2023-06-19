@@ -1,3 +1,14 @@
+"""
+Ouath Flow for Google Drive
+- We need to define our app's own App Credentials. This is stored in the 
+    GoogleAppCredentials table.
+
+(1) Using App credentials, we'll ask user to authenticate with Google Drive
+(2) Google Drive will redirect user to our callback url with a code
+(3) We'll use the code to get an access token
+(4) Access Token JSON will be stored in the Credentials table.
+
+"""
 import json
 from typing import cast
 from urllib.parse import ParseResult, parse_qs, urlparse
@@ -7,9 +18,16 @@ from google.oauth2.credentials import Credentials  # type: ignore
 from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
 
 from digital_twin.config.app_config import WEB_DOMAIN
-"""
 from digital_twin.db.connectors.credentials import update_credential_json
-"""
+from digital_twin.db.connectors.google_drive import (
+    fetch_db_google_app_creds,
+    upsert_db_google_app_cred,
+)
+from digital_twin.db.connectors.connectors_auth import (
+    consume_csrf,
+    store_csrf,
+)
+
 from digital_twin.server.model import GoogleAppCredentials
 from digital_twin.utils.logging import setup_logger
 
@@ -22,7 +40,7 @@ SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
 
 def _build_frontend_google_drive_redirect() -> str:
-    return f"{WEB_DOMAIN}/admin/connectors/google-drive/auth/callback"
+    return f"{WEB_DOMAIN}/settings/connectors/google-drive/auth/callback"
 
 
 def get_drive_tokens(
@@ -44,6 +62,7 @@ def get_drive_tokens(
         try:
             creds.refresh(Request())
             if creds.valid:
+                logger.info("Refreshed Google Drive tokens.")
                 return creds
         except Exception as e:
             logger.exception(f"Failed to refresh google drive access token due to: {e}")
@@ -52,9 +71,7 @@ def get_drive_tokens(
 
 
 def verify_csrf(credential_id: int, state: str) -> None:
-    #csrf = get_dynamic_config_store().load(CRED_KEY.format(str(credential_id)))
-    # TODO: Get csrf from db
-    csrf = ""
+    csrf = consume_csrf(credential_id)
     if csrf != state:
         raise PermissionError(
             "State from Google Drive Connector callback does not match expected"
@@ -64,10 +81,8 @@ def verify_csrf(credential_id: int, state: str) -> None:
 def get_auth_url(
     credential_id: int,
 ) -> str:
-    #creds_str = str(get_dynamic_config_store().load(GOOGLE_DRIVE_CRED_KEY))
-    #TODO: Get creds from db
-    creds_str = ""
-    credential_json = json.loads(creds_str)
+    app_cred_dict = get_google_app_cred().dict()
+    credential_json = {"web": app_cred_dict}
     flow = InstalledAppFlow.from_client_config(
         credential_json,
         scopes=SCOPES,
@@ -78,8 +93,10 @@ def get_auth_url(
     parsed_url = cast(ParseResult, urlparse(auth_url))
     params = parse_qs(parsed_url.query)
 
-    # TODO: Store csrf in db
-    #get_dynamic_config_store().store(CRED_KEY.format(credential_id), params.get("state", [None])[0])  # type: ignore
+    google_state = store_csrf(credential_id, params.get("state", [None]))
+    if not google_state:
+        raise Exception("Failed to store google state in db")
+    
     return str(auth_url)
 
 
@@ -88,9 +105,10 @@ def update_credential_access_tokens(
     credential_id: int,
     user_id: str,
 ) -> Credentials | None:
-    app_credentials = get_google_app_cred()
+    app_cred_dict = get_google_app_cred().dict()
+    credential_json = { "web": app_cred_dict }
     flow = InstalledAppFlow.from_client_config(
-        app_credentials.dict(),
+        credential_json,
         scopes=SCOPES,
         redirect_uri=_build_frontend_google_drive_redirect(),
     )
@@ -99,19 +117,20 @@ def update_credential_access_tokens(
     token_json_str = creds.to_json()
     new_creds_dict = {DB_CREDENTIALS_DICT_KEY: token_json_str}
 
-    # TODO: Use new DB method to add creds in DB
-    #if not update_credential_json(credential_id, new_creds_dict, supabase_user_id):
-    #    return None
+    if not update_credential_json(credential_id, new_creds_dict, user_id):
+        return None
     return creds
 
 
+# Below are our App's Google Drive Credentials
 def get_google_app_cred() -> GoogleAppCredentials:
-    # TODO: Get creds from db
-    # creds_str = str(get_dynamic_config_store().load(GOOGLE_DRIVE_CRED_KEY))
-    creds_str =""
+    app_credentials = fetch_db_google_app_creds()
+    if app_credentials is None:
+        raise ValueError("Google Drive App Credentials not found")
+    creds_str = app_credentials.credentials_json
     return GoogleAppCredentials(**json.loads(creds_str))
 
 
 def upsert_google_app_cred(app_credentials: GoogleAppCredentials) -> None:
-    # TODO: Upsert creds in db 
-    # get_dynamic_config_store().store(GOOGLE_DRIVE_CRED_KEY, app_credentials.json())
+    app_credentials = upsert_db_google_app_cred(app_credentials.dict())
+    return GoogleAppCredentials(**json.loads(app_credentials.credentials_json))

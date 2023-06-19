@@ -2,10 +2,8 @@ from typing import Optional
 
 from langchain.llms.base import BaseLanguageModel
 
-from digital_twin.config.model_config import map_model_platform_to_db_api_key_type
 from digital_twin.llm.config import get_api_key
 from digital_twin.llm.interface import SelectedModelConfig
-
 
 def get_selected_llm_instance(
     user_id: str,
