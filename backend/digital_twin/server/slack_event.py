@@ -136,6 +136,8 @@ def set_user_info(client: WebClient, context: BoltContext, payload, body, next_)
     try:
         # Look up user in external system using their Slack user ID
         supabase_user_id = get_slack_supabase_user(slack_user_id, team_id)
+        if supabase_user_id is None:
+            raise ValueError("no ID found")
         context["SUPABASE_USER_ID"] = supabase_user_id
     except Exception:
         search_params = f"?slack_user_id={slack_user_id}&team_id={team_id}"
@@ -150,7 +152,7 @@ def set_user_info(client: WebClient, context: BoltContext, payload, body, next_)
     context["OPENAI_API_KEY"] = get_api_key(
         supabase_user_id,
         "openai",
-    ).key_value
+    )
     context["OPENAI_MODEL"] = "gpt-3.5-turbo"
     next_()
 

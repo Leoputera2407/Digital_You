@@ -3,12 +3,11 @@ from slack_sdk import WebClient
 from slack_bolt.context import BoltContext
 
 from digital_twin.qa.personality_chain import NULL_DOC_TOKEN
-from digital_twin.slack_bot.scrape import get_chat_pairs
 from digital_twin.slack_bot.personality import handle_user_conversation_style, rephrase_response
 from digital_twin.slack_bot.views import get_view, LOADING_TEXT, ERROR_TEXT
 from digital_twin.utils.slack import get_vectordb_collection_for_slack, retrieve_sorted_past_messages
 from digital_twin.utils.logging import setup_logger
-
+from digital_twin.db.slack_bot import get_chat_pairs
 logger = setup_logger()
 
 class NoChatPairsException(Exception):
@@ -35,9 +34,24 @@ def handle_digital_twin_command(context: BoltContext, ack, command, client: WebC
             raise NoChatPairsException(f"Can't find enough chat history in threads or DMs.")
         collection = get_vectordb_collection_for_slack(slack_user_id, team_id)
         """
-        docs = retrieve_documents(
-            query, filters=None, vectordb=create_datastore(collection)
-        )
+        pueudo code:
+        Async
+        # check if there are any good doc
+        verify_chain(supabase_user_id, slack_user_id, query, docs)
+        
+        # do a vector search
+        vector_search_docs = retrieve_documents( 
+            query, filters=None, vectordb=create_datastore(collection)        
+            )    
+        if len(vector_search_docs) == 0:
+        # do a keyword search
+        keyword_search_docs = search_keywords()
+        # bring docs together
+        all_results = await asyncio.gather(keyword_search_docs, vector_search_docs)  # parallel calls
+        # Score the combination of the two - this is time expensive 
+        rescore = cross_encoder_rescore(query, all_results)
+        
+        
         # If relevant docs were found, do the qa chain
         qa_response = handle_qa_response(supabase_user_id, slack_user_id, query, docs)
         """

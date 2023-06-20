@@ -18,10 +18,10 @@ poetry --version
 * Now install the deps and run
 ```
 cd backend
-make virtualenv
-source .venv/bin/activate
-# Will run on http://localhost:8080
+make virtualenv 
+source .venv/bin/activate 
 uvicorn digital_twin.main:app --host 0.0.0.0 --port 8080
+# Will run on http://localhost:8080
 ```
 
 * Set to use Slack

@@ -119,8 +119,6 @@ def get_convo_style(slack_user_id, team_id) -> Optional[str]:
     response = supabase.table('slack_users').select('*').eq('slack_user_id', slack_user_id).eq('team_id', team_id).execute()
     data = response.data
     return SlackUser(**data[0]).conversation_style if data else None
-
-
 @log_supabase_api_error(logger)
 def update_convo_style(personality_description, slack_user_id, team_id) -> Optional[SlackUser]:
     supabase = get_supabase_client()
