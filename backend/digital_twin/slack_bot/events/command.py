@@ -60,15 +60,15 @@ def handle_digital_twin_command(context: BoltContext, ack, command, client: WebC
             {"response": response, "channel_id": channel_id, "query": query, "conversation_style": conversation_style}
         )
         response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=response)
-        client.views_update(view_id=view_id, view=response_view)
+        client.views_update(view_id=view_id, view=response_view)  
         return
     except NoChatPairsException as e:
-        logger.error(f"Error handling digital twin for {slack_user_id}: {e}")
+        logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = get_view("text_command_modal", text=f"Something went wrong, {e}. ")
         client.views_update(view_id=view_id, view=error_view)
         return 
     except Exception as e:
-        logger.error(f"Error handling digital twin for {slack_user_id}: {e}")
+        logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = get_view("text_command_modal", text=ERROR_TEXT)
         client.views_update(view_id=view_id, view=error_view)
         return 

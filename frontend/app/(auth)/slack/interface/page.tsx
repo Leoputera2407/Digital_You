@@ -16,7 +16,7 @@ export default function AuthSlack() {
     async function authenticate() {
       if (session) {
         const supabase_user_id = session.user.id;
-        const redirectUri = `${process.env.BACKEND_URL}/slack/server_signup?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&supabase_user_id=${encodeURIComponent(supabase_user_id)}`;
+        const redirectUri = `${process.env.NEXT_PUBLIC_BACKEND_URL}/slack/server_signup?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&supabase_user_id=${encodeURIComponent(supabase_user_id)}`;
 
         const response = await axios.get(redirectUri, {
           headers: {
@@ -30,7 +30,7 @@ export default function AuthSlack() {
           console.error(response);
         }
       } else {
-        router.push(`/signin?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&redirect=${encodeURIComponent(`${process.env.WEB_DOMAIN}/interface/slack`)}`);
+        router.push(`/signin?slack_user_id=${encodeURIComponent(slack_user_id)}&team_id=${encodeURIComponent(team_id)}&redirect=${encodeURIComponent(`${process.env.NEXT_PUBLIC_WEB_DOMAIN}/interface/slack`)}`);
       }
     }
 

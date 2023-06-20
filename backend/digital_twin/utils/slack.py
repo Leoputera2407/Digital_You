@@ -14,7 +14,8 @@ logger = setup_logger()
 
 def get_slack_supabase_user(slack_id: str, team_id: str) -> Optional[str]:
     data = get_slack_user(slack_id, team_id)
-    return data['user_id'] if data else None
+    return data.user_id if data else None
+
 
 
 def insert_slack_supabase_user(slack_user_id: str, team_id: str, supabase_user_id: str) -> Optional[dict]:

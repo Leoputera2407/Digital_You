@@ -22,7 +22,6 @@ def insert_installations(data) -> Optional[Installation]:
     query = supabase.table('slack_installations').insert(data)
     response = query.execute()
     data = response.data
-    logger.info(data)
     return Installation(**data[0]) if data else None
 
 @log_supabase_api_error(logger)
@@ -115,14 +114,11 @@ def get_and_update_state(state) -> Optional[SlackState]:
     return SlackState(**data[0]) if data else None
 
 @log_supabase_api_error(logger)
-def get_convo_style(slack_user_id, team_id) -> Optional[SlackUser]:
+def get_convo_style(slack_user_id, team_id) -> Optional[str]:
     supabase = get_supabase_client()
-    response = supabase.table('slack_users').select('conversation_style').eq('slack_user_id', slack_user_id).eq('team_id', team_id).execute()
+    response = supabase.table('slack_users').select('*').eq('slack_user_id', slack_user_id).eq('team_id', team_id).execute()
     data = response.data
-    logger.info(slack_user_id)
-    logger.info(team_id)
-    return SlackUser(**data) if data else None
-
+    return SlackUser(**data[0]).conversation_style if data else None
 @log_supabase_api_error(logger)
 def update_convo_style(personality_description, slack_user_id, team_id) -> Optional[SlackUser]:
     supabase = get_supabase_client()
@@ -153,6 +149,8 @@ def get_chat_pairs(slack_user_id, team_id) -> List[Tuple[str, str]]:
     if len(response.data) == 0:
         logger.error(f"No data found for {slack_user_id} in 'slack_users' table.")
         return None
-    interactions_str = response.data['chat_pairs']
+    interactions_str = response.data[0]['chat_pairs']
+    if interactions_str == None:
+        return []
     slack_chat_pairs = ast.literal_eval(interactions_str)
     return slack_chat_pairs
