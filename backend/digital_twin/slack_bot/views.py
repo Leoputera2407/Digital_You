@@ -24,7 +24,7 @@ def create_general_text_command_view(text):
     return {
         "type": "modal",
         "callback_id": "text_modal",
-        "title": {"type": "plain_text", "text": "Digital Twin"},
+        "title": {"type": "plain_text", "text": "Prosona"},
         "blocks": [
             {
                 "type": "section",
@@ -40,7 +40,7 @@ def create_response_command_view(private_metadata_str, response):
     return {
         "type": "modal",
         "callback_id": MODAL_RESPONSE_CALLBACK_ID,
-        "title": {"type": "plain_text", "text": "Digital Twin :gemini:"},
+        "title": {"type": "plain_text", "text": "Prosona :gemini:"},
         "submit": {"type": "plain_text", "text": "Share", "emoji": True},
         "private_metadata": private_metadata_str,
         "blocks": [

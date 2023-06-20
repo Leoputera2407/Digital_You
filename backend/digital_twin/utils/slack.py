@@ -13,13 +13,8 @@ logger = setup_logger()
 
 
 def get_slack_supabase_user(slack_id: str, team_id: str) -> Optional[str]:
-    try:
-        response = get_supabase_client().table('slack_users').select('*').eq(
-        'slack_user_id', slack_id).eq('team_id', team_id).single().execute()
-    except APIError as e:
-        logger.error(f"Error getting user id from slack ids: {e}")
-        raise Exception("Can't find Supabase user for slack user {slack_id}")
-    return response.data['user_id']
+    data = get_slack_user(slack_id, team_id)
+    return data.user_id if data else None
 
 
 def insert_slack_supabase_user(slack_user_id: str, team_id: str, supabase_user_id: str) -> Optional[dict]:

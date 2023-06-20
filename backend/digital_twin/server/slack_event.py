@@ -105,7 +105,6 @@ async def handle_slack_event(req: Request):
    logger.info("Handling slack event")
    return await app_handler.handle(req)
 
-from fastapi.responses import RedirectResponse
 @router.get("/slack/install")
 async def install(req: Request):
     return await app_handler.handle(req)
@@ -140,11 +139,10 @@ def set_user_info(client: WebClient, context: BoltContext, payload, body, next_)
         context["SUPABASE_USER_ID"] = supabase_user_id
     except Exception:
         search_params = f"?slack_user_id={slack_user_id}&team_id={team_id}"
-        logger.info(search_params)
         client.chat_postEphemeral(
             channel=payload.get("channel_id", ''),
             user=slack_user_id,
-            text=f"Sorry <@{slack_user_id}>, you aren't registered for Digital Twin Service. Please sign up here <{WEB_DOMAIN}/interface/slack{search_params} | Digital Twin Website>"
+            text=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN}/interface/slack{search_params} | Prosona Website>"
         )
         raise BoltError(f'Error while verifying the slack token')
     
@@ -167,11 +165,11 @@ def render_home_tab(client: WebClient, context: BoltContext):
             raise BoltError(f'Error while verifying the slack token')
         search_params = "?slack_user_id={slack_user_id}&team_id={team_id}"
         text = f"""
-        To enable this app in this Slack workspace, you need to login to Digital Twin. "
-        Visit <{WEB_DOMAIN}/interface/slack{search_params} | Digital Twin Website> to login."
+        To enable this app in this Slack workspace, you need to login to Prosona. "
+        Visit <{WEB_DOMAIN}/interface/slack{search_params} | Prosona Website> to login."
         """
     else:
-        text = "Welcome to Digital Twin!"
+        text = "Welcome to Prosona!"
 
     client.views_publish(
         user_id=context.user_id,
@@ -239,6 +237,7 @@ def handle_shuffle_click(ack, body, client):
 @slack_app.action(EDIT_BUTTON_ACTION_ID)
 def handle_edit_response(ack, body, client, logger):
     ack()
+    logger.info('went here')
     try:
         view_id = body['container']['view_id']
         metadata_dict = json.loads(body['view']['private_metadata'])
