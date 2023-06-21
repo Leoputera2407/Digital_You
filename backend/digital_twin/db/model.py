@@ -2,6 +2,7 @@ from typing import Optional, List
 from enum import Enum
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
@@ -86,6 +87,50 @@ class ModelConfig(BaseModel):
     supported_model_enum: DBSupportedModelType
     temperature: float
     user_id: str
+    
+# slack_bots
+class SlackBot(BaseModel):
+    id: int
+    app_id: str
+    enterprise_id: Optional[str]
+    team_id: str
+    user_id: str
+    bot_token: str
+    bot_refresh_token: Optional[str]
+    bot_token_expires_at: Optional[datetime]
+    bot_id: str
+    bot_user_id: str
+    bot_scopes: str
+    installed_at: datetime
+    
+# slack_installations
+class Installation(BaseModel):
+    id: int
+    enterprise_id: Optional[str]
+    team_id: str
+    user_id: str
+    bot: str
+    installed_at: datetime
+
+    
+# slack_states
+class SlackState(BaseModel):
+    id: int
+    state: str # confirm this type
+    consumed: bool
+    created_at: datetime
+
+# slack_users
+class SlackUser(BaseModel):
+    id: int
+    team_id: str
+    slack_user_id: str
+    user_id: str
+    slack_display_name: Optional[str]
+    conversation_style: Optional[str]
+    contiguous_chat_transcript: Optional[str]
+    chat_pairs: Optional[str]
+
 
 
 class DBGoogleAppCredential(BaseModel):

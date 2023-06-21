@@ -8,9 +8,8 @@ from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
 from digital_twin.qa.personality_chain import RephraseChain, PersonalityChain, NULL_DOC_TOKEN
 from digital_twin.slack_bot.views import get_view, PERSONALITY_TEXT
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
-from digital_twin.utils.clients import get_supabase_client
 from digital_twin.utils.logging import setup_logger
-
+from digital_twin.db.slack_bot import get_convo_style, update_convo_style
 
 logger = setup_logger()
 
@@ -22,16 +21,11 @@ def get_user_conversation_style(slack_user_id: str, team_id: str) -> Optional[st
     If found on table, return the conversation style.
     Else, return None.
     """
-    try:
-        response = get_supabase_client().table('slack_users').select('conversation_style').eq(
-        'slack_user_id', slack_user_id).eq('team_id', team_id).single().execute()
-    except APIError as e:
-        logger.error(f"Supabase Error: {str(e)}")
-        raise Exception(f"Supabase Error: {str(e)}")
-    if response.data is None:
+    conversation_style = get_convo_style(slack_user_id, team_id)
+    if conversation_style is None:
         return None
     else:
-        return response.data['conversation_style']
+        return conversation_style
 
 
 def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str, chat_pairs: Optional[List[Tuple[str, str]]]) -> Optional[str]:
@@ -77,20 +71,7 @@ def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str,
         examples=chat_pairs,
         slack_user_id=slack_user_id,
     )
-    try:
-        # Update record in the 'slack_users' table
-        get_supabase_client().table('slack_users').update(
-            {
-                "conversation_style": personality_description
-            }
-        ).eq(
-            'slack_user_id', slack_user_id
-        ).eq(
-            'team_id', team_id
-        ).execute()
-    except APIError as e:
-        logger.error(f"Error updating `conversation_style` into Superbase for {slack_user_id}: {str(e)}")
-        raise Exception(f"Supabase Error: {str(e)}")
+    data = update_convo_style(personality_description, slack_user_id, team_id)
 
     return personality_description
 

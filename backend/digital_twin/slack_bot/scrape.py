@@ -6,8 +6,8 @@ from typing import Optional, List, Tuple
 from slack_sdk import WebClient
 
 from digital_twin.config.app_config import MIN_SCRAPED_THRESHOLD
-from digital_twin.utils.clients import get_supabase_client
 from digital_twin.utils.logging import setup_logger
+from digital_twin.db.slack_bot import update_chat_pairs, get_chat_pairs
 
 logger = setup_logger()
 
@@ -135,37 +135,5 @@ def scrape_and_store_chat_history(
     if len(chat_transcript) < MIN_SCRAPED_THRESHOLD:
         logger.info(f"Chat history for {slack_user_id} is too short.")
         return None
-    try:
-        supabase_client = get_supabase_client()
-        supabase_client.table('slack_users').update({
-            "contiguous_chat_transcript": str(chat_transcript),
-            "chat_pairs": str(chat_pairs),
-        }).eq("slack_user_id", slack_user_id).eq("team_id", team_id).execute()
-    except APIError as e:
-        logger.error(f"Error updating chat history into Supabase for {slack_user_id}: {str(e)}")
-        raise Exception(f"Supabase Error: {str(e)}")
-
-    return chat_transcript, chat_pairs    
-
-
-def get_chat_pairs(slack_user_id, team_id):
-    try:
-        response = get_supabase_client().table('slack_users').select(
-            'chat_pairs'
-        ).eq(
-            'slack_user_id', slack_user_id
-        ).eq(
-            'team_id', team_id
-        ).single().execute()
-    
-        if len(response.data) == 0:
-            logger.error(f"No data found for {slack_user_id} in 'slack_users' table.")
-            return None
-    
-        interactions_str = response.data['chat_pairs']
-        slack_chat_pairs = ast.literal_eval(interactions_str)
-    except (Exception, APIError) as e:
-        logger.error(f"Error fetching chat history for {slack_user_id}: {e}")
-        raise Exception(f"Error scraping and storing chat history for {slack_user_id}: {e}")
-
-    return slack_chat_pairs
+    response = update_chat_pairs(chat_transcript, chat_pairs, slack_user_id, team_id)
+    return chat_transcript, chat_pairs

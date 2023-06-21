@@ -3,12 +3,11 @@ from slack_sdk import WebClient
 from slack_bolt.context import BoltContext
 
 from digital_twin.qa.personality_chain import NULL_DOC_TOKEN
-from digital_twin.slack_bot.scrape import get_chat_pairs
 from digital_twin.slack_bot.personality import handle_user_conversation_style, rephrase_response
 from digital_twin.slack_bot.views import get_view, LOADING_TEXT, ERROR_TEXT
 from digital_twin.utils.slack import get_vectordb_collection_for_slack, retrieve_sorted_past_messages
 from digital_twin.utils.logging import setup_logger
-
+from digital_twin.db.slack_bot import get_chat_pairs
 logger = setup_logger()
 
 class NoChatPairsException(Exception):
@@ -35,9 +34,24 @@ def handle_digital_twin_command(context: BoltContext, ack, command, client: WebC
             raise NoChatPairsException(f"Can't find enough chat history in threads or DMs.")
         collection = get_vectordb_collection_for_slack(slack_user_id, team_id)
         """
-        docs = retrieve_documents(
-            query, filters=None, vectordb=create_datastore(collection)
-        )
+        pueudo code:
+        Async
+        # check if there are any good doc
+        verify_chain(supabase_user_id, slack_user_id, query, docs)
+        
+        # do a vector search
+        vector_search_docs = retrieve_documents( 
+            query, filters=None, vectordb=create_datastore(collection)        
+            )    
+        if len(vector_search_docs) == 0:
+        # do a keyword search
+        keyword_search_docs = search_keywords()
+        # bring docs together
+        all_results = await asyncio.gather(keyword_search_docs, vector_search_docs)  # parallel calls
+        # Score the combination of the two - this is time expensive 
+        rescore = cross_encoder_rescore(query, all_results)
+        
+        
         # If relevant docs were found, do the qa chain
         qa_response = handle_qa_response(supabase_user_id, slack_user_id, query, docs)
         """
@@ -46,15 +60,15 @@ def handle_digital_twin_command(context: BoltContext, ack, command, client: WebC
             {"response": response, "channel_id": channel_id, "query": query, "conversation_style": conversation_style}
         )
         response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=response)
-        client.views_update(view_id=view_id, view=response_view)
+        client.views_update(view_id=view_id, view=response_view)  
         return
     except NoChatPairsException as e:
-        logger.error(f"Error handling digital twin for {slack_user_id}: {e}")
+        logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = get_view("text_command_modal", text=f"Something went wrong, {e}. ")
         client.views_update(view_id=view_id, view=error_view)
         return 
     except Exception as e:
-        logger.error(f"Error handling digital twin for {slack_user_id}: {e}")
+        logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = get_view("text_command_modal", text=ERROR_TEXT)
         client.views_update(view_id=view_id, view=error_view)
         return 
