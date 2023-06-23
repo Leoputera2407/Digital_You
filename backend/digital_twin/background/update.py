@@ -16,7 +16,7 @@ from digital_twin.db.connectors.index_attempt import (
     mark_attempt_in_progress,
     mark_attempt_succeeded,
 )
-from digital_twin.vectordb.qdrant.indexing import list_collections, create_collection
+from digital_twin.indexdb.qdrant.indexing import list_collections, create_collection
 from digital_twin.db.model import Connector, IndexAttempt
 from digital_twin.db.connectors.connectors import get_connector_credentials, fetch_connector_by_id
 from digital_twin.db.user import get_qdrant_collection_for_user

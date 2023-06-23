@@ -29,8 +29,8 @@ from digital_twin.config.constants import (
 
 from digital_twin.config.app_config import DOC_EMBEDDING_DIM
 
-from digital_twin.vectordb.chunking.models import EmbeddedIndexChunk
-from digital_twin.vectordb.utils import (
+from digital_twin.indexdb.chunking.models import EmbeddedIndexChunk
+from digital_twin.indexdb.utils import (
     get_uuid_from_chunk, 
     update_doc_user_map,
     DEFAULT_BATCH_SIZE,

@@ -7,8 +7,9 @@ from typing import (
     Tuple,
     Union,
 )
-
+from sqlalchemy.orm import Session
 from langchain import PromptTemplate
+
 from digital_twin.config.constants import (
     BLURB,
     DOCUMENT_ID,
@@ -20,7 +21,7 @@ from digital_twin.config.constants import (
 from digital_twin.config.model_config import SupportedModelType
 from digital_twin.llm import get_selected_llm_instance
 from digital_twin.llm.interface import SelectedModelConfig
-from digital_twin.qa.chain import (
+from digital_twin.llm.chains.qa_chain import (
     ANSWER_PAT,
     QUOTE_PAT,
     UNCERTAIN_PAT,
@@ -31,8 +32,10 @@ from digital_twin.utils.text_processing import (
     clean_model_quote,
     shared_precompare_cleanup,
 )
+from digital_twin.db.model import User
+from digital_twin.llm.chains.qa_chain import StuffQA, RefineQA
 from digital_twin.utils.timing import log_function_time
-from digital_twin.vectordb.chunking.models import InferenceChunk
+from digital_twin.indexdb.chunking.models import InferenceChunk
 
 logger = setup_logger()
 
@@ -157,12 +160,17 @@ def process_answer(
 class QA(QAModel):
     def __init__(
         self,
+        db_session: Session,
         model_config: SelectedModelConfig,
         max_output_tokens: int = SupportedModelType.GPT3_5.n_context_len,
+        user: Optional[User] = None,
     ) -> None:
         # Pick LLM
         self.llm = get_selected_llm_instance(
-            model_config, max_output_tokens=max_output_tokens
+            user, 
+            db_session,
+            model_config, 
+            max_output_tokens=max_output_tokens
         )
         self.max_output_tokens = max_output_tokens
 
@@ -171,21 +179,49 @@ class QA(QAModel):
         self,
         query: str,
         context_docs: List[InferenceChunk],
-        prompt_type: SupportedPromptType,
+        prompt_type: SupportedPromptType = SupportedPromptType.STUFF,
         prompt: PromptTemplate = None,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
         try:
-            qa_system = self._pick_qa(
+            qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
                 prompt_type=prompt_type,
                 llm=self.llm,
                 context_doc=context_docs,
                 max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
             )
-            model_output = qa_system(query)
-        # TODO: Handle API Authentication error here?
+            model_output = qa_system.run(query)
+        except Exception as e:
+            logger.exception(e)
+            model_output = "Model Failure"
+
+        logger.debug(model_output)
+
+        answer, quotes_dict = process_answer(model_output, context_docs)
+        return answer, quotes_dict
+    
+
+    @log_function_time()
+    def async_answer_question(
+        self,
+        query: str,
+        context_docs: List[InferenceChunk],
+        prompt_type: SupportedPromptType = SupportedPromptType.STUFF,
+        prompt: PromptTemplate = None,
+    ) -> Tuple[
+        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
+    ]:
+        try:
+            qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
+                prompt_type=prompt_type,
+                llm=self.llm,
+                context_doc=context_docs,
+                max_output_tokens=self.max_output_tokens,
+                prompt=prompt,
+            )
+            model_output = qa_system.async_run(query)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -199,13 +235,13 @@ class QA(QAModel):
         self,
         query: str,
         context_docs: List[InferenceChunk],
-        prompt_type: SupportedPromptType,
+        prompt_type: SupportedPromptType =  SupportedPromptType.STUFF,
         prompt: PromptTemplate = None,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
         try:
-            qa_system = self._pick_qa(
+            qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
                 prompt_type=prompt_type,
                 llm=self.llm,
                 context_doc=context_docs,

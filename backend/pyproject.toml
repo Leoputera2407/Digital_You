@@ -41,6 +41,10 @@ pypdf2 = "^3.0.1"
 supervisor = "^4.2.5"
 bs4 = "^0.0.1"
 sentence-transformers = "^2.2.2"
+typesense = "^0.15.1"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]

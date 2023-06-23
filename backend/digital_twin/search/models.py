@@ -1,6 +1,4 @@
-from enum import Enum
-
-from digital_twin.vectordb.chunking.models import EmbeddedIndexChunk, IndexChunk
+from digital_twin.indexdb.chunking.models import EmbeddedIndexChunk, IndexChunk
 
 class Embedder:
     def embed(self, chunks: list[IndexChunk]) -> list[EmbeddedIndexChunk]:

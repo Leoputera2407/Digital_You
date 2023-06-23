@@ -2,6 +2,7 @@ from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
 from typing import Optional, List
 
+from digital_twin.llm.chains.base import BaseChain
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
@@ -10,43 +11,10 @@ NULL_DOC_TOKEN = "?[DOCUMENT]"
 NULL_EXAMPLE_TOKEN = "?[EXAMPLE]"
 EXAMPLE_SEP_PAT = "---NEW EXAMPLE---"
 
-class BasePersonalityChain:
+class BasePersonalityChain(BaseChain):
     """
-    Base class for generating prompts.
+    Base class for Personality.
     """
-
-    def __init__(
-        self,
-        llm: BaseLanguageModel,
-        max_output_tokens: int,
-        prompt: Optional[PromptTemplate] = None,
-    ):
-        self.llm = llm
-        self.max_output_tokens = max_output_tokens
-        self.prompt = prompt or self.default_prompt
-
-    @property
-    def default_prompt(self) -> PromptTemplate:
-        """Define the default prompt."""
-        raise NotImplementedError("This method should be overridden in subclasses.")
-
-    def create_prompt(self, **kwargs) -> str:
-        """Create a formatted prompt with the given arguments."""
-        return self.prompt.format_prompt(**kwargs).to_string()
-
-    def predict_answer(self, formatted_prompt: str) -> str:
-        """Predict an answer using the language model."""
-        return self.llm.predict(formatted_prompt)
-
-    def log_filled_prompt(self, formatted_prompt: str) -> None:
-        """Log the filled prompt."""
-        logger.debug(f"Filled prompt:\n{formatted_prompt}")
-
-    def tokens_within_limit(self, formatted_prompt: str) -> bool:
-        """Check if the number of tokens is within the allowed limit."""
-        num_tokens_in_prompt = self.llm.get_num_tokens(formatted_prompt)
-        return num_tokens_in_prompt <= self.llm.dict()["max_tokens"]
-
     def format_examples(self, examples: Optional[List[str]] = None) -> str:
         """Format the examples for the prompt."""
         if examples is None:
@@ -55,8 +23,8 @@ class BasePersonalityChain:
             f"{EXAMPLE_SEP_PAT}\n{example}\n"
             for example in examples
         ).strip()
-
-    def __call__(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
+    
+    def get_filled_prompt(self, examples: Optional[List[str]] = None, **kwargs) -> str:
         if examples is None:
            formatted_prompt = self.create_prompt(**kwargs) 
         elif examples == []:
@@ -73,9 +41,15 @@ class BasePersonalityChain:
                     examples.pop(idx)
                     break
             logger.debug(f"Stuffed {len(examples)} examples in the context")
-
-        self.log_filled_prompt(formatted_prompt)
-        return self.predict_answer(formatted_prompt)
+        return formatted_prompt
+    
+    def run(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
+        formatted_prompt = self.get_filled_prompt(examples, **kwargs)
+        return self.llm.predict(formatted_prompt)
+    
+    async def async_run(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
+        formatted_prompt = self.get_filled_prompt(examples, **kwargs)
+        return self.llm.apredict(formatted_prompt)
 
 
 class PersonalityChain(BasePersonalityChain):

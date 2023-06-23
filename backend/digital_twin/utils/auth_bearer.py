@@ -8,7 +8,7 @@ from fastapi import Request, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from digital_twin.db.model import User
 
-from digital_twin.config.app_config import JWT_SECRET_KEY, JWT_ALGORITHM
+from digital_twin.config.app_config import DISABLE_AUTHENTICATION, JWT_SECRET_KEY, JWT_ALGORITHM
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -55,11 +55,15 @@ class JWTBearer(HTTPBearer):
 
     async def authenticate(self, token: str):
         # TODO: Enable non-authenticated endpoints, for easier dev testing
-        if verify_token(token):
+        if DISABLE_AUTHENTICATION:
+            return self.get_test_user()
+        elif verify_token(token):
             return decode_access_token(token)
         else:
             raise HTTPException(status_code=402, detail="Invalid token or expired token.")
-    
+    def get_test_user(self):
+        return {"email": "test@example.com"}  # replace with test user information
+
 
 # TODO: Refactor to use this getUser instead of having to pass supabase_user_id all the time
 def get_current_user(credentials: dict = Depends(JWTBearer())) -> User:

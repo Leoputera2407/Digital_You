@@ -8,6 +8,13 @@ IS_DEV = os.environ.get("IS_DEV", "false").lower() == "true"
 #####################
 SUPABASE_URL=os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY=os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+# below are intended to match the env variables names used by the official postgres docker image
+# https://hub.docker.com/_/postgres
+POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "password")
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
 
 #####################
 # Authentication    #
@@ -18,16 +25,22 @@ WEB_DOMAIN=os.environ.get("WEB_DOMAIN", "http://localhost:3000")
 APP_HOST = os.environ.get("APP_HOST", "localhost")
 APP_PORT = os.environ.get("APP_PORT", 8080)
 JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", "")
+DISABLE_AUTHENTICATION = os.environ.get("DISABLE_AUTHENTICATION", "true").lower() == "true" 
 JWT_ALGORITHM = "HS256"
+
 
 
 #####################
 # VectorDB Config   #
 #####################
 DEFAULT_VECTOR_STORE = os.environ.get("VECTOR_DB", "qdrant")
+
 QDRANT_API_KEY=os.environ.get("QDRANT_API_KEY", "")
 QDRANT_URL=os.environ.get("QDRANT_URL", "")
 QDRANT_DEFAULT_COLLECTION=os.environ.get("QDRANT_DEFAULT_COLLECTION", "testing")
+# Host / Port are used for connecting to local Qdrant instance
+QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
+QDRANT_PORT = 6333
 
 # The first few sentences for each Section in a Chunk
 BLURB_LENGTH = 500 
@@ -42,7 +55,8 @@ CHUNK_OVERLAP = 5
 # Number of documents in a batch during indexing (further batching done by chunks before passing to bi-encoder)
 INDEX_BATCH_SIZE = 16
 
-NUM_RETURNED_VECTORDB_HITS = 15
+NUM_RETURNED_HITS = 50
+NUM_RERANKED_RESULTS = 15
 # Better to keep it loose, surfacing more results better than missing results
 SEARCH_DISTANCE_CUTOFF = 0.1  # Cosine similarity (currently), range of -1 to 1 with -1 being completely opposite
 
@@ -54,6 +68,18 @@ ENABLE_MINI_CHUNK = False
 # Not rounded down to not lose any context in full chunk.
 MINI_CHUNK_SIZE = 512
 
+
+
+#########################
+# Keyword Search Config #
+#########################
+TYPESENSE_DEFAULT_COLLECTION = os.environ.get(
+    "TYPESENSE_DEFAULT_COLLECTION", "testing"
+)
+TYPESENSE_HOST = os.environ.get("TYPESENSE_HOST", "localhost")
+TYPESENSE_PORT = 8108
+TYPESENSE_PROTOCOL = os.environ.get("TYPESENSE_PROTOCOL", "http")
+TYPESENSE_API_KEY = os.environ.get("TYPESENSE_API_KEY", "")
 
 
 ########################

@@ -4,46 +4,10 @@ import time
 from slack_sdk.web import WebClient
 from slack_bolt import BoltContext
 from typing import Optional, List
-from postgrest.exceptions import APIError 
 
 from digital_twin.utils.logging import setup_logger
-from digital_twin.db.utils import get_slack_user, insert_slack_user, get_qdrant_key
-
 logger = setup_logger()
 
-
-def get_slack_supabase_user(slack_id: str, team_id: str) -> Optional[str]:
-    data = get_slack_user(slack_id, team_id)
-    return data.user_id if data else None
-
-
-
-def insert_slack_supabase_user(slack_user_id: str, team_id: str, supabase_user_id: str) -> Optional[dict]:
-    data = insert_slack_user(slack_user_id, team_id, supabase_user_id)
-    if not data:
-        logger.error(f"Error inserting the user: {data}")
-        raise Exception("Error inserting the user")
-    return data
-
-def get_vectordb_collection_for_slack(slack_user_id: str, team_id: str) -> str:
-    """
-    Get vectordb collection from the users table by joining on user_id with slack_users table 
-    using the given slack_user_id and team_id
-
-    Args:
-    slack_user_id: The slack user id.
-    team_id: The team id.
-
-    Returns:
-    The vectordb collection as string.
-
-    Raises:
-    Exception: If no user is found for the provided parameters.
-    """
-    qdrant_collection_key = get_qdrant_key(slack_user_id, team_id)
-    if not qdrant_collection_key:
-        raise Exception(f"No user found for slack_user_id={slack_user_id} and team_id={team_id}")
-    return qdrant_collection_key
    
 def retrieve_sorted_past_messages(
     client: WebClient, 

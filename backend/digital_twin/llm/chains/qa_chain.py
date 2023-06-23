@@ -5,8 +5,10 @@ from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
 from langchain.chains.qa_generation.prompt import PROMPT_SELECTOR
 
+from digital_twin.llm.chains.base import BaseChain
+from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.utils.logging import setup_logger
-from digital_twin.vectordb.chunking.models import InferenceChunk
+
 
 logger = setup_logger()
 
@@ -39,34 +41,27 @@ BASE_PROMPT = (
 )
 
 
-class BaseQA:
+class BaseQA(BaseChain):
     """Base class for Question-Answering."""
 
     def __init__(
-        self,
-        llm: BaseLanguageModel,
-        context_doc: List[InferenceChunk],
-        max_output_tokens: int,
-        prompt: PromptTemplate = None,
-    ):
-        self.llm = llm
+            self, 
+            llm: BaseLanguageModel, 
+            context_doc: List[InferenceChunk], 
+            max_output_tokens: int, 
+            prompt: PromptTemplate = None
+        ) -> None:
+        super().__init__(llm, max_output_tokens, prompt)  
         self.context_doc = context_doc
-        self.max_output_tokens = max_output_tokens
-        self.prompt = prompt or self.default_prompt
-
-    @property
-    def default_prompt(self) -> PromptTemplate:
-        """The default prompt."""
-        return PROMPT_SELECTOR.get_prompt(self.llm)
-
-    def predict_answer(self, formatted_prompt: str) -> str:
-        """Predict an answer using the language model."""
+    
+    def run(self, input_str: str) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str)
         return self.llm.predict(formatted_prompt)
-
-    def log_filled_prompt(self, formatted_prompt: str) -> None:
-        """Log the filled prompt."""
-        logger.debug(f"Filled prompt:\n{formatted_prompt}")
-
+    
+    async def async_run(self, input_str: str) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str)
+        return self.llm.apredict(formatted_prompt)
+    
 
 class StuffQA(BaseQA):
     """
@@ -92,11 +87,7 @@ class StuffQA(BaseQA):
             template=prompt, input_variables=["context", "question"]
         )
 
-    def tokens_within_limit(self, formatted_prompt: str) -> bool:
-        """Check if the number of tokens is within the allowed limit."""
-        num_tokens_in_prompt = self.llm.get_num_tokens(formatted_prompt)
-        return num_tokens_in_prompt <= self.llm.dict()["max_tokens"]
-
+   
     def format_documents(self) -> str:
         """Format the documents for the prompt."""
         return "".join(
@@ -104,14 +95,14 @@ class StuffQA(BaseQA):
             for ranked_document in self.context_doc
         ).strip()
 
-    def create_prompt(self, question: str, **kwargs) -> str:
+    def create_prompt(self, question: str) -> str:
         """Create a formatted prompt with the given question and documents."""
         context = self.format_documents()
         return self.prompt.format_prompt(
-            question=question, context=context, **kwargs
+            question=question, context=context
         ).to_string()
-
-    def __call__(self, input_str: str) -> dict:
+    
+    def get_filled_prompt(self, input_str: str) -> str:
         documents = []
 
         for ranked_doc in self.context_doc:
@@ -124,7 +115,7 @@ class StuffQA(BaseQA):
         print(f"Stuffed {len(documents)} documents in the context")
         formatted_prompt = self.create_prompt(input_str, documents)
         self.log_filled_prompt(formatted_prompt)
-        return self.predict_answer(formatted_prompt)
+        return formatted_prompt
 
 
 class RefineQA(BaseQA):
@@ -172,8 +163,11 @@ class RefineQA(BaseQA):
             template=prompt,
             input_variables=["context", "question", "previous_answer"],
         )
+    
+    def get_filled_prompt(self) -> str:
+       raise NotImplementedError("RefineQA does not support get_filled_prompt")
 
-    def __call__(self, input_str: str) -> dict:
+    def run(self, input_str: str) -> dict:
         """Ask a question."""
         last_answer = None
 
@@ -182,7 +176,7 @@ class RefineQA(BaseQA):
             prompt = self.default_prompt if i == 0 else self.refine_prompt
             if i == 0:
                 formatted_prompt = prompt.format_prompt(
-                    question=input_str, context=ranked_doc.context
+                    question=input_str, context=ranked_doc.content
                 )
             else:
                 formatted_prompt = prompt.format_prompt(
@@ -190,6 +184,10 @@ class RefineQA(BaseQA):
                     context=ranked_doc.content,
                     previous_answer=last_answer,
                 )
-            last_answer = self.predict_answer(formatted_prompt)
+            last_answer = self.llm.predict(formatted_prompt)
         self.log_filled_prompt(formatted_prompt)
         return last_answer
+    
+    async def run(self) -> dict:
+        """Ask a question."""
+        raise NotImplementedError("RefineQA is not yet implemented for async")

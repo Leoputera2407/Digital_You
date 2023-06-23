@@ -5,11 +5,12 @@ from langchain.embeddings import OpenAIEmbeddings
 from sentence_transformers import SentenceTransformer
 
 from digital_twin.config.app_config import MINI_CHUNK_SIZE, OPENAI_API_KEY
-from digital_twin.vectordb.chunking.models import InferenceChunk
+from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.server.model import SearchDoc
 
 
 _EMBED_MODEL: Optional[Embeddings | SentenceTransformer] = None
+
 
 
 def chunks_to_search_docs(chunks: list[InferenceChunk] | None) -> list[SearchDoc]:

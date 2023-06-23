@@ -2,6 +2,7 @@
 source_documents/
 models/
 test/localhost_google_app_credentials.json
+local_noteboook_test/
 
 # OSX
 .DS_STORE

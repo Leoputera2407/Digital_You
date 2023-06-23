@@ -6,15 +6,16 @@ from langchain import PromptTemplate
 from langchain.llms.base import BaseLanguageModel
 
 from digital_twin.config.constants import SupportedPromptType
-from digital_twin.qa.chain import RefineQA, StuffQA
+from digital_twin.llm.chains.qa_chain import RefineQA, StuffQA
 from digital_twin.utils.logging import setup_logger
-from digital_twin.vectordb.chunking.models import InferenceChunk
+from digital_twin.indexdb.chunking.models import InferenceChunk
 
 logger = setup_logger()
 
 
 class QAModel:
     def _pick_qa(
+        self,
         prompt_type: SupportedPromptType,
         llm: BaseLanguageModel,
         context_doc: List[InferenceChunk],
@@ -44,19 +45,32 @@ class QAModel:
         self,
         query: str,
         context_docs: List[InferenceChunk],
-        prompt_type: SupportedPromptType,
+        prompt_type: SupportedPromptType = SupportedPromptType.STUFF,
         prompt: PromptTemplate = None,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
         raise NotImplementedError
+    
+    @abc.abstractmethod
+    async def async_answer_question(
+        self,
+        query: str,
+        context_docs: List[InferenceChunk],
+        prompt_type: SupportedPromptType = SupportedPromptType.STUFF,
+        prompt: PromptTemplate = None,
+    ) -> Tuple[
+        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
+    ]:
+        raise NotImplementedError
+    
 
     @abc.abstractmethod
     def answer_question_stream(
         self,
         query: str,
         context_docs: List[InferenceChunk],
-        prompt_type: SupportedPromptType,
+        prompt_type: SupportedPromptType = SupportedPromptType.STUFF,
         prompt: PromptTemplate = None,
     ) -> Generator[Optional[Dict[str, Any]], None, None]:
         raise NotImplementedError

@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Callable
 from copy import deepcopy
 
-from digital_twin.vectordb.chunking.models import (
+from digital_twin.indexdb.chunking.models import (
     EmbeddedIndexChunk,
     IndexChunk,
     InferenceChunk,

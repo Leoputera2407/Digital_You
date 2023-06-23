@@ -10,17 +10,17 @@ from qdrant_client.http.models import (
     MatchValue,
 )
 
-from digital_twin.config.app_config import QDRANT_DEFAULT_COLLECTION, NUM_RETURNED_VECTORDB_HITS, SEARCH_DISTANCE_CUTOFF
+from digital_twin.config.app_config import QDRANT_DEFAULT_COLLECTION, NUM_RETURNED_HITS, SEARCH_DISTANCE_CUTOFF
 from digital_twin.config.constants import ALLOWED_USERS, PUBLIC_DOC_PAT
 
-from digital_twin.embedding.interface import get_default_embedding_model
-from digital_twin.vectordb.utils import get_uuid_from_chunk
-from digital_twin.vectordb.chunking.models import (
+from digital_twin.search.interface import get_default_embedding_model
+from digital_twin.indexdb.utils import get_uuid_from_chunk
+from digital_twin.indexdb.chunking.models import (
     EmbeddedIndexChunk,
     InferenceChunk,
 )
-from digital_twin.vectordb.interface import VectorDB, VectorDBFilter
-from digital_twin.vectordb.qdrant.indexing import index_qdrant_chunks
+from digital_twin.indexdb.interface import VectorIndexDB, IndexFilter
+from digital_twin.indexdb.qdrant.indexing import index_qdrant_chunks
 from digital_twin.utils.clients import get_qdrant_client
 from digital_twin.utils.timing import log_function_time
 from digital_twin.utils.logging import setup_logger
@@ -29,7 +29,7 @@ logger = setup_logger()
 
 
 def _build_qdrant_filters(
-    user_id: UUID | None, filters: list[VectorDBFilter] | None
+    user_id: UUID | None, filters: list[IndexFilter] | None
 ) -> list[FieldCondition]:
     filter_conditions: list[FieldCondition] = []
     # Permissions filter
@@ -75,7 +75,7 @@ def _build_qdrant_filters(
     return filter_conditions
 
 
-class QdrantVectorDB(VectorDB):
+class QdrantVectorDB(VectorIndexDB):
     def __init__(self, collection: str = QDRANT_DEFAULT_COLLECTION) -> None:
         self.collection = collection
         self.client = get_qdrant_client()
@@ -93,9 +93,9 @@ class QdrantVectorDB(VectorDB):
         self,
         query: str,
         user_id: UUID | None,
-        filters: list[VectorDBFilter] | None,
-        num_to_retrieve: int = NUM_RETURNED_VECTORDB_HITS,
-        page_size: int = NUM_RETURNED_VECTORDB_HITS,
+        filters: list[IndexFilter] | None,
+        num_to_retrieve: int = NUM_RETURNED_HITS,
+        page_size: int = NUM_RETURNED_HITS,
         distance_cutoff: float | None = SEARCH_DISTANCE_CUTOFF,
     ) -> list[InferenceChunk]:
         query_embedding = get_default_embedding_model().encode(

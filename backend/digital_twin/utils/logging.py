@@ -1,8 +1,8 @@
 import logging
+import traceback
 from logging import Logger
 from functools import wraps
-from postgrest.exceptions import APIError
-
+from sqlalchemy.exc import SQLAlchemyError
 
 def setup_logger(
     name: str = __name__, log_level: int = logging.INFO
@@ -29,14 +29,16 @@ def setup_logger(
     return logger
 
 
-def log_supabase_api_error(logger):
+def log_sqlalchemy_error(logger):
     def decorator(func):
         @wraps(func)
         def wrapped(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except APIError as e:
-                logger.error(f"API error in {func.__name__}: {e}")
-                return None
+            except SQLAlchemyError as e:
+                logger.error(f"SQLAlchemy error in {func.__name__}: {str(e)}")
+                logger.debug(f"Full traceback: {traceback.format_exc()}")
+
+                return e
         return wrapped
     return decorator

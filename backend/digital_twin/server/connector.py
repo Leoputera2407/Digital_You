@@ -1,6 +1,6 @@
 from collections import defaultdict
 from fastapi import APIRouter, HTTPException, Depends, Request, Response, Query
-
+from typing import Optional
 
 from digital_twin.config.app_config import IS_DEV
 from digital_twin.config.constants import DocumentSource
@@ -23,7 +23,12 @@ from digital_twin.server.model import (
     RunConnectorRequest,
     StatusResponse,
 )
-from digital_twin.db.model import Connector
+from digital_twin.db.model import (
+    Connector, 
+    Credential,
+    User,
+    UserRole,
+)
 
 from digital_twin.connectors.notion.connector_auth import (
     get_auth_url as get_notion_auth_url,
@@ -51,15 +56,12 @@ from digital_twin.db.connectors.connectors import (
     fetch_connectors,
     fetch_latest_index_attempt_by_connector,
     fetch_latest_index_attempts_by_status,
-    get_connector_credentials,
-    fetch_connector_by_list_of_id,    
 )
 from digital_twin.db.connectors.credentials import (
     create_credential,
     delete_credential,
     update_credential,
     fetch_credential_by_id,
-    fetch_credentials_for_user,
     mask_credential_dict,
 )
 from digital_twin.db.connectors.index_attempt import create_index_attempt
@@ -100,7 +102,7 @@ def update_google_app_credentials(
 def check_drive_tokens(
     credential_id: int,
 ) -> AuthStatus:
-    db_credentials = fetch_credential_by_id(credential_id)
+    db_credentials: Optional[Credential] = fetch_credential_by_id(credential_id)
     if (
         not db_credentials
         or DB_CREDENTIALS_DICT_KEY not in db_credentials.credential_json
@@ -192,7 +194,7 @@ def notion_callback(
     return StatusResponse(success=True, message="Updated Notion access tokens")
 
 
-
+"""
 # TODO: Workaround, should remove on deployment
 if IS_DEV:
     @router.get("/google-drive-non-prod/callback")
@@ -620,4 +622,4 @@ def dissociate_credential_from_connector(
         success=True, message="Credential de-associated with Connector"
     )
 
-
+"""

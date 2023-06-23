@@ -15,6 +15,18 @@ HTML_SEPARATOR = "\n"
 PUBLIC_DOC_PAT = "PUBLIC"
 
 
+SLACK_APP_PERMISSIONS = [
+            "app_mentions:read",
+            "channels:history",
+            "channels:join",
+            "channels:read",
+            "chat:write",
+            "chat:write.customize",
+            "commands",
+            "users.profile:read",
+            "users:read",
+        ]
+
 class DocumentSource(str, Enum):
     SLACK = "slack"
     WEB = "web"

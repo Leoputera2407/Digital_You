@@ -1,34 +1,43 @@
-from postgrest.exceptions import APIError
-
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Pattern, Union
 from langchain.chat_models import ChatOpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from slack_sdk.web.async_client import AsyncWebClient
 
 from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
-from digital_twin.qa.personality_chain import RephraseChain, PersonalityChain, NULL_DOC_TOKEN
+from digital_twin.llm.chains.personality_chain import RephraseChain, PersonalityChain, NULL_DOC_TOKEN
 from digital_twin.slack_bot.views import get_view, PERSONALITY_TEXT
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
 from digital_twin.utils.logging import setup_logger
-from digital_twin.db.slack_bot import get_convo_style, update_convo_style
+from digital_twin.db.async_slack_bot import async_get_convo_style, async_update_convo_style
 
 logger = setup_logger()
 
 
-def get_user_conversation_style(slack_user_id: str, team_id: str) -> Optional[str]:
+async def async_get_user_conversation_style(
+        session: AsyncSession, 
+        slack_user_id: str, 
+        team_id: str
+    ) -> Optional[str]:
     """Get conversation style from slack_users table for the 
     given slack_user_id and team_id.
-    
+
     If found on table, return the conversation style.
     Else, return None.
     """
-    conversation_style = get_convo_style(slack_user_id, team_id)
+    conversation_style = await async_get_convo_style(session, slack_user_id, team_id)
     if conversation_style is None:
         return None
     else:
         return conversation_style
 
 
-def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str, chat_pairs: Optional[List[Tuple[str, str]]]) -> Optional[str]:
+async def async_generate_and_store_user_conversation_style(
+        session: AsyncSession, 
+        slack_user_id: str, 
+        team_id: str,
+        chat_pairs: Optional[List[Tuple[str, str]]]
+    ) -> Optional[str]:
     """
     This function generates and stores the conversation style of a user.
 
@@ -62,42 +71,67 @@ def generate_and_store_user_conversation_style(slack_user_id: str, team_id: str,
 
     personality_chain = PersonalityChain(
         llm=llm,
-        # Does nothing for now
-        max_output_tokens=4096,
+        max_output_tokens=500,
     )
 
     # Generate personality description
-    personality_description = personality_chain(
+    personality_description = await personality_chain.async_run(
         examples=chat_pairs,
         slack_user_id=slack_user_id,
     )
-    data = update_convo_style(personality_description, slack_user_id, team_id)
-
+    res = await async_update_convo_style(session, personality_description, slack_user_id, team_id)
+    if res is False:
+        raise Exception(f"Error updating conversation style for {slack_user_id}")
     return personality_description
 
 
-def handle_user_conversation_style(client, command, slack_user_id, team_id, view_id):
+async def async_handle_user_conversation_style(
+        db_session: AsyncSession,
+        client: AsyncWebClient, 
+        command: Union[str, Pattern], 
+        slack_user_id: str, 
+        team_id: str,
+        view_id: str,
+) -> str:
     try:
-        conversation_style = get_user_conversation_style(slack_user_id, team_id)
+        conversation_style = await async_get_user_conversation_style(
+            db_session,
+            slack_user_id, 
+            team_id
+        )
         if conversation_style is None:
-            personality_view = get_view("text_command_modal", text=PERSONALITY_TEXT)
-            client.views_update(view_id=view_id, view=personality_view)
-            _, chat_pairs = scrape_and_store_chat_history(
+            personality_view = get_view(
+                "text_command_modal", text=PERSONALITY_TEXT)
+            await client.views_update(view_id=view_id, view=personality_view)
+            _, chat_pairs = await scrape_and_store_chat_history(
+                db_session,
                 command,
-                slack_user_id, 
-                team_id, 
+                slack_user_id,
+                team_id,
                 client
             )
-            conversation_style = generate_and_store_user_conversation_style(slack_user_id, team_id, chat_pairs)
+            conversation_style = await async_generate_and_store_user_conversation_style(
+                db_session,
+                slack_user_id, 
+                team_id, 
+                chat_pairs,
+            )
     except Exception as e:
-        logger.error(f"Error getting user's conversation style for {slack_user_id}: {e}")
-        raise Exception(f"Error getting user's conversation style for {slack_user_id}: {e}")
+        logger.error(
+            f"Error getting user's conversation style for {slack_user_id}: {e}")
+        raise Exception(
+            f"Error getting user's conversation style for {slack_user_id}: {e}")
 
     return conversation_style
 
 
-
-def rephrase_response(chat_pairs, conversation_style, query, slack_user_id, qa_response):
+async def async_rephrase_response(
+        chat_pairs: Optional[List[Tuple[str, str]]], 
+        conversation_style: str,
+        query: str, 
+        slack_user_id: str, 
+        qa_response: str,
+) -> str :
     # We'll pass our own model here, with our own custom key
     # TODO: Figure out how to do this better
     try:
@@ -113,10 +147,10 @@ def rephrase_response(chat_pairs, conversation_style, query, slack_user_id, qa_r
             # Does nothign for now
             max_output_tokens=4096,
         )
-        response = rephrase_chain(
+        response = await rephrase_chain.async_run(
             examples=chat_pairs,
             conversation_style=conversation_style,
-            query=query, 
+            query=query,
             slack_user_id=slack_user_id,
             document=qa_response if qa_response else NULL_DOC_TOKEN,
         )

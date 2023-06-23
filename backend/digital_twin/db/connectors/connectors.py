@@ -1,172 +1,204 @@
-from typing import List, Optional
-from postgrest import APIResponse
+from typing import cast
+
+from fastapi import HTTPException
+from sqlalchemy import and_, func, select
+from sqlalchemy.orm import Session, aliased
 
 from digital_twin.config.constants import DocumentSource
-from digital_twin.db.model import Connector, Credential, IndexAttempt
-from digital_twin.server.model import ConnectorBase
-from digital_twin.utils.clients import get_supabase_client
-from digital_twin.utils.logging import setup_logger, log_supabase_api_error
+from digital_twin.connectors.model import InputType
+from digital_twin.db.model import Connector, IndexAttempt
+from digital_twin.server.model import (
+    ConnectorBase,
+    ObjectCreationIdResponse,
+    StatusResponse,
+)
+
+from digital_twin.utils.logging import setup_logger, log_sqlalchemy_error
 
 logger = setup_logger()
 
-@log_supabase_api_error(logger)
+@log_sqlalchemy_error(logger)
 def fetch_connectors(
-    user_id: Optional[str] = None,
-    sources: Optional[List[str]] = None,
-    input_types: Optional[List[str]] = None,
-    disabled_status: Optional[bool] = None,
-) -> List[Connector]:
-    supabase = get_supabase_client()
-    query = supabase.table("connector").select("*")
-    if user_id:
-        query = query.eq("user_id", user_id)
+    db_session: Session,
+    sources: list[DocumentSource] | None = None,
+    input_types: list[InputType] | None = None,
+    disabled_status: bool | None = None,
+) -> list[Connector]:
+    stmt = select(Connector)
     if sources is not None:
-        query = query.in_("source", sources)
+        stmt = stmt.where(Connector.source.in_(sources))
     if input_types is not None:
-        query = query.in_("input_type", input_types)
+        stmt = stmt.where(Connector.input_type.in_(input_types))
     if disabled_status is not None:
-        query = query.eq("disabled", disabled_status)
-    response: APIResponse = query.execute()
-    return [Connector(**item) for item in response.data] if response.data else []
+        stmt = stmt.where(Connector.disabled == disabled_status)
+    results = db_session.scalars(stmt)
+    return list(results.all())
 
+@log_sqlalchemy_error(logger)
+def connector_by_name_exists(connector_name: str, db_session: Session) -> bool:
+    stmt = select(Connector).where(Connector.name == connector_name)
+    result = db_session.execute(stmt)
+    connector = result.scalar_one_or_none()
+    return connector is not None
 
-@log_supabase_api_error(logger)
-def connector_by_name_exists(user_id: str, connector_name: str) -> bool:
-    supabase = get_supabase_client()
-    response: APIResponse = supabase.table("connector").select(
-        "*").eq("name", connector_name).eq("user_id", user_id).execute()
-    return bool(response.data)
+@log_sqlalchemy_error(logger)
+def fetch_connector_by_id(connector_id: int, db_session: Session) -> Connector | None:
+    stmt = select(Connector).where(Connector.id == connector_id)
+    result = db_session.execute(stmt)
+    connector = result.scalar_one_or_none()
+    return connector
 
-
-@log_supabase_api_error(logger)
-def fetch_connector_by_id(connector_id: int, user_id: Optional[str] = None ) -> Optional[Connector]:
-    supabase = get_supabase_client()
-    query = supabase.table("connector").select(
-        "*").eq("id", connector_id)
-    if user_id:
-        query = query.eq("user_id", user_id)
-    response: APIResponse = query.execute()
-    data = response.data
-    return Connector(**data[0]) if data else None
-
-@log_supabase_api_error(logger)
-def fetch_connector_by_list_of_id(user_id: str, connector_id_list: List[int]) -> List[Connector]:
-    supabase = get_supabase_client()
-    response: APIResponse = supabase.table("connector").select(
-        "*").in_("id", connector_id_list).eq("user_id", user_id).execute()
-    return [Connector(**item) for item in response.data] if response.data else [] 
-
-
-@log_supabase_api_error(logger)
-def create_connector(user_id: str, connector_data: ConnectorBase) -> Optional[Connector]:
-    supabase = get_supabase_client()
-    if connector_by_name_exists(user_id, connector_data.name):
+@log_sqlalchemy_error(logger)
+def create_connector(
+    connector_data: ConnectorBase,
+    db_session: Session,
+) -> ObjectCreationIdResponse:
+    if connector_by_name_exists(connector_data.name, db_session):
         raise ValueError(
-            "Connector by this name already exists, duplicate naming not allowed.")
-    payload = {
-        "user_id": user_id,
-        **connector_data.dict()
-    }
-    
-    response = supabase.table("connector").insert(payload).execute()
-    data = response.data
-    return Connector(**data[0]) if data else None
+            "Connector by this name already exists, duplicate naming not allowed."
+        )
 
+    connector = Connector(
+        name=connector_data.name,
+        source=connector_data.source,
+        input_type=connector_data.input_type,
+        connector_specific_config=connector_data.connector_specific_config,
+        refresh_freq=connector_data.refresh_freq,
+        disabled=connector_data.disabled,
+    )
+    db_session.add(connector)
+    db_session.commit()
 
-@log_supabase_api_error(logger)
-def update_connector(user_id: str, connector_id: int, connector_data: Connector) -> Optional[Connector]:
-    supabase = get_supabase_client()
-    connector = fetch_connector_by_id(connector_id, user_id)
-    if not connector:
+    return ObjectCreationIdResponse(id=connector.id)
+
+@log_sqlalchemy_error(logger)
+def update_connector(
+    connector_id: int,
+    connector_data: ConnectorBase,
+    db_session: Session,
+) -> Connector | None:
+    connector = fetch_connector_by_id(connector_id, db_session)
+    if connector is None:
         return None
-    if connector_data.name != connector.name and connector_by_name_exists(user_id, connector_data.name):
+
+    if connector_data.name != connector.name and connector_by_name_exists(
+        connector_data.name, db_session
+    ):
         raise ValueError(
-            "Connector by this name already exists, duplicate naming not allowed.")
-    response = supabase.table("connector").update(
-        connector_data.dict()).eq("id", connector_id).eq("user_id", user_id).execute()
-    data = response.data
-    return Connector(**data[0]) if data else None
+            "Connector by this name already exists, duplicate naming not allowed."
+        )
 
+    connector.name = connector_data.name
+    connector.source = connector_data.source
+    connector.input_type = connector_data.input_type
+    connector.connector_specific_config = connector_data.connector_specific_config
+    connector.refresh_freq = connector_data.refresh_freq
+    connector.disabled = connector_data.disabled
 
-@log_supabase_api_error(logger)
-def disable_connector(user_id: str, connector_id: int) -> Optional[Connector]:
-    supabase = get_supabase_client()
-    connector = fetch_connector_by_id(connector_id, user_id)
-    if not connector:
-        return None
-    response = supabase.table("connector").update(
-        {"disabled": True}).eq("id", connector_id).eq("user_id", user_id).execute()
-    data = response.data
-    return Connector(**data[0]) if data else None
+    db_session.commit()
+    return connector
 
+@log_sqlalchemy_error(logger)
+def disable_connector(
+    connector_id: int,
+    db_session: Session,
+) -> StatusResponse[int]:
+    connector = fetch_connector_by_id(connector_id, db_session)
+    if connector is None:
+        raise HTTPException(status_code=404, detail="Connector does not exist")
 
-@log_supabase_api_error(logger)
-def delete_connector(user_id:str, connector_id: int) -> Optional[Connector]:
-    supabase = get_supabase_client()
-    connector = fetch_connector_by_id(connector_id, user_id)
-    if not connector:
-        return None
-    response = supabase.table("connector").delete().eq(
-        "id", connector_id).eq("user_id", user_id).execute()
-    data = response.data
-    return Connector(**data[0]) if data else None
+    connector.disabled = True
+    db_session.commit()
+    return StatusResponse(
+        success=True, message="Connector deleted successfully", data=connector_id
+    )
 
+@log_sqlalchemy_error(logger)
+def delete_connector(
+    connector_id: int,
+    db_session: Session,
+) -> StatusResponse[int]:
+    """Currently unused due to foreign key restriction from IndexAttempt
+    Use disable_connector instead"""
+    connector = fetch_connector_by_id(connector_id, db_session)
+    if connector is None:
+        return StatusResponse(
+            success=True, message="Connector was already deleted", data=connector_id
+        )
 
-@log_supabase_api_error(logger)
-def get_connector_credentials(user_id: str, connector_id: int, credential_id: int = None) -> List[Credential]:
-    supabase = get_supabase_client()
-    connector = fetch_connector_by_id(connector_id, user_id)
-    if not connector:
+    db_session.delete(connector)
+    db_session.commit()
+    return StatusResponse(
+        success=True, message="Connector deleted successfully", data=connector_id
+    )
+
+@log_sqlalchemy_error(logger)
+def get_connector_credential_ids(
+    connector_id: int,
+    db_session: Session,
+) -> list[int]:
+    connector = fetch_connector_by_id(connector_id, db_session)
+    if connector is None:
         raise ValueError(f"Connector by id {connector_id} does not exist")
-    query = supabase.table("connector_credential_association").select(
-        "credential(*)").eq("connector_id", connector_id)
-    if credential_id:
-        query = query.eq("credential_id", credential_id)
-    response: APIResponse = query.execute()
-    return [Credential(**item['credential']) for item in response.data] if response.data else []
 
+    return [association.credential.id for association in connector.credentials]
 
-
-
-@log_supabase_api_error(logger)
-def fetch_latest_index_attempts_by_status() -> List[IndexAttempt]:
-    supabase = get_supabase_client()
-    response: APIResponse = supabase.rpc("fetch_latest_index_attempt_by_connector",  params={}).execute()
-    return [IndexAttempt(**item) for item in response.data]
-
+@log_sqlalchemy_error(logger)
 def fetch_latest_index_attempt_by_connector(
-    user_id: str,
-    source: Optional[DocumentSource] = None,
-) -> List[IndexAttempt]:
-    supabase = get_supabase_client()
-    latest_index_attempts: List[IndexAttempt] = []
+    db_session: Session,
+    source: DocumentSource | None = None,
+) -> list[IndexAttempt]:
+    latest_index_attempts: list[IndexAttempt] = []
 
     if source:
         connectors = fetch_connectors(
-            user_id=user_id, sources=[source], disabled_status=False
+            db_session, sources=[source], disabled_status=False
         )
     else:
-        connectors = fetch_connectors(user_id=user_id, disabled_status=False)
+        connectors = fetch_connectors(db_session, disabled_status=False)
 
     if not connectors:
-        logger.info("No connectors found")
         return []
 
     for connector in connectors:
-        response: APIResponse = supabase.table("index_attempt").select('*').eq(
-            "connector_id", connector.id).order("updated_at", desc=True).execute()
-        if response.data:
-            latest_index_attempt = IndexAttempt(**response.data[0])
+        latest_index_attempt = (
+            db_session.query(IndexAttempt)
+            .filter(IndexAttempt.connector_id == connector.id)
+            .order_by(IndexAttempt.time_updated.desc())
+            .first()
+        )
+
+        if latest_index_attempt is not None:
             latest_index_attempts.append(latest_index_attempt)
 
     return latest_index_attempts
 
+@log_sqlalchemy_error(logger)
+def fetch_latest_index_attempts_by_status(
+    db_session: Session,
+) -> list[IndexAttempt]:
+    subquery = (
+        db_session.query(
+            IndexAttempt.connector_id,
+            IndexAttempt.credential_id,
+            IndexAttempt.status,
+            func.max(IndexAttempt.time_updated).label("time_updated"),
+        )
+        .group_by(IndexAttempt.connector_id)
+        .group_by(IndexAttempt.credential_id)
+        .group_by(IndexAttempt.status)
+        .subquery()
+    )
 
-@log_supabase_api_error(logger)
-def fetch_latest_index_attempts_by_status(user_id: str) -> List[IndexAttempt]:
-    supabase = get_supabase_client()
-    # Will return the latest index attempt status for each connector and credential pair
-    response: APIResponse = supabase.rpc("fetch_latest_index_attempt_by_connector",  params={"func_user_id": user_id}).execute()
-    return [IndexAttempt(**item) for item in response.data] if response.data else []
+    alias = aliased(IndexAttempt, subquery)
 
-    
+    query = db_session.query(IndexAttempt).join(
+        alias,
+        and_(
+            IndexAttempt.connector_id == alias.connector_id,
+            IndexAttempt.credential_id == alias.credential_id,
+            IndexAttempt.status == alias.status,
+            IndexAttempt.time_updated == alias.time_updated,
+        ),
+    )
+    return cast(list[IndexAttempt], query.all())

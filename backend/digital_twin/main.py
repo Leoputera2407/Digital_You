@@ -40,7 +40,7 @@ def get_application() -> FastAPI:
         from digital_twin.config.app_config import (
             QDRANT_DEFAULT_COLLECTION,
         )
-        from digital_twin.vectordb.qdrant.indexing import (
+        from digital_twin.indexdb.qdrant.indexing import (
             create_collection,
             list_collections,
         )

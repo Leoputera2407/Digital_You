@@ -1,98 +1,88 @@
 from typing import List, Optional
+from sqlalchemy.orm import Session
+from sqlalchemy import select, update, delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.utils.clients import get_supabase_client
-from digital_twin.utils.logging import setup_logger, log_supabase_api_error
-from digital_twin.db.model import APIKey, ModelConfig, DBAPIKeyType
+from digital_twin.db.model import APIKey, ModelConfig, User, DBAPIKeyType
 from digital_twin.server.model import APIKeyBase, BaseModelConfig
+from digital_twin.utils.logging import log_sqlalchemy_error, setup_logger
+
 
 logger = setup_logger()
 
 def mask_api_key(sensitive_str: str) -> str:
     return sensitive_str[:4] + "***...***" + sensitive_str[-4:]
 
-@log_supabase_api_error(logger)
-def upsert_api_key(user_id: str, api_key: APIKeyBase) -> Optional[APIKey]:
-    supabase = get_supabase_client()
-    payload = {
-        "user_id": user_id,
-        **api_key.dict()
-    }
-    response = supabase.table("api_keys").upsert(payload, on_conflict="user_id,key_type").execute()
-    data = response.data
-    return APIKey(**data[0]) if data else None
+@log_sqlalchemy_error(logger)
+def upsert_api_key(user: User, api_key: APIKeyBase, db_session: Session) -> Optional[APIKey]:
+    stmt = update(APIKey).where(APIKey.user_id == user.id, APIKey.key_type == api_key.key_type).values(**api_key.dict())
+    db_session.execute(stmt)
 
+    updated_api_key = db_session.execute(select(APIKey).where(APIKey.user_id == user.id, APIKey.key_type == api_key.key_type)).scalar_one()
+    return updated_api_key
 
-@log_supabase_api_error(logger)
-def get_db_api_key(user_id: str = None, key_type: DBAPIKeyType = None) -> List[APIKey]:
-    supabase = get_supabase_client()
-    if not user_id and not key_type:
-        return None
-    query = supabase.table("api_keys").select("*")
-    if user_id:
-        query = query.eq("user_id", user_id)
+@log_sqlalchemy_error(logger)
+def get_db_api_key(
+    db_session: Session,
+    user: User = None,
+    key_type: DBAPIKeyType = None
+) -> List[APIKey]:
+    if not user:
+        return []
+    stmt = select(APIKey)
     if key_type:
-        query = query.eq("key_type", key_type)
-    response = query.execute()
-    data = response.data
-    return [APIKey(**api_key) for api_key in data] if data else []
+        stmt = stmt.where(APIKey.user_id == user.id, APIKey.key_type == key_type)
+    api_keys = db_session.execute(stmt).scalars().all()
+    return api_keys
 
+@log_sqlalchemy_error(logger)
+async def async_get_db_api_key(
+    db_session: AsyncSession, 
+    user: User = None, 
+    key_type: DBAPIKeyType = None
+) -> List[APIKey]:
+    stmt = select(APIKey)
+    if user:
+        stmt = stmt.where(APIKey.user_id == user.id)
+    if key_type:
+        stmt = stmt.where(APIKey.key_type == key_type)
+    result = await db_session.execute(stmt)
+    api_keys = result.scalars().all()
+    return api_keys
 
-@log_supabase_api_error(logger)
-def delete_api_key(user_id: str, key_type: DBAPIKeyType) -> Optional[APIKey]:
-    supabase = get_supabase_client()
-    response = supabase.table("api_keys").delete().eq(
-        "key_type", key_type).eq("user_id", user_id).execute()
-    data = response.data
-    return APIKey(**data[0]) if data else None
+@log_sqlalchemy_error(logger)
+def delete_api_key(user: User, key_type: DBAPIKeyType, db_session: Session) -> bool:
+    stmt = delete(APIKey).where(APIKey.user_id == user.id, APIKey.key_type == key_type)
+    result = db_session.execute(stmt)
+    db_session.commit()
+    return result.rowcount > 0
 
+@log_sqlalchemy_error(logger)
+def upsert_model_config(user: User, model_config: BaseModelConfig, db_session: Session) -> Optional[ModelConfig]:
+    stmt = update(ModelConfig).where(ModelConfig.user_id == user.id).values(**model_config.dict())
+    db_session.execute(stmt)
+    
+    updated_model_config = db_session.execute(select(ModelConfig).where(ModelConfig.user_id == user.id)).scalar_one()
+    return updated_model_config
 
-@log_supabase_api_error(logger)
-def upsert_model_config(user_id: str, model_config: BaseModelConfig) -> Optional[ModelConfig]:
-    supabase = get_supabase_client()
-    payload = {
-        "user_id": user_id,
-        **model_config.dict()
-    }
-    response = supabase.table("model_config").upsert(payload, on_conflict="user_id").execute()
-    data = response.data
-    return ModelConfig(**data[0]) if data else None
+@log_sqlalchemy_error(logger)
+def get_model_config_by_user(db_session: Session, user: Optional[User] = None) -> Optional[ModelConfig]:
+    if not user:
+        return None
+    model_config = db_session.execute(select(ModelConfig).where(ModelConfig.user_id == user.id)).scalar_one_or_none()
+    return model_config
 
-
-@log_supabase_api_error(logger)
-def get_model_config_by_user(user_id: str) -> Optional[ModelConfig]:
-    supabase = get_supabase_client()
-    response = supabase.table("model_config").select(
-        "*").eq("user_id", user_id).single().execute()
-    data = response.data
-    return ModelConfig(**data) if data else None
+@log_sqlalchemy_error(logger)
+async def async_get_model_config_by_user(async_session: AsyncSession, user: User,) -> Optional[ModelConfig]:
+    if not user:
+        return None
+    model_config = await async_session.execute(select(ModelConfig).where(ModelConfig.user_id == user.id))
+    return model_config.scalars().first()
 
 # This mostly for testing purposes, don't expose to the API
-@log_supabase_api_error(logger)
-def delete_model_config(user_id: str, model_id: str) -> Optional[ModelConfig]:
-    supabase = get_supabase_client()
-    response = supabase.table("model_config").delete().eq(
-        "model_id", model_id).eq("user_id", user_id).execute()
-    data = response.data
-    return ModelConfig(**data[0]) if data else None
-
-@log_supabase_api_error(logger)
-def single_item_query(table_name, query_params) -> Optional[ModelConfig]:
-    client = get_supabase_client()
-    query = client.table(table_name).select('*')
-    for key, value in query_params.items():
-        if value is not None:
-            query = query.eq(key, value)
-    response = query.single().execute()
-    data = response.data
-    return ModelConfig(**data[0]) if response.data else None
-
-@log_supabase_api_error(logger)
-def multi_item_query(table_name, query_params) -> List[ModelConfig]:
-    client = get_supabase_client()
-    query = client.table(table_name).select('*')
-    for key, value in query_params.items():
-        if value is not None:
-            query = query.eq(key, value)
-    response = query.execute()
-    data = response.data
-    return[ModelConfig(**i) for i in data] if data else None
+@log_sqlalchemy_error(logger)
+def delete_model_config(user: User, model_id: str, db_session: Session) -> bool:
+    stmt = delete(ModelConfig).where(ModelConfig.user_id == user.id, ModelConfig.id == model_id)
+    result = db_session.execute(stmt)
+    db_session.commit()
+    return result.rowcount > 0
