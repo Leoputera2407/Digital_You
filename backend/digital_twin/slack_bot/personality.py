@@ -14,30 +14,12 @@ from digital_twin.db.async_slack_bot import async_get_convo_style, async_update_
 logger = setup_logger()
 
 
-async def async_get_user_conversation_style(
-        session: AsyncSession, 
-        slack_user_id: str, 
-        team_id: str
-    ) -> Optional[str]:
-    """Get conversation style from slack_users table for the 
-    given slack_user_id and team_id.
-
-    If found on table, return the conversation style.
-    Else, return None.
-    """
-    conversation_style = await async_get_convo_style(session, slack_user_id, team_id)
-    if conversation_style is None:
-        return None
-    else:
-        return conversation_style
-
-
 async def async_generate_and_store_user_conversation_style(
-        session: AsyncSession, 
-        slack_user_id: str, 
-        team_id: str,
-        chat_pairs: Optional[List[Tuple[str, str]]]
-    ) -> Optional[str]:
+    session: AsyncSession, 
+    slack_user_id: str, 
+    team_id: str,
+    chat_pairs: Optional[List[Tuple[str, str]]]
+) -> Optional[str]:
     """
     This function generates and stores the conversation style of a user.
 
@@ -94,7 +76,7 @@ async def async_handle_user_conversation_style(
         view_id: str,
 ) -> str:
     try:
-        conversation_style = await async_get_user_conversation_style(
+        conversation_style = await async_get_convo_style(
             db_session,
             slack_user_id, 
             team_id

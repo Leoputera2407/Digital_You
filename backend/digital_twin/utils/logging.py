@@ -38,7 +38,26 @@ def log_sqlalchemy_error(logger):
             except SQLAlchemyError as e:
                 logger.error(f"SQLAlchemy error in {func.__name__}: {str(e)}")
                 logger.debug(f"Full traceback: {traceback.format_exc()}")
+                raise e
+            except Exception as e:
+                logger.error(f"SQLAlchemy error in {func.__name__}: {str(e)}")
+                raise e
+        return wrapped
+    return decorator
 
-                return e
+
+def async_log_sqlalchemy_error(logger):
+    def decorator(func):
+        @wraps(func)
+        async def wrapped(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except SQLAlchemyError as e:
+                logger.error(f"SQLAlchemy error in {func.__name__}: {str(e)}")
+                logger.debug(f"Full traceback: {traceback.format_exc()}")
+                raise e
+            except Exception as e:
+                logger.error(f"General error in {func.__name__}: {str(e)}")
+                raise e
         return wrapped
     return decorator

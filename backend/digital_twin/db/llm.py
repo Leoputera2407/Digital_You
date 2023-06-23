@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.db.model import APIKey, ModelConfig, User, DBAPIKeyType
+from digital_twin.db.model import APIKey, ModelConfig, User, DBAPIKeyType, SlackUser
 from digital_twin.server.model import APIKeyBase, BaseModelConfig
-from digital_twin.utils.logging import log_sqlalchemy_error, setup_logger
+from digital_twin.utils.logging import log_sqlalchemy_error, setup_logger, async_log_sqlalchemy_error
 
 
 logger = setup_logger()
@@ -24,8 +24,8 @@ def upsert_api_key(user: User, api_key: APIKeyBase, db_session: Session) -> Opti
 @log_sqlalchemy_error(logger)
 def get_db_api_key(
     db_session: Session,
-    user: User = None,
-    key_type: DBAPIKeyType = None
+    user: Optional[User] = None,
+    key_type: Optional[DBAPIKeyType] = None
 ) -> List[APIKey]:
     if not user:
         return []
@@ -35,19 +35,27 @@ def get_db_api_key(
     api_keys = db_session.execute(stmt).scalars().all()
     return api_keys
 
-@log_sqlalchemy_error(logger)
-async def async_get_db_api_key(
+@async_log_sqlalchemy_error(logger)
+async def async_get_db_api_key_for_slack_user(
     db_session: AsyncSession, 
-    user: User = None, 
-    key_type: DBAPIKeyType = None
+    slack_user: Optional[SlackUser] = None, 
+    key_type: Optional[DBAPIKeyType] = None
 ) -> List[APIKey]:
-    stmt = select(APIKey)
-    if user:
-        stmt = stmt.where(APIKey.user_id == user.id)
+    if not slack_user:
+        return []
+    stmt = (
+        select(APIKey)
+        .join(User, APIKey.user_id == User.id)
+        .join(SlackUser, User.id == SlackUser.user_id)
+        .where(SlackUser.id == slack_user.id)
+    )
+    
     if key_type:
         stmt = stmt.where(APIKey.key_type == key_type)
+
     result = await db_session.execute(stmt)
     api_keys = result.scalars().all()
+    
     return api_keys
 
 @log_sqlalchemy_error(logger)
@@ -66,17 +74,28 @@ def upsert_model_config(user: User, model_config: BaseModelConfig, db_session: S
     return updated_model_config
 
 @log_sqlalchemy_error(logger)
-def get_model_config_by_user(db_session: Session, user: Optional[User] = None) -> Optional[ModelConfig]:
+def get_model_config_by_user(
+    db_session: Session, 
+    user: Optional[User] = None
+) -> Optional[ModelConfig]:
     if not user:
         return None
     model_config = db_session.execute(select(ModelConfig).where(ModelConfig.user_id == user.id)).scalar_one_or_none()
     return model_config
 
-@log_sqlalchemy_error(logger)
-async def async_get_model_config_by_user(async_session: AsyncSession, user: User,) -> Optional[ModelConfig]:
-    if not user:
+@async_log_sqlalchemy_error(logger)
+async def async_get_model_config_by_slack_user(
+    async_session: AsyncSession,
+    slack_user: Optional[SlackUser] = None,
+) -> Optional[ModelConfig]:
+    if not slack_user:
         return None
-    model_config = await async_session.execute(select(ModelConfig).where(ModelConfig.user_id == user.id))
+    model_config = await async_session.execute(
+        select(ModelConfig)
+        .join(User, ModelConfig.user_id == User.id)
+        .join(SlackUser, User.id == SlackUser.user_id)
+        .where(SlackUser.id == slack_user.id)
+    )
     return model_config.scalars().first()
 
 # This mostly for testing purposes, don't expose to the API

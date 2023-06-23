@@ -49,7 +49,7 @@ class BasePersonalityChain(BaseChain):
     
     async def async_run(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
         formatted_prompt = self.get_filled_prompt(examples, **kwargs)
-        return self.llm.apredict(formatted_prompt)
+        return await self.llm.apredict(formatted_prompt)
 
 
 class PersonalityChain(BasePersonalityChain):

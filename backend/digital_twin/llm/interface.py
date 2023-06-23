@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.config.app_config import DEFAULT_LLM
 from digital_twin.config.model_config import ModelInfo, SupportedModelType
-from digital_twin.db.llm import get_model_config_by_user, async_get_model_config_by_user
+from digital_twin.db.llm import get_model_config_by_user, async_get_model_config_by_slack_user
 from digital_twin.db.model import User
 
 from digital_twin.utils.logging import setup_logger
@@ -52,7 +52,7 @@ def get_selected_model_config(db_session: Session, user: Optional[User]=None) ->
 
 
 async def async_get_selected_model_config(db_session: AsyncSession, user: Optional[User] = None) -> SelectedModelConfig:
-    model_config = await async_get_model_config_by_user(user, db_session)
+    model_config = await async_get_model_config_by_slack_user(user, db_session)
     if not model_config:
         logger.info("No model config found for user, using default model config")
         model_config = SelectedModelConfig(

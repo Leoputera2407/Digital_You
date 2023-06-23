@@ -77,8 +77,12 @@ def get_session() -> Generator[Session, None, None]:
         yield session
 
 
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_async_session_generator() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSession(
         get_sqlalchemy_async_engine(), expire_on_commit=False
     ) as async_session:
         yield async_session
+
+
+def get_async_session() -> AsyncSession:
+    return AsyncSession(get_sqlalchemy_async_engine(), expire_on_commit=False)

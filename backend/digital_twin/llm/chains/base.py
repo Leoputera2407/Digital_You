@@ -47,6 +47,6 @@ class BaseChain:
         formatted_prompt = self.get_filled_prompt(query, **kwargs)
         return self.llm.predict(formatted_prompt)
     
-    def async_run(self, query: str, **kwargs) -> dict:
+    async def async_run(self, query: str, **kwargs) -> dict:
         formatted_prompt = self.get_filled_prompt(query, **kwargs)
-        return self.llm.apredict(formatted_prompt)
+        return await self.llm.apredict(formatted_prompt)

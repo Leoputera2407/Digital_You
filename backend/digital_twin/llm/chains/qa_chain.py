@@ -60,7 +60,7 @@ class BaseQA(BaseChain):
     
     async def async_run(self, input_str: str) -> dict:
         formatted_prompt = self.get_filled_prompt(input_str)
-        return self.llm.apredict(formatted_prompt)
+        return await self.llm.apredict(formatted_prompt)
     
 
 class StuffQA(BaseQA):

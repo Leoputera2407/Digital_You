@@ -1,31 +1,11 @@
 import re 
 import time 
 
-from slack_sdk.web import WebClient
-from slack_bolt import BoltContext
 from typing import Optional, List
 
 from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
 
-   
-def retrieve_sorted_past_messages(
-    client: WebClient, 
-    context: BoltContext,
-    thread_ts: Optional[str]= None, # Not in thread if None
-    limit_scanned_messages: int = 1000,
-) -> List[str]:
-    past_messages = client.conversations_history(
-        channel=context.channel_id,
-        include_all_metadata=True,
-        ts=thread_ts,
-        limit=limit_scanned_messages,
-    ).get("messages", [])
-
-    # Sort messages by timestamp, in ascending order
-    past_messages.sort(key=lambda m: m["ts"])
-
-    return past_messages
 
 def get_the_last_messages_in_thread(
     sorted_past_messages: List[str],

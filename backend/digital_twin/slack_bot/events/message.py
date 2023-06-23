@@ -7,10 +7,10 @@ from slack_sdk.web import WebClient
 
 from digital_twin.utils.slack import (
     format_slack_to_openai, 
-    format_openai_to_slack,
-    retrieve_sorted_past_messages,
     get_the_last_messages_in_thread,
 )
+
+from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
 
 
 def is_bot_in_thread(

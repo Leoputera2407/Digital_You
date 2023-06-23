@@ -2,6 +2,7 @@ from enum import Enum as pyEnum
 from datetime import datetime
 from typing import List, Any
 from sqlalchemy import (
+    Index,
     Enum, 
     ForeignKey, 
     Integer, 
@@ -82,17 +83,39 @@ class User(Base):
     # TODO: Supabase doesn't expose their auth.users schema, so we can't put a reference it as a foreign key
     # This is handled in the handle_new_users() trigger that can be found in the Supabase UI
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"))
     first_name: Mapped[str | None] = mapped_column(String, nullable=True)
     last_name: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, native_enum=False, default=UserRole.BASIC)
+        Enum(UserRole, native_enum=False, default=UserRole.BASIC), server_default=UserRole.BASIC.value
     )
-    organization: Mapped[Organization] = relationship("Organization", back_populates="users", lazy="joined")
+    organization: Mapped[Organization] = relationship(
+        "Organization", back_populates="users", lazy="joined"
+    )
 
     credentials: Mapped[List["Credential"]] = relationship(
-        "Credential", back_populates="users", lazy="joined"
+        "Credential", back_populates="user", lazy="joined"
     )
+
+    slack_users: Mapped[List["SlackUser"]] = relationship(
+        "SlackUser",
+        back_populates="user",
+        lazy="joined",
+    )
+
+    api_keys: Mapped[List["APIKey"]] = relationship(
+        "APIKey",
+        back_populates="user",
+        lazy="joined",
+    )
+
+    model_configs: Mapped[List["ModelConfig"]] = relationship(
+        "ModelConfig",
+        back_populates="user",
+        lazy="joined",
+    )
+
 
 class ConnectorCredentialPair(Base):
     """Connectors and Credentials can have a many-to-many relationship
@@ -141,11 +164,13 @@ class Connector(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
+
 
     organization: Mapped[Organization] = relationship(
                 "Organization", 
                 back_populates="connectors"
-        )
+    )
     credentials: Mapped[List["ConnectorCredentialPair"]] = relationship(
         "ConnectorCredentialPair",
         back_populates="connector",
@@ -161,7 +186,7 @@ class Credential(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     credential_json: Mapped[dict[str, Any]] = mapped_column(postgresql.JSONB())
-    user_id: Mapped[UUID | None] = mapped_column(ForeignKey("user.id"), nullable=True)
+    user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     # This means anyone can read the index
     public_doc: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -308,7 +333,7 @@ class CSRFToken(Base):
     __tablename__ = 'csrf_tokens'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    credential_id: Mapped[int] = mapped_column(Integer, ForeignKey('credentials.id'))
+    credential_id: Mapped[int] = mapped_column(Integer, ForeignKey('credential.id'))
     csrf_token: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -318,3 +343,85 @@ class CSRFToken(Base):
     )
 
     credential: Mapped[Credential] = relationship("Credential", back_populates="csrf_tokens")
+
+
+# These are copied over from Slack_SDK 
+#  OuathStore (https://github.com/slackapi/python-slack-sdk/blob/main/slack_sdk/oauth/state_store/sqlalchemy/__init__.py)
+#  InstallationStore (https://github.com/slackapi/python-slack-sdk/blob/main/slack_sdk/oauth/installation_store/sqlalchemy/__init__.py)
+# The function they provide doesn't allow us to expose it to our Base.
+class SlackOAuthStates(Base):
+    __tablename__ = "slack_oauth_states"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    state: Mapped[str] = mapped_column(String(200), nullable=False)
+    expire_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+class SlackInstallations(Base):
+    __tablename__ = "slack_installations"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    app_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    enterprise_id: Mapped[str] = mapped_column(String(32), nullable=True)
+    enterprise_name: Mapped[str] = mapped_column(String(200), nullable=True)
+    enterprise_url: Mapped[str] = mapped_column(String(200), nullable=True)
+    team_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    team_name: Mapped[str] = mapped_column(String(200), nullable=True)
+    bot_token: Mapped[str] = mapped_column(String(200), nullable=True)
+    bot_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    bot_user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    bot_scopes: Mapped[str] = mapped_column(String(1000), nullable=False)
+    bot_refresh_token: Mapped[str] = mapped_column(String(200), nullable=True)
+    bot_token_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    user_token: Mapped[str] = mapped_column(String(200), nullable=True)
+    user_scopes: Mapped[str] = mapped_column(String(1000), nullable=True)
+    user_refresh_token: Mapped[str] = mapped_column(String(200), nullable=True)
+    user_token_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    incoming_webhook_url: Mapped[str] = mapped_column(String(200), nullable=True)
+    incoming_webhook_channel: Mapped[str] = mapped_column(String(200), nullable=True)
+    incoming_webhook_channel_id: Mapped[str] = mapped_column(String(200), nullable=True)
+    incoming_webhook_configuration_url: Mapped[str] = mapped_column(String(200), nullable=True)
+    is_enterprise_install: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    token_type: Mapped[str] = mapped_column(String(32), nullable=True)
+    installed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.now())
+    
+    __table_args__ = (
+        Index(
+            "installations_idx",
+            "client_id",
+            "enterprise_id",
+            "team_id",
+            "user_id",
+            "installed_at",
+        ),
+    )
+
+class SlackBots(Base):
+    __tablename__ = "slack_bots"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    app_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    enterprise_id: Mapped[str] = mapped_column(String(32), nullable=True)
+    enterprise_name: Mapped[str] = mapped_column(String(200), nullable=True)
+    team_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    team_name: Mapped[str] = mapped_column(String(200), nullable=True)
+    bot_token: Mapped[str] = mapped_column(String(200), nullable=False)
+    bot_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    bot_user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    bot_scopes: Mapped[str] = mapped_column(String(1000), nullable=False)
+    bot_refresh_token: Mapped[str] = mapped_column(String(200), nullable=True)
+    bot_token_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    is_enterprise_install: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    installed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.now())
+    
+    __table_args__ = (
+        Index(
+            "bots_idx",
+            "client_id",
+            "enterprise_id",
+            "team_id",
+            "installed_at",
+        ),
+    )

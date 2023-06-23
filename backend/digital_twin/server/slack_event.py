@@ -5,10 +5,11 @@ from typing import Dict, Any, Callable, Awaitable
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from langchain.chat_models import ChatOpenAI
 
-from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
+from slack_sdk.http_retry.builtin_async_handlers import AsyncRateLimitErrorRetryHandler
 from slack_bolt import BoltResponse
 from slack_bolt.error import BoltError
 from slack_bolt.request.payload_utils import is_event, is_view, is_action
@@ -25,10 +26,10 @@ from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
 # TODO: Use this instead
 # from digital_twin.llm import get_selected_llm_instance
 # from digital_twin.llm.interface import get_selected_model_config
-from digital_twin.llm.config import async_get_api_key
+from digital_twin.llm.config import async_get_api_key_for_slack_user
 from digital_twin.config.app_config import WEB_DOMAIN, SLACK_USER_TOKEN
 from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
-from digital_twin.db.engine import get_async_session
+from digital_twin.db.engine import get_async_session, get_session
 from digital_twin.llm.chains.personality_chain import ShuffleChain
 from digital_twin.slack_bot.views import (
     get_view,
@@ -81,7 +82,7 @@ slack_app = AsyncApp(
     before_authorize=before_authorize,
     raise_error_for_unhandled_request=True,
 )
-slack_app.client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
+slack_app.client.retry_handlers.append(AsyncRateLimitErrorRetryHandler(max_retry_count=2))
 
 async def just_ack(ack: AsyncAck):
     await ack()
@@ -105,10 +106,12 @@ class SlackServerSignup(BaseModel):
 
 @router.get("/slack/server_signup", dependencies=[Depends(JWTBearer())])
 async def slack_server_signup(
-    signup_info: SlackServerSignup = Depends()
+    signup_info: SlackServerSignup = Depends(),
+    db_session: Session = Depends(get_session),
 ):
     try:
         res = insert_slack_user(
+            db_session,
             signup_info.slack_user_id, 
             signup_info.team_id,
             signup_info.supabase_user_id
@@ -121,7 +124,7 @@ async def slack_server_signup(
        
         return JSONResponse(status_code=status.HTTP_201_CREATED, content={"message": "User successfully signed up."})
     except Exception as e:
-        logger.error("Error while signing up slack user: {e}")
+        logger.error(f"Error while signing up slack user: {e}")
         return HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail="Internal Server Error"
@@ -163,32 +166,26 @@ async def set_user_info(
     else:
         slack_user_id = payload.get("user_id", '')
         team_id = payload.get("team_id", '')
-    if not slack_user_id or not team_id:
-        # Wierd edge-case, just in case we get a bad payload
-        raise BoltError(f'Error while verifying the slack token')
     try:
+        if not slack_user_id or not team_id:
+            # Wierd edge-case, just in case we get a bad payload
+            raise ValueError(f'Error while verifying the slack token')
         # Look up user in external system using their Slack user ID
         async with get_async_session() as async_db_session: 
             user: SlackUser = await async_get_slack_user(async_db_session, slack_user_id, team_id)
-            user_id = user.user_id
             if user is None:
-                raise ValueError("no ID found")
-            context["DB_USER_ID"] = user_id
+                raise ValueError("No Matching User ID found for slack_user {slack_user_id}}")
+            context["DB_USER_ID"] = user.user_id
             # TODO: Use model config, to support other models, for now OPENAI only!
-            context["OPENAI_API_KEY"] = await async_get_api_key(
+            context["OPENAI_API_KEY"] = await async_get_api_key_for_slack_user(
                 async_db_session,
-                user,
                 "openai",
+                user,
             )
-    except Exception:
+    except Exception as e:
         search_params = f"?slack_user_id={slack_user_id}&team_id={team_id}"
-        await client.chat_postEphemeral(
-            channel=payload.get("channel_id", ''),
-            user=slack_user_id,
-            text=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN}/interface/slack{search_params} | Prosona Website>"
-        )
-        raise BoltError(f'Error while verifying the slack token')
-    
+        logger.info(f"Error while verifying the slack token: {e}")
+        return BoltResponse(status=200, body=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN}/slack/interface{search_params} | Prosona Website>")
     
     context["OPENAI_MODEL"] = "gpt-3.5-turbo"
     await next_()
