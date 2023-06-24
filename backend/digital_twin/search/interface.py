@@ -56,9 +56,9 @@ def retrieve_semantic_documents(
     num_hits: int = NUM_RETURNED_HITS,
 ) -> List[InferenceChunk] | None:
     """
-    This is purely a semantic serach + reranking
+    This is purely a semantic search
 
-    :return: tuple of (re-ranked chunks, the rest of the top chunks)
+    :return: top_chunks
     """
     top_chunks = vectordb.semantic_retrieval(query, filters, num_hits)
     if not top_chunks:
@@ -80,6 +80,11 @@ def retrieve_keyword_documents(
     datastore: KeywordIndex,
     num_hits: int = NUM_RETURNED_HITS,
 ) -> list[InferenceChunk] | None:
+    """
+    This is purely a keyword search
+    
+    :return: top_chunks
+    """
     edited_query = keyword_search_query_processing(query)
     top_chunks = datastore.keyword_search(
         edited_query, user_id, filters, num_hits)
@@ -102,7 +107,7 @@ def retrieve_semantic_rerank_documents(
     num_rerank: int = NUM_RERANKED_RESULTS,
 ) -> tuple[list[InferenceChunk] | None, list[InferenceChunk] | None]:
     """
-    This is purely a semantic serach + reranking
+    This is for semantic serach + reranking
 
     :return: tuple of (re-ranked chunks, the rest of the top chunks)
     """
@@ -139,7 +144,7 @@ async def async_retrieve_hybrid_rerank_documents(
     num_rerank: int = NUM_RERANKED_RESULTS,
 ) -> tuple[list[InferenceChunk] | None, list[InferenceChunk] | None]:
     """
-    This is purely a semantic serach + reranking
+    This is for hybrid (semantic serach + keyword) with reranking
 
     :return: tuple of (re-ranked chunks, the rest of the top chunks)
     """

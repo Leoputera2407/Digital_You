@@ -62,7 +62,9 @@ def _indexing_pipeline(
         logger.exception(
             "Number of documents indexed by keyword and vector indices aren't align"
         )
-    return max(net_doc_count_vector, net_doc_count_keyword)
+    net_new_docs = max(net_doc_count_vector, net_doc_count_keyword)
+    logger.info(f"Indexed {net_new_docs} new documents")
+    return net_new_docs
 
 def build_indexing_pipeline(
     *,
