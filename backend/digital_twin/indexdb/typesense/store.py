@@ -54,7 +54,7 @@ def check_typesense_collection_exist(
 def create_typesense_collection(
     collection_name: str = TYPESENSE_DEFAULT_COLLECTION,
 ) -> None:
-    ts_client = get_typesense_client()
+    client = get_typesense_client()
     collection_schema = {
         "name": collection_name,
         "fields": [
@@ -72,16 +72,16 @@ def create_typesense_collection(
             {"name": ALLOWED_GROUPS, "type": "string[]"},
         ],
     }
-    ts_client.collections.create(collection_schema)
+    client.collections.create(collection_schema)
 
 
 def get_typesense_document_whitelists(
-    doc_chunk_id: str, collection_name: str, ts_client: typesense.Client
+    doc_chunk_id: str, collection_name: str, client: typesense.Client
 ) -> tuple[bool, list[str], list[str]]:
     """Returns whether the document already exists and the users/group whitelists"""
     try:
         document = (
-            ts_client.collections[collection_name].documents[doc_chunk_id].retrieve()
+            client.collections[collection_name].documents[doc_chunk_id].retrieve()
         )
     except ObjectNotFound:
         return False, [], []
@@ -111,7 +111,7 @@ def index_typesense_chunks(
     batch_upsert: bool = True,
 ) -> int:
     user_str = PUBLIC_DOC_PAT if user_id is None else str(user_id)
-    ts_client: typesense.Client = client if client else get_typesense_client()
+    client: typesense.Client = client if client else get_typesense_client()
 
     new_documents: list[dict[str, Any]] = []
     doc_user_map: dict[str, dict[str, list[str]]] = {}
@@ -124,7 +124,7 @@ def index_typesense_chunks(
             partial(
                 get_typesense_document_whitelists,
                 collection_name=collection,
-                ts_client=ts_client,
+                ts_client=client,
             ),
             user_str,
         )
@@ -132,7 +132,7 @@ def index_typesense_chunks(
         if delete_doc:
             # Processing the first chunk of the doc and the doc exists
             docs_deleted += 1
-            delete_typesense_doc_chunks(document.id, collection, ts_client)
+            delete_typesense_doc_chunks(document.id, collection, client)
 
         new_documents.append(
             {
@@ -156,7 +156,7 @@ def index_typesense_chunks(
             for x in range(0, len(new_documents), DEFAULT_BATCH_SIZE)
         ]
         for doc_batch in doc_batches:
-            results = ts_client.collections[collection].documents.import_(
+            results = client.collections[collection].documents.import_(
                 doc_batch, {"action": "upsert"}
             )
             failures = [
@@ -170,7 +170,7 @@ def index_typesense_chunks(
             )
     else:
         [
-            ts_client.collections[collection].documents.upsert(document)
+            client.collections[collection].documents.upsert(document)
             for document in new_documents
         ]
 

@@ -76,7 +76,24 @@ class Organization(Base):
         back_populates="organization",
         cascade="all, delete-orphan",
     )
+    api_keys: Mapped[List["APIKey"]] = relationship(
+        "APIKey",
+        back_populates="organization",
+        lazy="joined",
+    )
+    model_configs: Mapped[List["ModelConfig"]] = relationship(
+        "ModelConfig",
+        back_populates="organization",
+        lazy="joined",
+    )
 
+    # Remember UUID == str even if the contents are the same, so we need to use this.
+    def get_qdrant_collection_key_str(self) -> str:
+        return str(self.qdrant_collection_key)
+
+    def get_typesense_collection_key_str(self) -> str:
+        return str(self.typesense_collection_key)
+    
 class User(Base):
     __tablename__ = "users"
 
@@ -100,18 +117,6 @@ class User(Base):
 
     slack_users: Mapped[List["SlackUser"]] = relationship(
         "SlackUser",
-        back_populates="user",
-        lazy="joined",
-    )
-
-    api_keys: Mapped[List["APIKey"]] = relationship(
-        "APIKey",
-        back_populates="user",
-        lazy="joined",
-    )
-
-    model_configs: Mapped[List["ModelConfig"]] = relationship(
-        "ModelConfig",
         back_populates="user",
         lazy="joined",
     )
@@ -259,8 +264,8 @@ class IndexAttempt(Base):
             f"status={self.status!r}, "
             f"document_ids={self.document_ids!r}, "
             f"error_msg={self.error_msg!r})>"
-            f"time_created={self.time_created!r}, "
-            f"time_updated={self.time_updated!r}, "
+            f"created_at={self.created_at!r}, "
+            f"updated_at={self.updated_at!r}, "
         )
 
 class APIKey(Base):
@@ -275,9 +280,9 @@ class APIKey(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'))
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
 
-    user: Mapped[User] = relationship("User", back_populates="api_keys")
+    organization: Mapped[Organization] = relationship("Organization", back_populates="api_keys")
 
 
 class ModelConfig(Base):
@@ -292,9 +297,9 @@ class ModelConfig(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'))
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
 
-    user: Mapped[User] = relationship("User", back_populates="model_configs")
+    organization: Mapped[Organization] = relationship("Organization", back_populates="model_configs")
 
 
 class SlackUser(Base):

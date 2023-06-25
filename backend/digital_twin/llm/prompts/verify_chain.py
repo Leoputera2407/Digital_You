@@ -1,17 +1,17 @@
 import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
-from langchain.chains.qa_generation.prompt import PROMPT_SELECTOR
 
-from digital_twin.utils.logging import setup_logger
 from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.llm.chains.base import BaseChain
+from digital_twin.utils.logging import setup_logger
+from digital_twin.utils.timing import log_function_time
 
 logger = setup_logger()
 
-
+NULL_DOC_TOKEN = "?[DOCUMENT]"
 DOC_SEP_PAT = "---NEW DOCUMENT---"
 QUESTION_PAT = "Query:"
 ANSWER_PAT = "Answer:"
@@ -38,19 +38,19 @@ class BaseVerify(BaseChain):
     def __init__(
             self, 
             llm: BaseLanguageModel, 
-            context_doc: List[InferenceChunk], 
             max_output_tokens: int, 
             prompt: PromptTemplate = None
         ) -> None:
         super().__init__(llm, max_output_tokens, prompt)  
-        self.context_doc = context_doc
 
-    def run(self, input_str: str) -> dict:
-        formatted_prompt = self.get_filled_prompt(input_str)
+    @log_function_time()
+    def run(self, input_str: str, context_doc: Optional[List[InferenceChunk]]) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str, context_doc)
         return self.llm.predict(formatted_prompt)
     
-    async def async_run(self, input_str: str) -> dict:
-        formatted_prompt = self.get_filled_prompt(input_str)
+    @log_function_time()
+    async def async_run(self, input_str: str, context_doc: Optional[List[InferenceChunk]]) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str, context_doc)
         return await self.llm.apredict(formatted_prompt)
 
 
@@ -67,9 +67,9 @@ class StuffVerify(BaseVerify):
     def default_prompt(self) -> PromptTemplate:
         """Define the default prompt."""
         prompt = (
-            "HUMAN:\n"
+           "HUMAN:\n"
             f"{BASE_PROMPT}"
-            f"Please answer in this format:\n{json.dumps(SAMPLE_JSON_RESPONSE)}\n\n"
+            f"Please answer in this format:\n{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
             f'Each context document below is prefixed with "{DOC_SEP_PAT}".\n\n'
             "{context}\n\n---\n\n"
             "Question: {question}\n"
@@ -79,29 +79,29 @@ class StuffVerify(BaseVerify):
         )
 
    
-    def format_documents(self) -> str:
+    def format_documents(self, documents: List[InferenceChunk]) -> str:
         """Format the documents for the prompt."""
         return "".join(
             f"{DOC_SEP_PAT}\n{ranked_document.content}\n"
-            for ranked_document in self.context_doc
+            for ranked_document in documents
         ).strip()
 
-    def create_prompt(self, question: str) -> str:
+    def create_prompt(self, question: str, documents: List[InferenceChunk]) -> str:
         """Create a formatted prompt with the given question and documents."""
-        context = self.format_documents()
+        context = self.format_documents(documents)
         return self.prompt.format_prompt(
             question=question, context=context
         ).to_string()
 
-    def get_filled_prompt(self, input_str: str) -> str:
+    def get_filled_prompt(self, input_str: str, context_doc: Optional[List[InferenceChunk]]) -> str:
         documents = []
-
-        for ranked_doc in self.context_doc:
-            documents.append(ranked_doc)
-            formatted_prompt = self.create_prompt(input_str, documents)
-            if not self.tokens_within_limit(formatted_prompt):
-                documents.pop()
-                break
+        if context_doc:
+            for ranked_doc in context_doc:
+                documents.append(ranked_doc)
+                formatted_prompt = self.create_prompt(input_str, documents)
+                if not self.tokens_within_limit(formatted_prompt):
+                    documents.pop()
+                    break
 
         print(f"Stuffed {len(documents)} documents in the context")
         formatted_prompt = self.create_prompt(input_str, documents)

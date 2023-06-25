@@ -12,7 +12,7 @@ from digital_twin.indexdb.chunking.models import (
 
 
 T = TypeVar("T", bound=BaseChunk)
-IndexFilter = dict[str, str | list[str] | None]
+IndexDBFilter = dict[str, str | list[str] | None]
 
 
 class DocumentIndex(Generic[T], abc.ABC):

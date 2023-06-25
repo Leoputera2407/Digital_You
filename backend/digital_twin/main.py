@@ -1,4 +1,5 @@
 import uvicorn
+import nltk
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -39,11 +40,20 @@ def get_application() -> FastAPI:
         # To avoid circular imports
         from digital_twin.config.app_config import (
             QDRANT_DEFAULT_COLLECTION,
+            TYPESENSE_DEFAULT_COLLECTION,
         )
         from digital_twin.indexdb.qdrant.indexing import (
             create_collection,
             list_collections,
         )
+        from digital_twin.indexdb.typesense.store import (
+            check_typesense_collection_exist,
+            create_typesense_collection,
+        )
+
+        nltk.download("stopwords")
+        nltk.download("wordnet")
+        nltk.download("punkt")
 
         if QDRANT_DEFAULT_COLLECTION not in {
             collection.name for collection in list_collections().collections
@@ -52,6 +62,12 @@ def get_application() -> FastAPI:
                 f"Creating collection with name: {QDRANT_DEFAULT_COLLECTION}"
             )
             create_collection(collection_name=QDRANT_DEFAULT_COLLECTION)
+        
+        if not check_typesense_collection_exist(TYPESENSE_DEFAULT_COLLECTION):
+            logger.info(
+                f"Creating Typesense collection with name: {TYPESENSE_DEFAULT_COLLECTION}"
+            )
+            create_typesense_collection(collection_name=TYPESENSE_DEFAULT_COLLECTION)
 
     return application
 

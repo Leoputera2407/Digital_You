@@ -3,6 +3,7 @@ from langchain.base_language import BaseLanguageModel
 from typing import Optional, List
 
 from digital_twin.utils.logging import setup_logger
+from digital_twin.utils.timing import log_function_time
 
 logger = setup_logger()
 
@@ -43,10 +44,12 @@ class BaseChain:
     def get_filled_prompt(self, **kwargs) -> str:
         raise NotImplementedError("This method should be overridden in subclasses.")
 
+    @log_function_time()
     def run(self, query: str, **kwargs) -> dict:
         formatted_prompt = self.get_filled_prompt(query, **kwargs)
         return self.llm.predict(formatted_prompt)
     
+    @log_function_time()
     async def async_run(self, query: str, **kwargs) -> dict:
         formatted_prompt = self.get_filled_prompt(query, **kwargs)
         return await self.llm.apredict(formatted_prompt)

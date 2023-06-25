@@ -17,7 +17,7 @@ from digital_twin.config.app_config import (
 )
 
 from digital_twin.indexdb.chunking.models import InferenceChunk, EmbeddedIndexChunk, IndexChunk
-from digital_twin.indexdb.interface import VectorIndexDB, KeywordIndex, IndexFilter
+from digital_twin.indexdb.interface import VectorIndexDB, KeywordIndex, IndexDBFilter
 from digital_twin.search.models import Embedder
 from digital_twin.search.utils import (
     split_chunk_text_into_mini_chunks,
@@ -51,6 +51,7 @@ def semantic_reranking(
 @log_function_time()
 def retrieve_semantic_documents(
     query: str,
+    user_id: UUID | None,
     filters: Optional[List[IndexFilter]],
     vectordb: VectorIndexDB,
     num_hits: int = NUM_RETURNED_HITS,
@@ -60,7 +61,7 @@ def retrieve_semantic_documents(
 
     :return: top_chunks
     """
-    top_chunks = vectordb.semantic_retrieval(query, filters, num_hits)
+    top_chunks = vectordb.semantic_retrieval(query, user_id, filters, num_hits)
     if not top_chunks:
         filters_log_msg = json.dumps(filters, separators=(",", ":")).replace(
             "\n", ""
@@ -87,7 +88,8 @@ def retrieve_keyword_documents(
     """
     edited_query = keyword_search_query_processing(query)
     top_chunks = datastore.keyword_search(
-        edited_query, user_id, filters, num_hits)
+        edited_query, user_id, filters, num_hits
+    )
     if not top_chunks:
         filters_log_msg = json.dumps(
             filters, separators=(",", ":")).replace("\n", "")
@@ -99,8 +101,9 @@ def retrieve_keyword_documents(
 
 
 @log_function_time()
-def retrieve_semantic_rerank_documents(
+def retrieve_semantic_reranked_documents(
     query: str,
+    user_id: UUID | None,
     filters: Optional[List[IndexFilter]],
     vectordb: VectorIndexDB,
     num_hits: int = NUM_RETURNED_HITS,
@@ -111,7 +114,7 @@ def retrieve_semantic_rerank_documents(
 
     :return: tuple of (re-ranked chunks, the rest of the top chunks)
     """
-    top_chunks = vectordb.semantic_retrieval(query, filters, num_hits)
+    top_chunks = vectordb.semantic_retrieval(query, user_id, filters, num_hits)
     if not top_chunks:
         filters_log_msg = json.dumps(filters, separators=(",", ":")).replace(
             "\n", ""
@@ -135,8 +138,9 @@ def retrieve_semantic_rerank_documents(
 
 
 @log_function_time()
-async def async_retrieve_hybrid_rerank_documents(
+async def async_retrieve_hybrid_reranked_documents(
     query: str,
+    user_id: UUID | None,
     filters: Optional[List[IndexFilter]],
     vectordb: VectorIndexDB,
     keywordb: KeywordIndex,
@@ -152,19 +156,31 @@ async def async_retrieve_hybrid_rerank_documents(
     # they don't expose an async connection
     # So, we will perform async by running them in separate threads.
     loop = asyncio.get_event_loop()
-
+    edited_query = keyword_search_query_processing(query)
     semantic_top_chunks_future = loop.run_in_executor(
-        None, retrieve_semantic_documents, query, filters, vectordb, num_hits)
+        None, retrieve_semantic_documents, query, user_id, filters, vectordb, num_hits
+    )
     keyword_top_chunks_future = loop.run_in_executor(
-        None, retrieve_keyword_documents, query, filters, keywordb, num_hits)
+        None, retrieve_keyword_documents, edited_query, user_id, filters, keywordb, num_hits
+    )
 
     semantic_top_chunks, keyword_top_chunks = await asyncio.gather(
         semantic_top_chunks_future,
         keyword_top_chunks_future,
     )
-    top_chunks = semantic_top_chunks[:math.ceil(num_rerank/2)] \
-                + keyword_top_chunks[:math.floor(num_rerank/2)]
-
+    if not semantic_top_chunks and not keyword_top_chunks:
+        logger.warning("Both semantic_top_chunks and keyword_top_chunks are empty.")
+        return None, None
+    elif not semantic_top_chunks:
+        logger.info("semantic_top_chunks is empty, returning keyword_top_chunks.")
+        top_chunks = keyword_top_chunks[:num_rerank]
+    elif not keyword_top_chunks:
+        logger.info("keyword_top_chunks is empty, returning semantic_top_chunks.")
+        top_chunks = semantic_top_chunks[:num_rerank]
+    else:
+        logger.info("Both semantic_top_chunks and keyword_top_chunks are non-empty.")
+        top_chunks = semantic_top_chunks[:math.ceil(num_rerank/2)] + keyword_top_chunks[:math.floor(num_rerank/2)]
+        
     ranked_chunks = semantic_reranking(query, top_chunks)
 
     top_docs = [
@@ -204,10 +220,10 @@ def encode_chunks(
     text_batches = [
         chunk_texts[i: i + batch_size] for i in range(0, len(chunk_texts), batch_size)
     ]
-
     if isinstance(embedding_model, Embeddings):
         embeddings: list[list[float]] = embedding_model.embed_documents(
-            text_batches[0])
+            text_batches[0]
+        )
     elif isinstance(embedding_model, SentenceTransformer):
         embeddings_np: list[np.ndarray] = []
         for text_batch in text_batches:

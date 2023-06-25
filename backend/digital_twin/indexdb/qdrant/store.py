@@ -1,4 +1,6 @@
 from uuid import UUID
+from langchain.embeddings.base import Embeddings
+
 from qdrant_client.http.exceptions import (
     ResponseHandlingException,
     UnexpectedResponse,
@@ -98,9 +100,17 @@ class QdrantVectorDB(VectorIndexDB):
         page_size: int = NUM_RETURNED_HITS,
         distance_cutoff: float | None = SEARCH_DISTANCE_CUTOFF,
     ) -> list[InferenceChunk]:
-        query_embedding = get_default_embedding_model().encode(
-            query
-        )  # TODO: make this part of the embedder interface
+        embedding_model = get_default_embedding_model()
+
+        if isinstance(embedding_model, Embeddings):
+            query_embedding = embedding_model.embed_query(
+                query
+            )
+        else:
+            query_embedding = embedding_model.encode(
+                query
+            )  # TODO: make this part of the embedder interface
+
         if not isinstance(query_embedding, list):
             query_embedding = query_embedding.tolist()
 

@@ -1,5 +1,5 @@
 
-from typing import Optional
+from typing import Optional, Union
 from langchain.embeddings.base import Embeddings
 from langchain.embeddings import OpenAIEmbeddings
 from sentence_transformers import SentenceTransformer
@@ -10,7 +10,6 @@ from digital_twin.server.model import SearchDoc
 
 
 _EMBED_MODEL: Optional[Embeddings | SentenceTransformer] = None
-
 
 
 def chunks_to_search_docs(chunks: list[InferenceChunk] | None) -> list[SearchDoc]:
@@ -62,7 +61,7 @@ def split_chunk_text_into_mini_chunks(
 
 def get_default_embedding_model(
     **kwargs
-) -> Embeddings:
+) -> Union[Embeddings, SentenceTransformer]:
     """
     In general, we should have control over what embedding to use.
     """

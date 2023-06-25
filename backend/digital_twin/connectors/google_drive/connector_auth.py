@@ -12,12 +12,14 @@ Ouath Flow for Google Drive
 import json
 from typing import cast
 from urllib.parse import ParseResult, parse_qs, urlparse
+from sqlalchemy.orm import Session
 
 from google.auth.transport.requests import Request  # type: ignore
 from google.oauth2.credentials import Credentials  # type: ignore
 from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
 
 from digital_twin.config.app_config import WEB_DOMAIN
+from digital_twin.db.model import User
 from digital_twin.db.connectors.credentials import update_credential_json
 from digital_twin.db.connectors.google_drive import (
     fetch_db_google_app_creds,
@@ -103,7 +105,8 @@ def get_auth_url(
 def update_credential_access_tokens(
     auth_code: str,
     credential_id: int,
-    user_id: str,
+    user: User,
+    db_session: Session,
 ) -> Credentials | None:
     app_cred_dict = get_google_app_cred().dict()
     credential_json = { "web": app_cred_dict }
@@ -117,20 +120,30 @@ def update_credential_access_tokens(
     token_json_str = creds.to_json()
     new_creds_dict = {DB_CREDENTIALS_DICT_KEY: token_json_str}
 
-    if not update_credential_json(credential_id, new_creds_dict, user_id):
+    if not update_credential_json(
+        credential_id,
+        new_creds_dict,
+        user,
+        db_session,
+    ):
         return None
     return creds
 
 
 # Below are our App's Google Drive Credentials
-def get_google_app_cred() -> GoogleAppCredentials:
-    app_credentials = fetch_db_google_app_creds()
+def get_google_app_cred(
+    db_session: Session
+) -> GoogleAppCredentials:
+    app_credentials = fetch_db_google_app_creds(db_session)
     if app_credentials is None:
         raise ValueError("Google Drive App Credentials not found")
     creds_str = app_credentials.credentials_json
     return GoogleAppCredentials(**json.loads(creds_str))
 
 
-def upsert_google_app_cred(app_credentials: GoogleAppCredentials) -> None:
-    app_credentials = upsert_db_google_app_cred(app_credentials.dict())
-    return GoogleAppCredentials(**json.loads(app_credentials.credentials_json))
+def upsert_google_app_cred(
+        app_credentials: GoogleAppCredentials, 
+        db_session: Session,
+) -> None:
+    db_app_credentials = upsert_db_google_app_cred(app_credentials.dict(), db_session)
+    return GoogleAppCredentials(**json.loads(db_app_credentials.credentials_json))

@@ -3,12 +3,14 @@ import requests
 import base64
 import urllib.parse
 from typing import Dict
+from sqlalchemy.orm import Session
 
 from digital_twin.config.app_config import (
     WEB_DOMAIN,
     NOTION_CLIENT_ID, 
     NOTION_CLIENT_SECRET,
 )
+from digital_twin.db.model import User
 from digital_twin.db.connectors.credentials import update_credential_json
 from digital_twin.utils.logging import setup_logger
 
@@ -39,7 +41,8 @@ def get_auth_url() -> str:
 def update_credential_access_tokens(
     auth_code: str,
     credential_id: int,
-    user_id: str,
+    user: User,
+    db_session: Session,
 ) -> Dict[str, str] | None:
 
     # encode in base 64
@@ -62,7 +65,12 @@ def update_credential_access_tokens(
         creds = response.json()
         new_creds_dict = {DB_CREDENTIALS_DICT_KEY: json.dumps(creds)}
 
-        if not update_credential_json(credential_id, new_creds_dict, user_id):
+        if not update_credential_json(
+            credential_id, 
+            new_creds_dict,
+            user,
+            db_session,
+        ):
             return None
         return creds
     else:

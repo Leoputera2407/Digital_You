@@ -188,11 +188,10 @@ class QA(QAModel):
             qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
                 prompt_type=prompt_type,
                 llm=self.llm,
-                context_doc=context_docs,
                 max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
             )
-            model_output = qa_system.run(query)
+            model_output = qa_system.run(query, context_docs)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -217,11 +216,10 @@ class QA(QAModel):
             qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
                 prompt_type=prompt_type,
                 llm=self.llm,
-                context_doc=context_docs,
                 max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
             )
-            model_output = qa_system.async_run(query)
+            model_output = qa_system.async_run(query, context_docs)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -244,11 +242,10 @@ class QA(QAModel):
             qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
                 prompt_type=prompt_type,
                 llm=self.llm,
-                context_doc=context_docs,
                 max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
             )
-            yield qa_system(query)
+            yield qa_system.run(query, context_docs)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"

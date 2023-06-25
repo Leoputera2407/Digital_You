@@ -18,21 +18,18 @@ class QAModel:
         self,
         prompt_type: SupportedPromptType,
         llm: BaseLanguageModel,
-        context_doc: List[InferenceChunk],
         max_output_tokens: int,
         prompt: PromptTemplate = None,
     ):
         if prompt_type is prompt_type.STUFF:
             return StuffQA(
                 llm=llm,
-                context_doc=context_doc,
                 max_output_tokens=max_output_tokens,
                 prompt=prompt,
             )
         elif prompt_type is prompt_type.REFINE:
             return RefineQA(
                 llm=llm,
-                context_doc=context_doc,
                 max_output_tokens=max_output_tokens,
                 prompt=prompt,
             )
