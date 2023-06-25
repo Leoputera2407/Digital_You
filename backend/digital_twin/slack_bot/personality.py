@@ -1,9 +1,18 @@
-from typing import Optional, List, Tuple, Pattern, Union
-from langchain.chat_models import ChatOpenAI
+from datetime import datetime, timezone
+from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from slack_sdk.web.async_client import AsyncWebClient
 
+from digital_twin.config.app_config import (
+    NUM_SLACK_CHAT_PAIRS_TO_SHOW,
+    SLACK_DAYS_TO_RESCRAPE,
+)
+from digital_twin.config.constants import DEFAULT_SLACK_CONVERSATION_STYLE
+from digital_twin.db.async_slack_bot import (
+    async_get_convo_style_and_last_update_at, 
+    async_update_convo_style,
+)
 from digital_twin.llm.interface import get_llm
 from digital_twin.llm.chains.personality_chain import (
     RephraseChain,
@@ -14,12 +23,12 @@ from digital_twin.llm.chains.personality_chain import (
 from digital_twin.slack_bot.views import get_view, PERSONALITY_TEXT
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
 from digital_twin.utils.logging import setup_logger
-from digital_twin.db.async_slack_bot import async_get_convo_style, async_update_convo_style
+
 
 logger = setup_logger()
 
 
-async def async_generate_and_store_user_conversation_style(
+async def async_generate_and_store_user_or_default_conversation_style(
     session: AsyncSession, 
     slack_user_id: str, 
     team_id: str,
@@ -46,18 +55,22 @@ async def async_generate_and_store_user_conversation_style(
     Returns:
     None or string of conversation style description.
     """
-    personality_chain = PersonalityChain(
-        llm=get_llm(
-            **PERSONALITY_MODEL_SETTINGS
-        ),
-        max_output_tokens=PERSONALITY_MODEL_SETTINGS["max_output_tokens"],
-    )
+    if chat_pairs is not None:
+        personality_chain = PersonalityChain(
+            llm=get_llm(
+                **PERSONALITY_MODEL_SETTINGS
+            ),
+            max_output_tokens=PERSONALITY_MODEL_SETTINGS["max_output_tokens"],
+        )
 
-    # Generate personality description
-    personality_description = await personality_chain.async_run(
-        examples=chat_pairs,
-        slack_user_id=slack_user_id,
-    )
+        # Generate personality description
+
+        personality_description = await personality_chain.async_run(
+            examples=chat_pairs,
+            slack_user_id=slack_user_id,
+        )
+    else:
+        personality_description = DEFAULT_SLACK_CONVERSATION_STYLE
     res = await async_update_convo_style(session, personality_description, slack_user_id, team_id)
     if res is False:
         raise Exception(f"Error updating conversation style for {slack_user_id}")
@@ -67,29 +80,34 @@ async def async_generate_and_store_user_conversation_style(
 async def async_handle_user_conversation_style(
         db_session: AsyncSession,
         client: AsyncWebClient, 
-        command: Union[str, Pattern], 
         slack_user_id: str, 
         team_id: str,
         view_id: str,
 ) -> str:
     try:
-        conversation_style = await async_get_convo_style(
+        conversation_style, updated_at = await async_get_convo_style_and_last_update_at(
             db_session,
             slack_user_id, 
             team_id
         )
-        if conversation_style is None:
+        logger.info(f"Conversation style for {slack_user_id}: {conversation_style}"
+                    f"Updated at: {updated_at}")
+        logger.info(f"Should update conversation style: {conversation_style is None or (updated_at is not None and (datetime.now(timezone.utc) - updated_at).days >= SLACK_DAYS_TO_RESCRAPE)}")
+        logger.info(f"Time now: {datetime.now(timezone.utc)}")
+        if conversation_style is None or \
+            (updated_at is not None and (datetime.now(timezone.utc) - updated_at).days >= SLACK_DAYS_TO_RESCRAPE):
             personality_view = get_view(
-                "text_command_modal", text=PERSONALITY_TEXT)
+                "text_command_modal", 
+                text=PERSONALITY_TEXT,
+            )
             await client.views_update(view_id=view_id, view=personality_view)
             _, chat_pairs = await scrape_and_store_chat_history(
                 db_session,
-                command,
                 slack_user_id,
                 team_id,
                 client
             )
-            conversation_style = await async_generate_and_store_user_conversation_style(
+            conversation_style = await async_generate_and_store_user_or_default_conversation_style(
                 db_session,
                 slack_user_id, 
                 team_id, 
@@ -111,9 +129,8 @@ async def async_rephrase_response(
         slack_user_id: str, 
         qa_response: str,
 ) -> str :
-    # We'll pass our own model here, with our own custom key
-    # TODO: Figure out how to do this better
     try:
+        filter_chat_pairs = chat_pairs[:NUM_SLACK_CHAT_PAIRS_TO_SHOW] if chat_pairs else []
         rephrase_chain = RephraseChain(
             llm=get_llm(
                 **PERSONALITY_MODEL_SETTINGS
@@ -122,7 +139,7 @@ async def async_rephrase_response(
             max_output_tokens=PERSONALITY_MODEL_SETTINGS["max_output_tokens"],
         )
         response = await rephrase_chain.async_run(
-            examples=chat_pairs,
+            examples=filter_chat_pairs,
             conversation_style=conversation_style,
             query=query,
             slack_user_id=slack_user_id,

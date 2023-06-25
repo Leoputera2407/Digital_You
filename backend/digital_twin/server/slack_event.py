@@ -34,6 +34,7 @@ from digital_twin.slack_bot.views import (
     MODAL_RESPONSE_CALLBACK_ID,
     EDIT_BUTTON_ACTION_ID,
     SHUFFLE_BUTTON_ACTION_ID,
+    EDIT_BLOCK_ID,
 )
 from digital_twin.slack_bot.events.command import handle_digital_twin_command
 from digital_twin.slack_bot.events.home_tab import build_home_tab
@@ -213,8 +214,16 @@ async def handle_view_submission(
     await ack()
 
     payload = json.loads(body['view']['private_metadata'])
-    response = payload['response']
     channel_id = payload['channel_id']
+
+     # Check if the submission is from the edit view
+    if payload.get("source") == "edit":
+        # Here, instead of using the original response from payload, 
+        # get the updated response from the user's input
+        response = body['view']['state']['values'][EDIT_BLOCK_ID]['response_input']['value']
+    else:
+        response = payload['response']
+
     await client.chat_postMessage(
         channel=channel_id,
         text=response,

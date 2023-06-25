@@ -110,19 +110,22 @@ async def async_consume_slack_state(
         raise Exception(f"No state found to consume: {state}")
    
 @async_log_sqlalchemy_error(logger)
-async def async_get_convo_style(
+async def async_get_convo_style_and_last_update_at(
     session: AsyncSession, 
     slack_user_id: str, 
     team_id: str
-) -> Optional[str]:
-    conversation_styles = await session.execute(
-        select(SlackUser.conversation_style).where(
+) -> Tuple[Optional[str], Optional[datetime]]:
+    result = await session.execute(
+        select(SlackUser).where(
             SlackUser.slack_user_id == slack_user_id, 
             SlackUser.team_id == team_id
         )
     )
-    conversation_style = conversation_styles.scalars().first()
-    return conversation_style if conversation_style else None
+    slack_user = result.scalars().first()
+    if slack_user is None:
+        return None, None
+    conversation_style, updated_at = slack_user.conversation_style, slack_user.updated_at
+    return conversation_style, updated_at
 
 @async_log_sqlalchemy_error(logger)
 async def async_update_convo_style(
@@ -146,8 +149,8 @@ async def async_update_convo_style(
 @async_log_sqlalchemy_error(logger)
 async def async_update_chat_pairs(
     session: AsyncSession, 
-    chat_transcript: List[str], 
-    chat_pairs: List[Tuple[str, str]], 
+    chat_transcript: Optional[List[str]], 
+    chat_pairs: Optional[List[Tuple[str, str]]], 
     slack_user_id: str, 
     team_id: str
 ) -> Optional[SlackUser]:
@@ -159,8 +162,8 @@ async def async_update_chat_pairs(
     )
     slack_user = result.scalars().first()
     if slack_user:
-        slack_user.contiguous_chat_transcript = str(chat_transcript)
-        slack_user.chat_pairs = str(chat_pairs)
+        slack_user.contiguous_chat_transcript = str(chat_transcript) if chat_transcript is not None else None
+        slack_user.chat_pairs = str(chat_pairs) if chat_pairs is not None else None
         await session.commit()
     return slack_user
 

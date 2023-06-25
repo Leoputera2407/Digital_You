@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Tuple, Union, Pattern
+from typing import Optional, List, Tuple
 from slack_sdk.web.async_client import AsyncWebClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.config.app_config import MIN_SCRAPED_THRESHOLD
+from digital_twin.config.app_config import MIN_SCRAPED_THRESHOLD, MIN_CHAT_PAIRS_THRESHOLD
 from digital_twin.utils.logging import setup_logger
 from digital_twin.db.async_slack_bot import async_update_chat_pairs
 
@@ -27,23 +27,26 @@ def is_interacted_with_target(
 async def join_user_channels(
         slack_user_id: str, 
         client: AsyncWebClient
-):
+) -> List[str]:
     # Get the list of channels where the user is a member
-    response = await client.conversations_list(types="public_channel,private_channel", exclude_archived=True)
-
+    response = await client.users_conversations(user=slack_user_id, types="public_channel,private_channel", exclude_archived=True)
+    
+    channel_ids = []
     for channel in response["channels"]:
-        if slack_user_id in channel["members"]:
-            # Join the channel
-            await client.conversations_join(channel=channel["id"])
+        # Join the channel
+        await client.conversations_join(channel=channel["id"])
+        channel_ids.append(channel["id"])
+
+    return channel_ids
 
 async def scrape_and_store_chat_history(
         db_session: AsyncSession,
-        command: Union[str, Pattern],
         slack_user_id: str, 
         team_id: str, 
         client: AsyncWebClient, 
         target_users: Optional[List[str]]= None, 
-        min_message_length: int = 80, 
+        min_message_length: int = MIN_SCRAPED_THRESHOLD, 
+        min_chat_pairs_len: int = MIN_CHAT_PAIRS_THRESHOLD,
         cutoff_days: int = 365
     ) -> Optional[Tuple[List[str], List[Tuple[str, str]]]]:
     """
@@ -99,54 +102,52 @@ async def scrape_and_store_chat_history(
     cutoff = (datetime.now(timezone.utc) - timedelta(days=cutoff_days)).timestamp()
 
     validate_target_users(target_users, slack_user_id)
-    # TODO: Join all channels where the user is a member
-    # await join_user_channels(slack_user_id, client)
-    # For now just join the specific channel the slash command is called
-    channel_id = command["channel_id"]
-    await client.conversations_join(channel=channel_id)
-    cursor = None
-    threads: List[str] = []
-    while True:
-        result = await client.conversations_history(channel=channel_id, oldest=cutoff, cursor=cursor, limit=1000)
-        for message in result["messages"]:
-            # TODO: Only threaded messages will be scrapped for now
-            if "reply_count" in message and message["reply_count"] > 0:
-                threads.append(message["ts"])
-
-        if not result["has_more"]:
-            break
-
-        cursor = result["response_metadata"]["next_cursor"]
-
+   
+    channel_ids = await join_user_channels(slack_user_id, client)
     chat_transcript: List[str] = []
     chat_pairs: List[Tuple[str, str]] = []
     last_input = ""
     last_input_user = ""
-    for ts in threads:
-        result = await client.conversations_replies(channel=channel_id, ts=ts, limit=1000)
-        messages = result["messages"]
-        messages.sort(key=lambda m: m["ts"])
+    for channel_id in channel_ids:
+        cursor = None
+        threads: List[str] = []
+        while True:
+            result = await client.conversations_history(channel=channel_id, oldest=cutoff, cursor=cursor, limit=1000)
+            for message in result["messages"]:
+                # TODO: Only threaded messages will be scrapped for now
+                if "reply_count" in message and message["reply_count"] > 0:
+                    threads.append(message["ts"])
 
-        for message in messages:
-            if "user" not in message or "text" not in message:
-                continue
+            if not result["has_more"]:
+                break
 
-            user = message["user"]
-            text = f"{user}: {message['text']}\n"
+            cursor = result["response_metadata"]["next_cursor"]
+  
+        for ts in threads:
+            result = await client.conversations_replies(channel=channel_id, ts=ts, limit=1000)
+            messages = result["messages"]
+            messages.sort(key=lambda m: m["ts"])
 
-            if is_interacted_with_target(user, target_users, slack_user_id):
-                if user != slack_user_id and last_input and last_input_user == slack_user_id:
-                    chat_pairs.append((last_input, text))
-                chat_transcript.append(text)
-                last_input = text
-                last_input_user = user
+            for message in messages:
+                if "user" not in message or "text" not in message:
+                    continue
 
-    if len(chat_transcript) < MIN_SCRAPED_THRESHOLD:
-        logger.info(f"Chat history for {slack_user_id} is too short.")
-        return None
+                user = message["user"]
+                text = f"{user}: {message['text']}\n"
+
+                if is_interacted_with_target(user, target_users, slack_user_id):
+                    if user != slack_user_id and last_input and last_input_user == slack_user_id:
+                        chat_pairs.append((last_input, text))
+                    chat_transcript.append(text)
+                    last_input = text
+                    last_input_user = user
+
+    if len(chat_transcript) < min_message_length or len(chat_pairs) < min_chat_pairs_len:
+        logger.info(f"Chat history for {slack_user_id} is too short. Chat_transcript: {len(chat_transcript)}, Chat_pairs: {len(chat_pairs)}")
+        return None, None
     
     slack_user = await async_update_chat_pairs(db_session, chat_transcript, chat_pairs, slack_user_id, team_id)
     if slack_user is None:
         logger.info(f"Failed to update chat history for {slack_user_id}.")
-        return None
+        return None, None
     return chat_transcript, chat_pairs

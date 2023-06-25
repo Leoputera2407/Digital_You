@@ -9,13 +9,10 @@ from slack_bolt.async_app import (
 )
 from slack_sdk.web.async_client import AsyncWebClient
 
-from digital_twin.llm.chains.personality_chain import NULL_DOC_TOKEN
+from digital_twin.config.app_config import MIN_CHAT_PAIRS_THRESHOLD
 from digital_twin.slack_bot.personality import async_handle_user_conversation_style, async_rephrase_response
 from digital_twin.slack_bot.views import get_view, LOADING_TEXT, ERROR_TEXT
 from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
-from digital_twin.indexdb.chunking.models import InferenceChunk
-from digital_twin.llm.interface import get_llm
-from digital_twin.llm.chains.verify_chain import VERIFY_MODEL_SETTINGS
 from digital_twin.qa import async_get_default_backend_qa_model 
 from digital_twin.db.async_slack_bot import async_get_chat_pairs
 from digital_twin.db.user import (
@@ -31,10 +28,6 @@ from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
 
 
-class NoChatPairsException(Exception):
-    pass
-
-
 async def async_gather_preprocess_tasks(
         async_db_session: AsyncSession, 
         client: AsyncWebClient, 
@@ -44,7 +37,7 @@ async def async_gather_preprocess_tasks(
         view_id: str,
 ) -> List[str]:
     preprocess_tasks = {
-        "conversation_style": async_handle_user_conversation_style(async_db_session, client, command, slack_user_id, team_id, view_id),
+        "conversation_style": async_handle_user_conversation_style(async_db_session, client, slack_user_id, team_id, view_id),
         "slack_chat_pairs": async_get_chat_pairs(async_db_session, slack_user_id, team_id),
         "qdrant_collection_name": async_get_qdrant_collection_for_slack(async_db_session, slack_user_id, team_id),
         "typesense_collection_name": async_get_typesense_collection_for_slack(async_db_session, slack_user_id, team_id),
@@ -113,10 +106,9 @@ async def handle_digital_twin_command(
                 view_id
             )
 
-        # Raise an exception if there's no chat history
-        if len(slack_chat_pairs) == 0:
-            raise NoChatPairsException(
-                f"Can't find enough chat history in threads or DMs.")
+        is_using_default_conversation_style = False
+        if len(slack_chat_pairs) < MIN_CHAT_PAIRS_THRESHOLD:
+            is_using_default_conversation_style = True
         
         temp_solution_create_collection_if_not_exist(qdrant_collection_name, typesense_collection_name)
        
@@ -133,6 +125,22 @@ async def handle_digital_twin_command(
             query, 
             context_docs=ranked_chunks
         )
+        response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
+       
+
+        response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
+        private_metadata_str = json.dumps(
+            {"response": response, "channel_id": channel_id,
+                "query": query, "conversation_style": conversation_style}
+        )
+        response_view = get_view(
+            "response_command_modal", 
+            private_metadata_str=private_metadata_str, 
+            response=response,
+            is_using_default_conversation_style=is_using_default_conversation_style
+        )
+        await client.views_update(view_id=view_id, view=response_view)
+        """
         if qa_response is not  None:
             response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
             private_metadata_str = json.dumps(
@@ -140,19 +148,20 @@ async def handle_digital_twin_command(
                     "query": query, "conversation_style": conversation_style}
             )
             response_view = get_view(
-                "response_command_modal", private_metadata_str=private_metadata_str, response=response)
+                "response_command_modal", 
+                private_metadata_str=private_metadata_str, 
+                response=response,
+                is_using_default_conversation_style=is_using_default_conversation_style
+            )
             await client.views_update(view_id=view_id, view=response_view)
+            
         else:
             error_view = get_view("text_command_modal",
                                   text="Sorry, none of your documents are relevant to this question. ")
             await client.views_update(view_id=view_id, view=error_view)
             return
-        return
-    except NoChatPairsException as e:
-        logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
-        error_view = get_view("text_command_modal",
-                              text=f"Something went wrong, {e}. ")
-        await client.views_update(view_id=view_id, view=error_view)
+        """
+        
         return
     except Exception as e:
         logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
