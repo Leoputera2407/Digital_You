@@ -28,7 +28,7 @@ class VectorIndexDB(DocumentIndex[EmbeddedIndexChunk], abc.ABC):
         self,
         query: str,
         user_id: UUID | None,
-        filters: list[IndexFilter] | None,
+        filters: list[IndexDBFilter] | None,
         num_to_retrieve: int,
     ) -> list[InferenceChunk]:
         raise NotImplementedError
@@ -40,7 +40,7 @@ class KeywordIndex(DocumentIndex[IndexChunk], abc.ABC):
         self,
         query: str,
         user_id: UUID | None,
-        filters: list[IndexFilter] | None,
+        filters: list[IndexDBFilter] | None,
         num_to_retrieve: int,
     ) -> list[InferenceChunk]:
         raise NotImplementedError

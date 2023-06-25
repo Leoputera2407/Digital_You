@@ -8,8 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from digital_twin.config.app_config import APP_HOST, APP_PORT
 from digital_twin.server.slack_event import router as slack_event_router
-from digital_twin.server.llm import router as model_router
-from digital_twin.server.connector import router as connector_router
+from digital_twin.server.account import router as account_router
+from digital_twin.server.connector_admin import router as connector_admin_router
+from digital_twin.server.connector_user import router as connector_user_router
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
@@ -28,8 +29,9 @@ def get_application() -> FastAPI:
         title="Digital Twin", debug=True, version="0.1"
     )
     application.include_router(slack_event_router)
-    application.include_router(model_router)
-    application.include_router(connector_router)
+    application.include_router(account_router)
+    application.include_router(connector_admin_router)
+    application.include_router(connector_user_router)
 
     application.add_exception_handler(
         RequestValidationError, validation_exception_handler

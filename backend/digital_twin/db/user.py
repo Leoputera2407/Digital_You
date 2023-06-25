@@ -54,8 +54,6 @@ async def async_get_user_by_email(
     user = result.scalars().first()
     return user
 
-
-
 @async_log_sqlalchemy_error(logger)
 async def async_get_slack_user(
     session: AsyncSession,

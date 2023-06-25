@@ -21,7 +21,7 @@ from digital_twin.indexdb.chunking.models import (
     EmbeddedIndexChunk,
     InferenceChunk,
 )
-from digital_twin.indexdb.interface import VectorIndexDB, IndexFilter
+from digital_twin.indexdb.interface import VectorIndexDB, IndexDBFilter
 from digital_twin.indexdb.qdrant.indexing import index_qdrant_chunks
 from digital_twin.utils.clients import get_qdrant_client
 from digital_twin.utils.timing import log_function_time
@@ -31,7 +31,7 @@ logger = setup_logger()
 
 
 def _build_qdrant_filters(
-    user_id: UUID | None, filters: list[IndexFilter] | None
+    user_id: UUID | None, filters: list[IndexDBFilter] | None
 ) -> list[FieldCondition]:
     filter_conditions: list[FieldCondition] = []
     # Permissions filter
@@ -95,7 +95,7 @@ class QdrantVectorDB(VectorIndexDB):
         self,
         query: str,
         user_id: UUID | None,
-        filters: list[IndexFilter] | None,
+        filters: list[IndexDBFilter] | None,
         num_to_retrieve: int = NUM_RETURNED_HITS,
         page_size: int = NUM_RETURNED_HITS,
         distance_cutoff: float | None = SEARCH_DISTANCE_CUTOFF,

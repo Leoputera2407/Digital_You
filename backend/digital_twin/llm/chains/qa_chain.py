@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List
+from typing import List, Optional
 
 from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
@@ -35,12 +35,12 @@ BASE_PROMPT = (
     f"Answer the query based on provided documents and quote relevant sections. "
     f"If you are unsure of the answer or if it isn't provided in the extracts, "
     f"answer '{UNCERTAIN_PAT}'.\n"
-    f"Conclude your answer with {STOP_PAT} when you're done.\n"
+    f"Conclude your answer with '{STOP_PAT}' when you're done.\n"
     f"Respond with a json containing a concise answer and up to three most relevant quotes from the documents. "
     f"The quotes must be EXACT substrings from the documents.\n"
 )
 
-
+QA_MODEL_SETTINGS = {"temperature": 0.0, "max_output_tokens": 2000}
 class BaseQA(BaseChain):
     """Base class for Question-Answering."""
 
@@ -53,13 +53,13 @@ class BaseQA(BaseChain):
         super().__init__(llm, max_output_tokens, prompt)  
     
     @log_function_time()
-    def run(self, input_str: str, context_doc: List[InferenceChunk]) -> dict:
-        formatted_prompt = self.get_filled_prompt(input_str)
+    def run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
-    async def async_run(self, input_str: str, context_doc: List[InferenceChunk]) -> dict:
-        formatted_prompt = self.get_filled_prompt(input_str)
+    async def async_run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return await self.llm.apredict(formatted_prompt)
     
 
@@ -78,7 +78,7 @@ class StuffQA(BaseQA):
         prompt = (
             "HUMAN:\n"
             f"{BASE_PROMPT}"
-            f"Sample response:\n{json.dumps(SAMPLE_JSON_RESPONSE)}\n\n"
+            f"Sample response:\n{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
             f'Each context document below is prefixed with "{DOC_SEP_PAT}".\n\n'
             "{context}\n\n---\n\n"
             "Question: {question}\n"
@@ -102,15 +102,15 @@ class StuffQA(BaseQA):
             question=question, context=context
         ).to_string()
     
-    def get_filled_prompt(self, input_str: str, context_doc: List[InferenceChunk]) -> str:
+    def get_filled_prompt(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> str:
         documents = []
-
-        for ranked_doc in context_doc:
-            documents.append(ranked_doc)
-            formatted_prompt = self.create_prompt(input_str, documents)
-            if not self.tokens_within_limit(formatted_prompt):
-                documents.pop()
-                break
+        if context_docs:
+            for ranked_doc in context_docs:
+                documents.append(ranked_doc)
+                formatted_prompt = self.create_prompt(input_str, documents)
+                if not self.tokens_within_limit(formatted_prompt):
+                    documents.pop()
+                    break
 
         print(f"Stuffed {len(documents)} documents in the context")
         formatted_prompt = self.create_prompt(input_str, documents)

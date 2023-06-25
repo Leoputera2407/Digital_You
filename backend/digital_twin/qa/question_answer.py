@@ -1,14 +1,18 @@
 import json
 import re
+import asyncio
 from typing import (
     Dict,
     List,
     Optional,
+    Any,
     Tuple,
     Union,
+    AsyncIterable, 
+    Awaitable,
 )
-from sqlalchemy.orm import Session
 from langchain import PromptTemplate
+from langchain.callbacks import AsyncIteratorCallbackHandler
 
 from digital_twin.config.constants import (
     BLURB,
@@ -16,26 +20,24 @@ from digital_twin.config.constants import (
     SEMANTIC_IDENTIFIER,
     SOURCE_LINK,
     SOURCE_TYPE,
-    SupportedPromptType,
 )
-from digital_twin.config.model_config import SupportedModelType
-from digital_twin.llm import get_selected_llm_instance
-from digital_twin.llm.interface import SelectedModelConfig
+from digital_twin.llm.interface import get_llm
 from digital_twin.llm.chains.qa_chain import (
+    BaseQA,
+    QA_MODEL_SETTINGS,
     ANSWER_PAT,
     QUOTE_PAT,
-    UNCERTAIN_PAT,
+    #UNCERTAIN_PAT,
 )
 from digital_twin.qa.interface import QAModel
+from digital_twin.llm.chains.verify_chain import StuffVerify, VERIFY_MODEL_SETTINGS
+from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.utils.logging import setup_logger
+from digital_twin.utils.timing import log_function_time
 from digital_twin.utils.text_processing import (
     clean_model_quote,
     shared_precompare_cleanup,
 )
-from digital_twin.db.model import User
-from digital_twin.llm.chains.qa_chain import StuffQA, RefineQA
-from digital_twin.utils.timing import log_function_time
-from digital_twin.indexdb.chunking.models import InferenceChunk
 
 logger = setup_logger()
 
@@ -52,8 +54,8 @@ def extract_answer_quotes_freeform(
     )
 
     # If model just gives back the uncertainty pattern to signify answer isn't found or nothing at all
-    if null_answer_check == UNCERTAIN_PAT or not null_answer_check:
-        return None, None
+    # if null_answer_check == UNCERTAINTY_PAT or not null_answer_check:
+    #     return None, None
 
     # If no answer section, don't care about the quote
     if answer_raw.lower().strip().startswith(QUOTE_PAT.lower()):
@@ -157,36 +159,61 @@ def process_answer(
     quotes_dict = match_quotes_to_docs(quote_strings, chunks)
     return answer, quotes_dict
 
+def stream_answer_end(answer_so_far: str, next_token: str) -> bool:
+    next_token = next_token.replace('\\"', "")
+    # If the previous character is an escape token, don't consider the first character of next_token
+    if answer_so_far and answer_so_far[-1] == "\\":
+        next_token = next_token[1:]
+    if '"' in next_token:
+        return True
+    return False
+
+async def async_verify_if_docs_are_relevant(
+        query: str,
+        context_docs: List[InferenceChunk],
+) -> Optional[bool]:
+    verify_chain = StuffVerify(
+        llm=get_llm(
+            **VERIFY_MODEL_SETTINGS
+        ),
+        max_output_tokens=VERIFY_MODEL_SETTINGS["max_output_tokens"],
+    )
+    res = await verify_chain.async_run(
+        query,
+        context_docs=context_docs
+    )
+    logger.info(f"Model verification result: {res.lower()}")
+    if "yes" in res.lower():
+        return True
+    elif "no" in res.lower():
+        return False
+    else:
+        return None
+
 class QA(QAModel):
     def __init__(
         self,
-        db_session: Session,
-        model_config: SelectedModelConfig,
-        max_output_tokens: int = SupportedModelType.GPT3_5.n_context_len,
-        user: Optional[User] = None,
+        model_timeout: int,
     ) -> None:
         # Pick LLM
-        self.llm = get_selected_llm_instance(
-            user, 
-            db_session,
-            model_config, 
-            max_output_tokens=max_output_tokens
+        self.llm = get_llm(
+            **QA_MODEL_SETTINGS,
+            model_timeout=model_timeout,
         )
-        self.max_output_tokens = max_output_tokens
+        self.model_timeout = model_timeout
+        self.max_output_tokens = QA_MODEL_SETTINGS["max_output_tokens"]
 
     @log_function_time()
     def answer_question(
         self,
         query: str,
         context_docs: List[InferenceChunk],
-        prompt_type: SupportedPromptType = SupportedPromptType.STUFF,
         prompt: PromptTemplate = None,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
         try:
-            qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
-                prompt_type=prompt_type,
+            qa_system = self._pick_qa_chain(
                 llm=self.llm,
                 max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
@@ -203,23 +230,21 @@ class QA(QAModel):
     
 
     @log_function_time()
-    def async_answer_question(
+    async def async_answer_question(
         self,
         query: str,
         context_docs: List[InferenceChunk],
-        prompt_type: SupportedPromptType = SupportedPromptType.STUFF,
         prompt: PromptTemplate = None,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
         try:
-            qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
-                prompt_type=prompt_type,
+            qa_system = self._pick_qa_chain(
                 llm=self.llm,
                 max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
             )
-            model_output = qa_system.async_run(query, context_docs)
+            model_output = await qa_system.async_run(query, context_docs)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -227,30 +252,121 @@ class QA(QAModel):
         logger.debug(model_output)
 
         answer, quotes_dict = process_answer(model_output, context_docs)
+        logger.info(f"QA Answer: {answer}, Quotes: {quotes_dict}")
+
         return answer, quotes_dict
-
-    def answer_question_stream(
+    
+    @log_function_time()
+    async def async_answer_question_and_verify(
         self,
         query: str,
         context_docs: List[InferenceChunk],
-        prompt_type: SupportedPromptType =  SupportedPromptType.STUFF,
         prompt: PromptTemplate = None,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
-        try:
-            qa_system: Union[StuffQA,RefineQA] = self._pick_qa(
-                prompt_type=prompt_type,
-                llm=self.llm,
-                max_output_tokens=self.max_output_tokens,
-                prompt=prompt,
-            )
-            yield qa_system.run(query, context_docs)
-        except Exception as e:
-            logger.exception(e)
-            model_output = "Model Failure"
+        """
+        Runs both qa_response and verify chain async.
+        If documents are irrelevant, returns None for answer and quotes_dict
 
-        logger.debug(model_output)
+       :return Tuple[answer, quotes_dict]
+        """
+        async def execute_tasks() -> List[Any]:
+            tasks = {
+                "qa_response": self.async_answer_question(query, context_docs=context_docs),
+                "verify_relevancy": async_verify_if_docs_are_relevant(query, context_docs=context_docs)
+            }
+            results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+            for task_name, result in zip(tasks.keys(), results):
+                if isinstance(result, Exception):
+                    raise Exception(f"Error in {task_name} coroutine: {result}")
+            return results
+                
+        # Return the results in the order of the input tasks
+        # qa_response is a tuple of (answer, quotes_dict)
+        qa_response, is_docs_relevant = await execute_tasks()
+        answer, quotes_dict = qa_response
+        
+        processed_answer = answer if is_docs_relevant else None
 
+        return processed_answer, quotes_dict
+
+    @log_function_time()
+    async def answer_question_stream(
+        self,
+        query: str,
+        context_docs: List[InferenceChunk],
+        prompt: PromptTemplate = None,
+    ) -> AsyncIterable[str]:
+        callback = AsyncIteratorCallbackHandler()
+        self.llm_streaming = get_llm(
+            streaming=True,
+            callback_handler=[callback],
+            model_timeout=self.model_timeout,
+            **QA_MODEL_SETTINGS
+        )
+        qa_system: BaseQA = self._pick_qa_chain(
+            llm=self.llm_streaming,
+            max_output_tokens=self.max_output_tokens,
+            prompt=prompt,
+        )
+
+        async def wrap_done(fn: Awaitable, event: asyncio.Event):
+            """Wrap an awaitable with an event to signal when it's done or an exception is raised."""
+            try:
+                await fn
+            except Exception as e:
+                print(f"Caught exception: {e}")
+            finally:
+                # Signal the aiter to stop.
+                event.set()
+                
+
+        # Begin a task that runs in the background.
+        task = asyncio.create_task(wrap_done(
+            qa_system.async_run(query, context_docs),
+            callback.done),
+        )
+
+        # Initialize variables
+        model_output: str = ""
+        found_answer_start = False
+        found_answer_end = False
+
+        # Iterate through the stream of tokens
+        async for token in callback.aiter():
+            # Accumulate model output
+            event_text = token
+            model_previous = model_output
+            model_output += event_text
+
+            # Check for answer boundaries
+            if not found_answer_start and '{"answer":"' in model_output.replace(
+                " ", ""
+            ).replace("\n", ""):
+                found_answer_start = True
+                continue
+
+            if found_answer_start and not found_answer_end:
+                if stream_answer_end(model_previous, event_text):
+                    found_answer_end = True
+                    yield get_json_line({"answer_finished": True})
+                    continue
+                yield get_json_line({"answer_data": event_text})
+
+        await task
+
+        # Post-processing: Extract answer and quotes from the model output
         answer, quotes_dict = process_answer(model_output, context_docs)
-        yield quotes_dict
+        if answer:
+            logger.info(answer)
+        else:
+            logger.warning(
+                "Answer extraction from model output failed, most likely no quotes provided"
+            )
+
+        if quotes_dict is None:
+            yield get_json_line({})
+        else:
+            yield get_json_line(quotes_dict)
+    

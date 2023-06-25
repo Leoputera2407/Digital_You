@@ -4,7 +4,7 @@ from langchain.embeddings.base import Embeddings
 from langchain.embeddings import OpenAIEmbeddings
 from sentence_transformers import SentenceTransformer
 
-from digital_twin.config.app_config import MINI_CHUNK_SIZE, OPENAI_API_KEY
+from digital_twin.config.app_config import MINI_CHUNK_SIZE, EMBEDDING_OPENAI_API_KEY
 from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.server.model import SearchDoc
 
@@ -67,5 +67,7 @@ def get_default_embedding_model(
     """
     global _EMBED_MODEL
     if _EMBED_MODEL is None:
-        _EMBED_MODEL = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+        _EMBED_MODEL = OpenAIEmbeddings(
+            openai_api_key=EMBEDDING_OPENAI_API_KEY
+        )
     return _EMBED_MODEL

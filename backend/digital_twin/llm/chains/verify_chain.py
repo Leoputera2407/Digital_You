@@ -30,7 +30,7 @@ BASE_PROMPT = (
     "Respond with 'answerable' a binary 'Yes' or 'No' depending on whether you can answer the question or not given the provided documents.\n"
     "Respond with a 'confidence score' (between 0 and 1) depending on your confidence that you can ACCURATELY answer the question given the provided documents.\n"
 )
-
+VERIFY_MODEL_SETTINGS = {"temperature": 0.0, "max_output_tokens": 100}
 
 class BaseVerify(BaseChain):
     """Base class for Verifing whether the question can be answered with the internal knowledge."""
@@ -44,13 +44,13 @@ class BaseVerify(BaseChain):
         super().__init__(llm, max_output_tokens, prompt)  
 
     @log_function_time()
-    def run(self, input_str: str, context_doc: Optional[List[InferenceChunk]]) -> dict:
-        formatted_prompt = self.get_filled_prompt(input_str, context_doc)
+    def run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
-    async def async_run(self, input_str: str, context_doc: Optional[List[InferenceChunk]]) -> dict:
-        formatted_prompt = self.get_filled_prompt(input_str, context_doc)
+    async def async_run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return await self.llm.apredict(formatted_prompt)
 
 

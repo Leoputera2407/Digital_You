@@ -86,7 +86,6 @@ def respond_to_new_message(
             reply_text = reply.get("text")
             messages.append(f"<@{msg_user_id}>: "+ format_slack_to_openai(reply_text))
 
-        openai_api_key = context.get("OPENAI_API_KEY")
         # TODO: Call StuffChain
         # return format_openai_to_slack(response)
     except Exception as e:

@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from langchain.chat_models import ChatOpenAI
 
 from slack_sdk.http_retry.builtin_async_handlers import AsyncRateLimitErrorRetryHandler
 from slack_bolt import BoltResponse
@@ -22,15 +21,12 @@ from slack_bolt.async_app import (
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
 
-
-# TODO: Use this instead
-# from digital_twin.llm import get_selected_llm_instance
-# from digital_twin.llm.interface import get_selected_model_config
-from digital_twin.llm.config import async_get_api_key_for_slack_user
+from digital_twin.auth.users import current_user
+from digital_twin.llm.interface import get_llm
 from digital_twin.config.app_config import WEB_DOMAIN, SLACK_USER_TOKEN
-from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
+from digital_twin.db.model import User
 from digital_twin.db.engine import get_async_session, get_session
-from digital_twin.llm.chains.personality_chain import ShuffleChain
+from digital_twin.llm.chains.personality_chain import ShuffleChain, PERSONALITY_MODEL_SETTINGS
 from digital_twin.slack_bot.views import (
     get_view,
     LOADING_TEXT,
@@ -40,15 +36,12 @@ from digital_twin.slack_bot.views import (
     SHUFFLE_BUTTON_ACTION_ID,
 )
 from digital_twin.slack_bot.events.command import handle_digital_twin_command
-from digital_twin.slack_bot.events.message import respond_to_new_message
 from digital_twin.slack_bot.events.home_tab import build_home_tab
 from digital_twin.slack_bot.config import get_oauth_settings
 from digital_twin.db.model import SlackUser
 from digital_twin.db.user import async_get_slack_user, insert_slack_user
 
 from digital_twin.utils.logging import setup_logger
-from digital_twin.utils.auth_bearer import JWTBearer
-
 
 logger = setup_logger()
 router = APIRouter()
@@ -104,9 +97,10 @@ class SlackServerSignup(BaseModel):
     slack_user_id: str
 
 
-@router.get("/slack/server_signup", dependencies=[Depends(JWTBearer())])
+@router.get("/slack/server_signup")
 async def slack_server_signup(
     signup_info: SlackServerSignup = Depends(),
+    _ : User = Depends(current_user),
     db_session: Session = Depends(get_session),
 ):
     try:
@@ -176,12 +170,6 @@ async def set_user_info(
             if user is None:
                 raise ValueError("No Matching User ID found for slack_user {slack_user_id}}")
             context["DB_USER_ID"] = user.user_id
-            # TODO: Use model config, to support other models, for now OPENAI only!
-            context["OPENAI_API_KEY"] = await async_get_api_key_for_slack_user(
-                async_db_session,
-                "openai",
-                user,
-            )
     except Exception as e:
         search_params = f"?slack_user_id={slack_user_id}&team_id={team_id}"
         logger.info(f"Error while verifying the slack token: {e}")
@@ -248,16 +236,11 @@ async def handle_shuffle_click(
         loading_view = get_view("text_command_modal", text=LOADING_TEXT)
         await client.views_update(view_id=view_id, view=loading_view)
 
-       
-        llm = ChatOpenAI(
-                model="gpt-3.5-turbo",
-                openai_api_key=PERSONALITY_CHAIN_API_KEY,
-                temperature=0.8,
-                # About 300 words
-                max_tokens=500,
-        )
+    
         shuffle_chain = ShuffleChain(
-            llm=llm,
+            llm=get_llm(
+                **PERSONALITY_MODEL_SETTINGS
+            ),
             max_output_tokens=500,
         )
         private_metadata_str = body['view']['private_metadata']

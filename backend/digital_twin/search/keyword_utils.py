@@ -4,12 +4,7 @@ from nltk.corpus import stopwords  # type:ignore
 from nltk.stem import WordNetLemmatizer  # type:ignore
 from nltk.tokenize import word_tokenize  # type:ignore
 
-
-from digital_twin.indexdb.chunking.models import InferenceChunk
-from digital_twin.config.app_config import NUM_RETURNED_HITS
-from digital_twin.indexdb.interface import IndexFilter, KeywordIndex
 from digital_twin.utils.logging import setup_logger
-from digital_twin.utils.timing import log_function_time
 
 logger = setup_logger()
 

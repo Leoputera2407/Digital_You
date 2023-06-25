@@ -34,7 +34,7 @@ from digital_twin.connectors.google_drive.connector_auth import (
     # upsert_google_app_cred,
     verify_csrf as verify_gdrive_csrf,
 )
-from digital_twin.db.connectors.connector_credential_association import (
+from digital_twin.db.connectors.connector_credential_pair import (
     add_credential_to_connector,
     remove_credential_from_connector,
 )
@@ -232,8 +232,8 @@ def get_connector_by_id(
         credential_ids=[
             association.credential.id for association in connector.credentials
         ],
-        time_created=connector.created_at,
-        time_updated=connector.updated_at,
+        created_at=connector.created_at,
+        updated_at=connector.updated_at,
         disabled=connector.disabled,
     )
 
@@ -249,8 +249,8 @@ def get_credentials(
             credential_json=mask_credential_dict(credential.credential_json),
             user_id=credential.user_id,
             public_doc=credential.public_doc,
-            time_created=credential.created_at,
-            time_updated=credential.updated_at,
+            created_at=credential.created_at,
+            updated_at=credential.updated_at,
         )
         for credential in credentials
     ]

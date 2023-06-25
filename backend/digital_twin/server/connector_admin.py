@@ -7,7 +7,6 @@ from digital_twin.config.app_config import IS_DEV
 from digital_twin.auth.users import current_admin_user
 
 
-
 from digital_twin.server.model import (
     AuthStatus,
     ConnectorBase,
@@ -29,7 +28,7 @@ from digital_twin.connectors.google_drive.connector_auth import (
     get_google_app_cred,
     # upsert_google_app_cred,
 )
-from digital_twin.db.connectors.connector_credential_association import (
+from digital_twin.db.connectors.connector_credential_pair import (
     get_connector_credential_pairs,
 )
 from digital_twin.db.connectors.connectors import (

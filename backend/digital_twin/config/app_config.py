@@ -25,9 +25,8 @@ WEB_DOMAIN=os.environ.get("WEB_DOMAIN", "http://localhost:3000")
 APP_HOST = os.environ.get("APP_HOST", "localhost")
 APP_PORT = os.environ.get("APP_PORT", 8080)
 JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", "")
-DISABLE_AUTHENTICATION = os.environ.get("DISABLE_AUTHENTICATION", "true").lower() == "true" 
+DISABLE_AUTHENTICATION = os.environ.get("DISABLE_AUTHENTICATION", "false").lower() == "true" 
 JWT_ALGORITHM = "HS256"
-
 
 
 #####################
@@ -106,15 +105,15 @@ NOTION_CLIENT_SECRET=os.environ.get("NOTION_CLIENT_SECRET", "")
 DOC_EMBEDDING_DIM = 1536
 NUM_DOCS=5
 MIN_SCRAPED_THRESHOLD = 5
+DEFAULT_QA_TIMEOUT = 10
 
 
 #####################
 # MODEL API Keys    #
 #####################
-DEFAULT_LLM = os.environ.get("DEFAULT_LLM", "GPT3_5")
-PERSONALITY_CHAIN_API_KEY="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"
-OPENAI_API_KEY=os.environ.get("OPENAI_API_KEY", "")
-ANTHROPIC_API_KEY="XXXXXX"
+DEFAULT_MODEL_TYPE = os.environ.get("DEFAULT_LLM", "AZURE")
+MODEL_API_KEY = os.environ.get("MODEL_API_KEY", "")
+EMBEDDING_OPENAI_API_KEY = os.environ.get("EMBEDDING_OPENAI_API_KEY", "")
 
 #####################
 # Connector Configs #

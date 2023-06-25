@@ -52,7 +52,7 @@ def semantic_reranking(
 def retrieve_semantic_documents(
     query: str,
     user_id: UUID | None,
-    filters: Optional[List[IndexFilter]],
+    filters: Optional[List[IndexDBFilter]],
     vectordb: VectorIndexDB,
     num_hits: int = NUM_RETURNED_HITS,
 ) -> List[InferenceChunk] | None:
@@ -77,7 +77,7 @@ def retrieve_semantic_documents(
 def retrieve_keyword_documents(
     query: str,
     user_id: UUID | None,
-    filters: list[IndexFilter] | None,
+    filters: list[IndexDBFilter] | None,
     datastore: KeywordIndex,
     num_hits: int = NUM_RETURNED_HITS,
 ) -> list[InferenceChunk] | None:
@@ -104,7 +104,7 @@ def retrieve_keyword_documents(
 def retrieve_semantic_reranked_documents(
     query: str,
     user_id: UUID | None,
-    filters: Optional[List[IndexFilter]],
+    filters: Optional[List[IndexDBFilter]],
     vectordb: VectorIndexDB,
     num_hits: int = NUM_RETURNED_HITS,
     num_rerank: int = NUM_RERANKED_RESULTS,
@@ -141,7 +141,7 @@ def retrieve_semantic_reranked_documents(
 async def async_retrieve_hybrid_reranked_documents(
     query: str,
     user_id: UUID | None,
-    filters: Optional[List[IndexFilter]],
+    filters: Optional[List[IndexDBFilter]],
     vectordb: VectorIndexDB,
     keywordb: KeywordIndex,
     num_hits: int = NUM_RETURNED_HITS,

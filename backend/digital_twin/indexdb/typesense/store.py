@@ -31,7 +31,7 @@ from digital_twin.indexdb.chunking.models import (
     IndexChunk,
     InferenceChunk,
 )
-from digital_twin.indexdb.interface import IndexFilter, KeywordIndex
+from digital_twin.indexdb.interface import IndexDBFilter, KeywordIndex
 from digital_twin.utils.clients import get_typesense_client
 from digital_twin.utils.logging import setup_logger
 
@@ -178,7 +178,7 @@ def index_typesense_chunks(
 
 
 def _build_typesense_filters(
-    user_id: UUID | None, filters: list[IndexFilter] | None
+    user_id: UUID | None, filters: list[IndexDBFilter] | None
 ) -> str:
     filter_str = ""
 
@@ -224,7 +224,7 @@ class TypesenseIndex(KeywordIndex):
         self,
         query: str,
         user_id: UUID | None,
-        filters: list[IndexFilter] | None,
+        filters: list[IndexDBFilter] | None,
         num_to_retrieve: int,
     ) -> list[InferenceChunk]:
         filters_str = _build_typesense_filters(user_id, filters)

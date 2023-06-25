@@ -36,10 +36,6 @@ class DocumentSource(str, Enum):
     ADHOC_UPLOAD = "file_upload"
     NOTION = "notion"
 
-class SupportedPromptType(str, Enum):
-    STUFF = "stuff"
-    REFINE = "refine"
-
 class UserRole(str, Enum):
     BASIC = "basic"
     ADMIN = "admin"

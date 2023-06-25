@@ -11,6 +11,7 @@ NULL_DOC_TOKEN = "?[DOCUMENT]"
 NULL_EXAMPLE_TOKEN = "?[EXAMPLE]"
 EXAMPLE_SEP_PAT = "---NEW EXAMPLE---"
 
+PERSONALITY_MODEL_SETTINGS = {"temperature": 0.8, "max_output_tokens": 2000}
 class BasePersonalityChain(BaseChain):
     """
     Base class for Personality.
@@ -111,7 +112,7 @@ class RephraseChain(BasePersonalityChain):
         {{query}}
         % End of Question asked
 
-        % Document
+        % Rephrase task
         % If there are no documents, {NULL_DOC_TOKEN} will be present.
         % If Documents below are irrelevant to the Question, ignore them.
         {{document}}

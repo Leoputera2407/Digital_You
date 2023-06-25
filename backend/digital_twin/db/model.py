@@ -25,25 +25,6 @@ from sqlalchemy.orm import (
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
 
-# TODO: Make this a more localized somehow
-map_platform_to_db_api_key_type = {
-    "slack": "slack_bot_token",
-    "openai": "openai_api_key", 
-    "anthropic": "anthropic_api_key"
-}
-
-DB_MODEL_PLATFORM = ["anthrophic_api_key", "openai_api_key"]
-
-class DBAPIKeyType(str, pyEnum):
-    ANTHROPHIC_API_KEY = "anthrophic_api_key"
-    OPENAI_API_KEY = "openai_api_key"
-    SLACK_BOT_KEY = "slack_bot_key"
-
-class DBSupportedModelType(str, pyEnum):
-    GPT3_5 = "GPT3_5"
-    GPT4 = "GPT4"
-    ANTHROPIC = "ANTHROPIC"
-
 class IndexingStatus(str, pyEnum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -53,7 +34,6 @@ class IndexingStatus(str, pyEnum):
 class UserRole(str, pyEnum):
     BASIC = "basic"
     ADMIN = "admin"
-
 
 class Base(DeclarativeBase):
     pass
@@ -75,16 +55,6 @@ class Organization(Base):
         "Connector",
         back_populates="organization",
         cascade="all, delete-orphan",
-    )
-    api_keys: Mapped[List["APIKey"]] = relationship(
-        "APIKey",
-        back_populates="organization",
-        lazy="joined",
-    )
-    model_configs: Mapped[List["ModelConfig"]] = relationship(
-        "ModelConfig",
-        back_populates="organization",
-        lazy="joined",
     )
 
     # Remember UUID == str even if the contents are the same, so we need to use this.
@@ -121,7 +91,6 @@ class User(Base):
         lazy="joined",
     )
 
-
 class ConnectorCredentialPair(Base):
     """Connectors and Credentials can have a many-to-many relationship
     I.e. A Confluence Connector may have multiple admin users who can run it with their own credentials
@@ -147,7 +116,6 @@ class ConnectorCredentialPair(Base):
     credential: Mapped["Credential"] = relationship(
         "Credential", back_populates="connectors"
     )
-
 
 class Connector(Base):
     __tablename__ = "connector"
@@ -267,40 +235,6 @@ class IndexAttempt(Base):
             f"created_at={self.created_at!r}, "
             f"updated_at={self.updated_at!r}, "
         )
-
-class APIKey(Base):
-    __tablename__ = 'api_keys'
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    key_type: Mapped[DBAPIKeyType] = mapped_column(Enum(DBAPIKeyType))
-    key_value: Mapped[str] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
-
-    organization: Mapped[Organization] = relationship("Organization", back_populates="api_keys")
-
-
-class ModelConfig(Base):
-    __tablename__ = 'model_configs'
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    supported_model_enum: Mapped[DBSupportedModelType] = mapped_column(Enum(DBSupportedModelType))
-    temperature: Mapped[float] = mapped_column(Float)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
-
-    organization: Mapped[Organization] = relationship("Organization", back_populates="model_configs")
-
 
 class SlackUser(Base):
     __tablename__ = 'slack_users'

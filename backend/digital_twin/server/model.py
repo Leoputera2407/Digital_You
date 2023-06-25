@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Any, Generic, Literal, Optional, TypeVar, TYPE_CHECKING
+from typing import Any, Generic, Optional, TypeVar, TYPE_CHECKING
 from pydantic import BaseModel
 from pydantic.generics import GenericModel
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
 from digital_twin.indexdb.interface import IndexDBFilter
-from digital_twin.db.model import Connector, IndexingStatus, DBAPIKeyType, DBSupportedModelType
+from digital_twin.db.model import Connector, IndexingStatus
 
 DataT = TypeVar("DataT")
 
@@ -149,10 +149,3 @@ class CredentialSnapshot(CredentialBase):
     updated_at: datetime
 
 
-class APIKeyBase(BaseModel):
-    key_type: DBAPIKeyType
-    key_value: str
-
-class BaseModelConfig(BaseModel):
-    supported_model_enum: DBSupportedModelType
-    temperature: float

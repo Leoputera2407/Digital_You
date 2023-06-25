@@ -4,8 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from slack_sdk.web.async_client import AsyncWebClient
 
-from digital_twin.config.app_config import PERSONALITY_CHAIN_API_KEY
-from digital_twin.llm.chains.personality_chain import RephraseChain, PersonalityChain, NULL_DOC_TOKEN
+from digital_twin.llm.interface import get_llm
+from digital_twin.llm.chains.personality_chain import (
+    RephraseChain,
+    PersonalityChain, 
+    NULL_DOC_TOKEN,
+    PERSONALITY_MODEL_SETTINGS
+) 
 from digital_twin.slack_bot.views import get_view, PERSONALITY_TEXT
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
 from digital_twin.utils.logging import setup_logger
@@ -41,19 +46,11 @@ async def async_generate_and_store_user_conversation_style(
     Returns:
     None or string of conversation style description.
     """
-    # We'll pass our own model here, with our own custom key
-    # TODO: Figure out how to do this better
-    llm = ChatOpenAI(
-        model_name="gpt-3.5-turbo",
-        openai_api_key=PERSONALITY_CHAIN_API_KEY,
-        temperature=0,
-        # About 300 words
-        max_tokens=500,
-    )
-
     personality_chain = PersonalityChain(
-        llm=llm,
-        max_output_tokens=500,
+        llm=get_llm(
+            **PERSONALITY_MODEL_SETTINGS
+        ),
+        max_output_tokens=PERSONALITY_MODEL_SETTINGS["max_output_tokens"],
     )
 
     # Generate personality description
@@ -117,17 +114,12 @@ async def async_rephrase_response(
     # We'll pass our own model here, with our own custom key
     # TODO: Figure out how to do this better
     try:
-        llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            openai_api_key=PERSONALITY_CHAIN_API_KEY,
-            temperature=0,
-            # About 300 words
-            max_tokens=500,
-        )
         rephrase_chain = RephraseChain(
-            llm=llm,
+            llm=get_llm(
+                **PERSONALITY_MODEL_SETTINGS
+            ),
             # Does nothign for now
-            max_output_tokens=4096,
+            max_output_tokens=PERSONALITY_MODEL_SETTINGS["max_output_tokens"],
         )
         response = await rephrase_chain.async_run(
             examples=chat_pairs,
