@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from langchain.embeddings.base import Embeddings
 from sentence_transformers import SentenceTransformer
+from sentence_transformers import CrossEncoder
 
 from digital_twin.config.app_config import (
     NUM_RETURNED_HITS,
@@ -45,7 +46,19 @@ def semantic_reranking(
     """
     Rerank the chunks based on the semantic similarity between the query and the chunks 
     """
-    return chunks
+    model_name = 'cross-encoder/ms-marco-TinyBERT-L-2-v2'
+    query_and_content = []
+    top_chunks = []
+    for chunk in chunks:
+        query_and_content.append((query, chunk['content']))
+    model = CrossEncoder(model_name)
+    scores = model.predict(query_and_content)
+    #Sort the scores in decreasing order
+    results = [{'chunk': inp, 'score': score} for inp, score in zip(chunks, scores)]
+    for result in results:
+        if result['score'] > 0:
+            top_chunks.append(result['chunk'])
+    return top_chunks
 
 
 @log_function_time()
