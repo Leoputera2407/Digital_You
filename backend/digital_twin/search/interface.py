@@ -49,12 +49,14 @@ def semantic_reranking(
     model_name = 'cross-encoder/ms-marco-TinyBERT-L-2-v2'
     query_and_content = []
     top_chunks = []
+    # Puts chunks in the correct format for the cross encoder
     for chunk in chunks:
         query_and_content.append((query, chunk['content']))
     model = CrossEncoder(model_name)
     scores = model.predict(query_and_content)
-    #Sort the scores in decreasing order
+    # Combines the chunks and the scores
     results = [{'chunk': inp, 'score': score} for inp, score in zip(chunks, scores)]
+    # Keeps only the top (score greater than 0) chunks
     for result in results:
         if result['score'] > 0:
             top_chunks.append(result['chunk'])
