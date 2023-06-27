@@ -46,6 +46,7 @@ alembic = "^1.11.1"
 sqlalchemy = "^2.0.16"
 asyncpg = "^0.27.0"
 psycopg2 = "^2.9.6"
+cohere = "^4.11.2"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

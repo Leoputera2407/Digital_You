@@ -690,6 +690,23 @@ files = [
 click = "*"
 
 [[package]]
+name = "cohere"
+version = "4.11.2"
+description = ""
+optional = false
+python-versions = ">=3.7,<4.0"
+files = [
+    {file = "cohere-4.11.2-py3-none-any.whl", hash = "sha256:c5032f4a2aafbcfdf1cacd5b49121c8cc4804fbd121d4a7ac0dfea499398ea28"},
+    {file = "cohere-4.11.2.tar.gz", hash = "sha256:4d3e663a306e6fcb87c41cded2195257ebc6992d361a70417f6616f045c4ec47"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.0,<4.0"
+backoff = ">=2.0,<3.0"
+importlib_metadata = ">=6.0,<7.0"
+requests = ">=2.0,<3.0"
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
@@ -5866,4 +5883,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "cd87a0c8a15966a8b29454f2868302ccc44d6045b6c3a4b41c64f176d90bfcd0"
+content-hash = "e1b61b22d8a6b650014d72fb991a1eb48d95d4a41aa0f1844ed32c48992cd2b0"

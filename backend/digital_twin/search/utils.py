@@ -8,10 +8,11 @@ from sentence_transformers import CrossEncoder  # type: ignore
 from digital_twin.config.app_config import MINI_CHUNK_SIZE, EMBEDDING_OPENAI_API_KEY
 from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.server.model import SearchDoc
+from digital_twin.utils.timing import log_function_time
 
 
 _EMBED_MODEL: Optional[Embeddings | SentenceTransformer] = None
-
+_RERANK_MODELS: None | list[CrossEncoder] = None
 
 def chunks_to_search_docs(chunks: list[InferenceChunk] | None) -> list[SearchDoc]:
     search_docs = (
@@ -75,7 +76,7 @@ def get_default_embedding_model(
 
 # https://www.sbert.net/docs/pretrained-models/ce-msmarco.html
 CROSS_ENCODER_MODEL_ENSEMBLE = [
-    "cross-encoder/ms-marco-MiniLM-L-4-v2",
+    #"cross-encoder/ms-marco-MiniLM-L-4-v2",
     "cross-encoder/ms-marco-TinyBERT-L-2-v2",
 ]
 
@@ -92,16 +93,17 @@ def get_default_reranking_model_ensemble() -> list[CrossEncoder]:
     return _RERANK_MODELS
 
 from digital_twin.utils.logging import setup_logger
-from multiprocessing import Pool
+import concurrent.futures
 
 logger = setup_logger()
 
+@log_function_time()
 def local_model_test_reranking( 
     query: str,
     chunks: list[InferenceChunk],
 ) -> list[InferenceChunk]:
     cross_encoders = get_default_reranking_model_ensemble()
-    sim_scores = sum([encoder.predict([(query, chunk.content) for chunk in chunks]) for encoder in cross_encoders])  # type: ignore
+    sim_scores = sum([encoder.predict([(query, chunk['content']) for chunk in chunks]) for encoder in cross_encoders])  # type: ignore
     scored_results = list(zip(sim_scores, chunks))
     scored_results.sort(key=lambda x: x[0], reverse=True)
     ranked_sim_scores, ranked_chunks = zip(*scored_results)
@@ -110,6 +112,7 @@ def local_model_test_reranking(
 
     return ranked_chunks
 
+@log_function_time()
 def local_model_test_reranking_multiprocessing(
     query: str,
     chunks: list[InferenceChunk],
@@ -121,11 +124,12 @@ def local_model_test_reranking_multiprocessing(
     cross_encoders = get_default_reranking_model_ensemble()
    
     # Create a pool of processes. By default, one is created for each CPU in your machine.
-    with Pool() as p:
+    # Compute-intensive tasks should be parallelized to use the full CPU capacity.
+    # Create a pool of processes. By default, one is created for each CPU in your machine.
+    with concurrent.futures.ProcessPoolExecutor() as executor:
         sim_scores = sum(
-            p.map(cross_encoder_predict, [(query, chunk.content, encoder_model) for chunk in chunks for encoder_model in cross_encoders])
+            executor.map(cross_encoder_predict, [(query, chunk.content, encoder_model) for chunk in chunks for encoder_model in cross_encoders])
         )
-    
     scored_results = list(zip(sim_scores, chunks))
     scored_results.sort(key=lambda x: x[0], reverse=True)
     ranked_sim_scores, ranked_chunks = zip(*scored_results)
