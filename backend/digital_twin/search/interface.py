@@ -8,13 +8,14 @@ from typing import List, Optional
 
 from langchain.embeddings.base import Embeddings
 from sentence_transformers import SentenceTransformer
-from sentence_transformers import CrossEncoder
+import cohere
 
 from digital_twin.config.app_config import (
     NUM_RETURNED_HITS,
     NUM_RERANKED_RESULTS,
     BATCH_SIZE_ENCODE_CHUNKS,
     ENABLE_MINI_CHUNK,
+    COHERE_KEY,
 )
 
 from digital_twin.indexdb.chunking.models import InferenceChunk, EmbeddedIndexChunk, IndexChunk
@@ -46,21 +47,17 @@ def semantic_reranking(
     """
     Rerank the chunks based on the semantic similarity between the query and the chunks 
     """
-    model_name = 'cross-encoder/ms-marco-TinyBERT-L-2-v2'
-    query_and_content = []
-    top_chunks = []
-    # Puts chunks in the correct format for the cross encoder
+    co = cohere.Client(COHERE_KEY)
+    chunks_sorted = []
+    content = []
     for chunk in chunks:
-        query_and_content.append((query, chunk['content']))
-    model = CrossEncoder(model_name)
-    scores = model.predict(query_and_content)
-    # Combines the chunks and the scores
-    results = [{'chunk': inp, 'score': score} for inp, score in zip(chunks, scores)]
-    # Keeps only the top (score greater than 0) chunks
-    for result in results:
-        if result['score'] > 0:
-            top_chunks.append(result['chunk'])
-    return top_chunks
+        content.append(chunk['content'])
+    results = co.rerank(query=query, documents=content, top_n=NUM_RERANKED_RESULTS, model='rerank-english-v2.0')
+    zipped_results = [{'chunk': inp, 'score': score.relevance_score} for inp, score in zip(chunks, results)]
+    results_sorted = sorted(zipped_results, key=lambda x: x['score'], reverse=True)
+    for result in results_sorted:
+        chunks_sorted.append(result['chunk'])
+    return chunks_sorted
 
 
 @log_function_time()
