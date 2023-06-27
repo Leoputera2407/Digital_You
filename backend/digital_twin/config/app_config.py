@@ -118,6 +118,13 @@ DEFAULT_MODEL_TYPE = os.environ.get("DEFAULT_LLM", "AZURE")
 MODEL_API_KEY = os.environ.get("MODEL_API_KEY", "")
 EMBEDDING_OPENAI_API_KEY = os.environ.get("EMBEDDING_OPENAI_API_KEY", "")
 
+
+
+#####################
+# Cohere API Keys    #
+#####################
+COHERE_KEY=os.environ.get("COHERE_KEY", "")
+
 #####################
 # Connector Configs #
 #####################
