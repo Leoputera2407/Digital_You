@@ -1,11 +1,14 @@
 import json
 
+from uuid import UUID
 from logging import Logger
 from typing import Dict, Any, Callable, Awaitable
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import Response
 
 
 from slack_sdk.http_retry.builtin_async_handlers import AsyncRateLimitErrorRetryHandler
@@ -19,7 +22,10 @@ from slack_bolt.async_app import (
     AsyncBoltContext,
 )
 from slack_sdk.web.async_client import AsyncWebClient
-from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
+from slack_bolt.adapter.fastapi.async_handler import (
+    AsyncSlackRequestHandler,
+)
+from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
 
 from digital_twin.auth.users import current_user
 from digital_twin.llm.interface import get_llm
@@ -40,8 +46,17 @@ from digital_twin.slack_bot.events.command import handle_digital_twin_command
 from digital_twin.slack_bot.events.home_tab import build_home_tab
 from digital_twin.slack_bot.config import get_oauth_settings
 from digital_twin.db.model import SlackUser
-from digital_twin.db.user import async_get_slack_user, insert_slack_user
+from digital_twin.db.engine import get_async_session_generator
+from digital_twin.db.user import (
+    async_get_slack_user, 
+    insert_slack_user,
+)
 
+from digital_twin.utils.slack import (
+    to_starlette_response,
+    custom_handle_slack_oauth_redirect,
+    custom_handle_installation
+)
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
@@ -130,16 +145,62 @@ async def handle_slack_event(req: Request):
    logger.info("Handling slack event")
    return await app_handler.handle(req)
 
-@router.get("/slack/install")
-async def install(req: Request):
-    return await app_handler.handle(req)
+@router.get("/slack/install/{organization_id}")
+async def install(
+    organization_id: UUID,
+    request: Request,
+    db_session: AsyncSession = Depends(get_async_session_generator),
+):
+    oauth_flow: AsyncOAuthFlow = app_handler.app.oauth_flow
+    if oauth_flow is not None and \
+        request.url.path == oauth_flow.install_path and \
+            request.method == "GET":
+        bolt_resp = await custom_handle_installation(
+            oauth_flow=oauth_flow,
+            organization_id=organization_id,
+            db_session=db_session,
+            request=request,
+        ) 
+        return to_starlette_response(bolt_resp)
+ 
+    return Response(
+            status_code=404,
+            content="Not found",
+    )
 
 @router.get("/slack/oauth_redirect")
-async def slack_oauth_redirect(request: Request):
-    return await app_handler.handle(request)
+async def slack_oauth_redirect(
+    request: Request,
+    db_session: AsyncSession = Depends(get_async_session_generator),
+):
+    """
+    We want to attach a slack creds of the admin user who handled the installs.
+    To connect slack_user and our user, we used the only common attribute they have
+    which is email.
+
+    One big assumption we have here is the email
+    they used to register on slack is the same email that
+    they used to register to our service. If this assumption is broken,
+    this maybe a future cause of bug.
+    """
+    oauth_flow: AsyncOAuthFlow = app_handler.app.oauth_flow
+    if oauth_flow is not None and \
+        request.url.path == oauth_flow.redirect_uri_path and \
+            request.method == "GET":
+        bolt_resp = await custom_handle_slack_oauth_redirect(
+            oauth_flow=oauth_flow,
+            db_session=db_session,
+            request=request,
+        )    
+        return to_starlette_response(bolt_resp)
+    return Response(
+            status_code=404,
+            content="Not found",
+    )
+
 
 @slack_app.event("url_verification")
-async def handle_url_verification(body):
+async def handle_url_verification(body: Dict[str, Any]):
     challenge = body.get("challenge")
     return {"challenge": challenge}
 
@@ -213,7 +274,7 @@ async def handle_view_submission(
 ) -> None:
     await ack()
 
-    payload = json.loads(body['view']['private_metadata'])
+    payload: Dict[str, Any] = json.loads(body['view']['private_metadata'])
     channel_id = payload['channel_id']
 
      # Check if the submission is from the edit view

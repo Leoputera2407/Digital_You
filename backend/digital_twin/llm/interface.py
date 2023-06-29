@@ -59,6 +59,7 @@ def get_llm(
                 openai_api_base="https://prosona.openai.azure.com/",
                 openai_api_version="2023-03-15-preview",
                 deployment_name='35turbo',
+                model="gpt-35-turbo",
                 openai_api_key=api_key,
                 openai_api_type='azure',
                 temperature=temperature,

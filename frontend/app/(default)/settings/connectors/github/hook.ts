@@ -23,7 +23,7 @@ export interface UseGithubConnectorsReturn {
 function isGithubCredentialJson(
     credential: Credential<AnyCredentialJson>
   ): credential is Credential<GithubCredentialJson> {
-    return credential.credential_json.hasOwnProperty("google_drive_tokens");
+    return credential.credential_json.hasOwnProperty("github_access_tokens");
   }
 
 export function UseGithubConnectors({

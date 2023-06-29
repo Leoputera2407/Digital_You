@@ -2,11 +2,11 @@ import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
 import { setupNotionOAuth } from "@/lib/notion";
 import {
-    AnyCredentialJson,
-    Connector,
-    ConnectorIndexingStatus,
-    Credential,
-    NotionCredentialJson,
+  AnyCredentialJson,
+  Connector,
+  ConnectorIndexingStatus,
+  Credential,
+  NotionCredentialJson,
 } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

@@ -12,14 +12,14 @@ type UseConnectorResponse<T> = {
   connectorsData: Connector<T>[] | undefined,
 };
 
-export const useConnectorData = <T>(user: any): UseConnectorResponse<T> => {
+export const useConnectorData = <T>(): UseConnectorResponse<T> => {
   
   const {
     data: connectorIndexingStatuses,
     isLoading: isConnectorIndexingStatusesLoading,
     error: isConnectorIndexingStatusesError,
   } = useSWR<ConnectorIndexingStatus<any>[]>(
-    `/api/connector/indexing-status?supabase_user_id=${user?.id}`,
+    `/api/connector/admin/indexing-status`,
     fetcher
   );
   const {
@@ -27,7 +27,7 @@ export const useConnectorData = <T>(user: any): UseConnectorResponse<T> => {
     isLoading: isCredentialsLoading,
     error: isCredentialsError,
   } = useSWR<Credential<T>[]>(
-    `/api/connector/credential?supabase_user_id=${user?.id}`,
+    `/api/connector/credential`,
     fetcher
   );
   const {
@@ -35,7 +35,7 @@ export const useConnectorData = <T>(user: any): UseConnectorResponse<T> => {
     isLoading: isConnectorsLoading,
     error: isConnectorsError,
   } = useSWR<Connector<T>[]>(
-    `/api/connector/list?supabase_user_id=${user?.id}`,
+    `/api/connector/list`,
     fetcher
   );
   

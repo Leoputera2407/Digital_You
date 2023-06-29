@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/Label";
 import { useSupabase } from '@/lib/auth/authProvider';
 import { useAxios } from '@/lib/hooks/useAxios';
 import { useToast } from '@/lib/hooks/useToast';
-import { getModelAPIKey, upsertModelAPIKey, validateModelAPIKey } from "@/lib/llm";
+//import { getModelAPIKey, upsertModelAPIKey, validateModelAPIKey } from "@/lib/llm";
 import { APIKeyJson, APIKeyType, ModelAPIKeyTypesArray } from "@/lib/types";
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -38,15 +38,7 @@ function ApiKeyRow({ keyType, apiKey }: ApiKeyRowProps) {
       key_value: data.apiKeyValue
     };
   
-    validateModelAPIKey(axiosInstance, apiKeyToTest)
-      .then(() => {
-        setButtonState('upsert');
-        setTestingText(`Successfully tested ${keyType}!`);
-      })
-      .catch((error: any) => {
-        console.error("Error:", error);
-        setTestingText(`Error: either your ${keyType} is invalid or you're out of quota!`);
-      });
+   
   };
   
   
@@ -55,24 +47,9 @@ function ApiKeyRow({ keyType, apiKey }: ApiKeyRowProps) {
       const newAPIKey: APIKeyJson = { 
         key_type: keyType,
         key_value: data.apiKeyValue
-      };      
-      upsertModelAPIKey(axiosInstance, user.id, newAPIKey)
-        .then(() => {
-          // When the operation is successful, show a toast
-          publish({
-            variant: "success",
-            text: `Successfully ${apiKey ? 'updated' : 'set up'} ${keyType} API Key!`
-          });
-        })
-        .catch((error: any) => {
-          console.error("Error:", error);
-          // You can also add a toast for the error case if you want
-          publish({
-            variant: "danger",
-            text: `Failed to ${apiKey ? 'update' : 'set up'} ${keyType} API Key. Please try again!`
-          });
-        });
-    }
+      };    
+    }  
+      
   };
 
   return (
@@ -121,22 +98,14 @@ export function ModelProviderForm() {
 
   useEffect(() => {
    console.log("session", session)
-    getModelAPIKey(axiosInstance, user?.id)
-      .then((apiKeys: APIKeyJson[]) => {
-        const keys: Partial<Record<APIKeyType, APIKeyJson>> = {};
-        apiKeys.forEach(key => {
-          keys[key.key_type] = key;
-        });
-        setApiKeys(keys);
-      })
-      .catch((error) => console.error("Error:", error));
+   
     
   }, [axiosInstance, user, session]);
 
   return (
     <div className="space-y-4">
       {ModelAPIKeyTypesArray.map((keyType) => (
-        <ApiKeyRow key={keyType} keyType={keyType} apiKey={apiKeys[keyType]} />
+        <ApiKeyRow key={keyType} keyType={keyType} apiKey={[]} />
       ))}
     </div>
   );

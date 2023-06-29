@@ -10,7 +10,6 @@ from sqlalchemy import (
     Integer, 
     DateTime, 
     Boolean,
-    Float,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects import postgresql
@@ -35,8 +34,36 @@ class UserRole(str, pyEnum):
     BASIC = "basic"
     ADMIN = "admin"
 
+class InvitationStatus(str, pyEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+
 class Base(DeclarativeBase):
     pass
+
+
+class UserOrganizationAssociation(Base):
+    __tablename__ = "user_organization_association"
+
+    user_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), 
+        ForeignKey("users.id"), 
+        primary_key=True
+    )
+    organization_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), 
+        ForeignKey("organizations.id"), 
+        primary_key=True
+    )
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, native_enum=False, default=UserRole.BASIC), server_default=UserRole.BASIC.value
+    )
+    user: Mapped["User"] = relationship(
+        "User", back_populates="organizations"
+    )
+    organization: Mapped["Organization"] = relationship(
+        "Organization", back_populates="users"
+    )
 
 class Organization(Base):
     __tablename__ = "organizations"
@@ -46,8 +73,8 @@ class Organization(Base):
     qdrant_collection_key: Mapped[UUID] = mapped_column(UUID(as_uuid=True), server_default=func.gen_random_uuid())
     typesense_collection_key: Mapped[UUID] = mapped_column(UUID(as_uuid=True), server_default=func.gen_random_uuid())
 
-    users: Mapped[List["User"]] = relationship(
-        "User",
+    users: Mapped[List["UserOrganizationAssociation"]] = relationship(
+        "UserOrganizationAssociation",
         back_populates="organization",
         cascade="all, delete-orphan",
     )
@@ -56,6 +83,20 @@ class Organization(Base):
         back_populates="organization",
         cascade="all, delete-orphan",
     )
+    credentials: Mapped[List["Credential"]] = relationship(
+        "Credential", back_populates="organization", lazy="joined"
+    )
+    slack_users: Mapped[List["SlackUser"]] = relationship(
+        "SlackUser", back_populates="organization", lazy="joined"
+    )
+    invitations: Mapped[List["Invitation"]] = relationship(
+        "Invitation",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    slack_oauth_states: Mapped[List["SlackOAuthStates"]] = relationship('SlackOAuthStates', back_populates='organization')
+    slack_installations: Mapped[List["SlackInstallations"]] = relationship('SlackInstallations', back_populates='organization')
+    slack_bots: Mapped[List["SlackBots"]] = relationship('SlackBots', back_populates='organization')
 
     # Remember UUID == str even if the contents are the same, so we need to use this.
     def get_qdrant_collection_key_str(self) -> str:
@@ -70,15 +111,13 @@ class User(Base):
     # TODO: Supabase doesn't expose their auth.users schema, so we can't put a reference it as a foreign key
     # This is handled in the handle_new_users() trigger that can be found in the Supabase UI
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"))
     first_name: Mapped[str | None] = mapped_column(String, nullable=True)
     last_name: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str] = mapped_column(String, nullable=False)
-    role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, native_enum=False, default=UserRole.BASIC), server_default=UserRole.BASIC.value
-    )
-    organization: Mapped[Organization] = relationship(
-        "Organization", back_populates="users", lazy="joined"
+    organizations: Mapped[List["UserOrganizationAssociation"]] = relationship(
+        "UserOrganizationAssociation",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     credentials: Mapped[List["Credential"]] = relationship(
@@ -89,6 +128,32 @@ class User(Base):
         "SlackUser",
         back_populates="user",
         lazy="joined",
+    )
+    invitations_sent: Mapped[List["Invitation"]] = relationship(
+        "Invitation",
+        back_populates="inviter"
+    )
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"))
+    inviter_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    invitee_email: Mapped[str] = mapped_column(String, nullable=False)
+    token: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[InvitationStatus] = mapped_column(
+        Enum(InvitationStatus, native_enum=False, default=InvitationStatus.PENDING), server_default=InvitationStatus.PENDING.value
+    )
+
+    inviter: Mapped["User"] = relationship(
+        "User",
+        back_populates="invitations_sent",
+        foreign_keys=[inviter_id]
+    )
+    organization: Mapped["Organization"] = relationship(
+        "Organization",
+        back_populates="invitations"
     )
 
 class ConnectorCredentialPair(Base):
@@ -111,10 +176,14 @@ class ConnectorCredentialPair(Base):
     total_docs_indexed: Mapped[int] = mapped_column(Integer, default=0)
 
     connector: Mapped["Connector"] = relationship(
-        "Connector", back_populates="credentials"
+        "Connector", 
+        back_populates="credentials",
+        lazy="joined"
     )
     credential: Mapped["Credential"] = relationship(
-        "Credential", back_populates="connectors"
+        "Credential", 
+        back_populates="connectors",
+        lazy="joined"
     )
 
 class Connector(Base):
@@ -139,7 +208,6 @@ class Connector(Base):
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
     organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
 
-
     organization: Mapped[Organization] = relationship(
                 "Organization", 
                 back_populates="connectors"
@@ -160,6 +228,7 @@ class Credential(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     credential_json: Mapped[dict[str, Any]] = mapped_column(postgresql.JSONB())
     user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True)
     # This means anyone can read the index
     public_doc: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -181,6 +250,9 @@ class Credential(Base):
         "CSRFToken", back_populates="credential", cascade="all, delete-orphan"
     )
     user: Mapped[User] = relationship("User", back_populates="credentials")
+    organization: Mapped[Organization] = relationship(
+        "Organization", back_populates="credentials", lazy="joined"
+    )
 
 
 class IndexAttempt(Base):
@@ -253,8 +325,11 @@ class SlackUser(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'))
-
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"))
     user: Mapped[User] = relationship("User", back_populates="slack_users")
+    organization: Mapped[Organization] = relationship(
+        "Organization", back_populates="slack_users", lazy="joined"
+    )
 
 class GoogleAppCredential(Base):
     __tablename__ = 'google_app_credentials'
@@ -294,6 +369,9 @@ class SlackOAuthStates(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     state: Mapped[str] = mapped_column(String(200), nullable=False)
     expire_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    prosona_organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
+    organization: Mapped[Organization] = relationship('Organization', back_populates='slack_oauth_states')
+
 
 class SlackInstallations(Base):
     __tablename__ = "slack_installations"
@@ -324,7 +402,9 @@ class SlackInstallations(Base):
     is_enterprise_install: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     token_type: Mapped[str] = mapped_column(String(32), nullable=True)
     installed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.now())
-    
+    prosona_organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
+    organization: Mapped[Organization] = relationship('Organization', back_populates='slack_installations')
+
     __table_args__ = (
         Index(
             "installations_idx",
@@ -354,7 +434,9 @@ class SlackBots(Base):
     bot_token_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     is_enterprise_install: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     installed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.now())
-    
+    prosona_organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
+    organization: Mapped[Organization] = relationship('Organization', back_populates='slack_bots')
+
     __table_args__ = (
         Index(
             "bots_idx",

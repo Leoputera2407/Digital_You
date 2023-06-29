@@ -17,14 +17,19 @@ from digital_twin.utils.logging import setup_logger, log_sqlalchemy_error
 logger = setup_logger()
 
 @log_sqlalchemy_error(logger)
-def fetch_db_google_app_creds(db_session: Session) -> Optional[GoogleAppCredential]:
+def fetch_db_google_app_creds(
+    db_session: Session
+) -> Optional[GoogleAppCredential]:
     stmt = select(GoogleAppCredential)
     result = db_session.execute(stmt)
     credential = result.scalars().first()
     return credential
 
 @log_sqlalchemy_error(logger)
-def upsert_db_google_app_cred(app_credential: GoogleAppCredential, db_session: Session) -> Optional[GoogleAppCredential]:
+def upsert_db_google_app_cred(
+    app_credential: GoogleAppCredential, 
+    db_session: Session
+) -> Optional[GoogleAppCredential]:
     stmt = select(GoogleAppCredential).order_by(GoogleAppCredential.updated_at.desc())
     result = db_session.execute(stmt)
     credentials = result.scalars().all()

@@ -6,11 +6,11 @@ from digital_twin.connectors.factory import instantiate_connector
 from digital_twin.connectors.interfaces import LoadConnector, PollConnector
 from digital_twin.connectors.model import InputType
 
-from digital_twin.db.connectors.connectors import fetch_connectors, disable_connector
-from digital_twin.db.connectors.credentials import update_credential_json
+from digital_twin.db.connectors.connectors import fetch_connectors, backend_disable_connector
+from digital_twin.db.connectors.credentials import backend_update_credential_json
 from digital_twin.db.engine import get_db_current_time, get_sqlalchemy_engine
 from digital_twin.db.connectors.connector_credential_pair import (
-    update_connector_credential_pair
+    backend_update_connector_credential_pair
 )
 from digital_twin.db.connectors.index_attempt import (
     create_index_attempt,
@@ -88,7 +88,7 @@ def create_indexing_jobs(db_session: Session) -> None:
             )
             mark_attempt_failed(attempt, db_session)
             if attempt.connector_id and attempt.credential_id:
-                update_connector_credential_pair(
+                backend_update_connector_credential_pair(
                     connector_id=attempt.connector_id,
                     credential_id=attempt.credential_id,
                     attempt_status=IndexingStatus.FAILED,
@@ -108,7 +108,7 @@ def create_indexing_jobs(db_session: Session) -> None:
                 continue
             create_index_attempt(connector.id, credential.id, db_session)
 
-            update_connector_credential_pair(
+            backend_update_connector_credential_pair(
                 connector_id=connector.id,
                 credential_id=credential.id,
                 attempt_status=IndexingStatus.NOT_STARTED,
@@ -134,7 +134,7 @@ def run_indexing_jobs(db_session: Session) -> None:
         db_credential = attempt.credential
         task = db_connector.input_type
 
-        update_connector_credential_pair(
+        backend_update_connector_credential_pair(
             connector_id=db_connector.id,
             credential_id=db_credential.id,
             attempt_status=IndexingStatus.IN_PROGRESS,
@@ -150,12 +150,12 @@ def run_indexing_jobs(db_session: Session) -> None:
                 db_credential.credential_json,
             )
             if new_credential_json is not None:
-                update_credential_json(
+                backend_update_credential_json(
                     db_credential, new_credential_json, db_session
                 )
         except Exception as e:
             logger.exception(f"Unable to instantiate connector due to {e}")
-            disable_connector(db_connector.id, db_session)
+            backend_disable_connector(db_connector.id, db_session)
             continue
 
         net_doc_change = 0
@@ -198,7 +198,7 @@ def run_indexing_jobs(db_session: Session) -> None:
                 document_ids.extend([doc.id for doc in doc_batch])
 
             mark_attempt_succeeded(attempt, document_ids, db_session)
-            update_connector_credential_pair(
+            backend_update_connector_credential_pair(
                 connector_id=db_connector.id,
                 credential_id=db_credential.id,
                 attempt_status=IndexingStatus.SUCCESS,
@@ -211,7 +211,7 @@ def run_indexing_jobs(db_session: Session) -> None:
         except Exception as e:
             logger.exception(f"Indexing job with id {attempt.id} failed due to {e}")
             mark_attempt_failed(attempt, db_session, failure_reason=str(e))
-            update_connector_credential_pair(
+            backend_update_connector_credential_pair(
                 connector_id=db_connector.id,
                 credential_id=db_credential.id,
                 attempt_status=IndexingStatus.FAILED,

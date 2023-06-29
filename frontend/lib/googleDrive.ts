@@ -3,20 +3,18 @@ import type { Axios, AxiosResponse } from "axios";
 
 interface SetupGoogleDriveArgs {
   axiosInstance: Axios;
-  userId: string;
   isPublic: boolean;
 }
 
 export const setupGoogleDriveOAuth = async ({
     axiosInstance,
-    userId,
     isPublic,
   }: SetupGoogleDriveArgs): Promise<[string | null, string]> => {
     let credentialCreationResponse: AxiosResponse<Credential<{}>>;
     let authorizationUrlResponse: AxiosResponse<{auth_url: string}>;
   
     try {
-      credentialCreationResponse = await axiosInstance.post(`/api/connector/credential?supabase_user_id=${userId}`, {
+      credentialCreationResponse = await axiosInstance.post(`/api/connector/credential`, {
         public_doc: isPublic,
         credential_json: {},
       }, {

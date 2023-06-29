@@ -8,16 +8,16 @@ import AuthButton from "@/components/ui/AuthButton";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
 } from "@/components/ui/Collapsible";
 import { Separator } from "@/components/ui/separator";
 import { useSupabase } from "@/lib/auth/authProvider";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import {
-    AnyCredentialJson,
-    ValidDataSourceTypesArray,
+  AnyCredentialJson,
+  ValidDataSourceTypesArray,
 } from "@/lib/types";
 import GoogleDriveConnector from "./google-drive/connector";
 import NotionConnector from "./notion/connector";
@@ -47,7 +47,7 @@ export default function ConnectorMenuPage() {
     connectorIndexingStatuses,
     credentialsData,
     connectorsData,
-  } = useConnectorData<AnyCredentialJson>(user); 
+  } = useConnectorData<AnyCredentialJson>(); 
 
   const handleOpenDataChange = (index: number, newState: boolean) => {
     const newArr = [...isOpenDataArr];

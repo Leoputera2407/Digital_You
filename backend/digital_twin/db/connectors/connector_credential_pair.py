@@ -1,9 +1,18 @@
+from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.expression import and_
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.db.connectors.connectors import fetch_connector_by_id
-from digital_twin.db.connectors.credentials import fetch_credential_by_id
+from digital_twin.db.connectors.connectors import (
+    fetch_connector_by_id_and_org,
+    async_fetch_connector_by_id_and_org,
+) 
+from digital_twin.db.connectors.credentials import (
+    fetch_credential_by_id_and_org,
+    async_fetch_credential_by_id_and_org,
+)
 from digital_twin.db.model import (
     ConnectorCredentialPair,
     IndexingStatus,
@@ -16,11 +25,21 @@ logger = setup_logger()
 
 @log_sqlalchemy_error(logger)
 def get_connector_credential_pairs(
-    db_session: Session, include_disabled: bool = True
+    db_session: Session, 
+    organization_id: UUID,
+    include_disabled: bool = True,
 ) -> list[ConnectorCredentialPair]:
     stmt = select(ConnectorCredentialPair)
+    stmt = stmt.where(
+        and_(
+            ConnectorCredentialPair.connector.organization_id == organization_id,
+            ConnectorCredentialPair.credential.organization_id == organization_id,
+        )
+    )
     if not include_disabled:
-        stmt = stmt.where(ConnectorCredentialPair.connector.disabled == False)
+        stmt = stmt.where(
+            ConnectorCredentialPair.connector.disabled == False
+        )
     results = db_session.scalars(stmt)
     return list(results.all())
 
@@ -28,24 +47,77 @@ def get_connector_credential_pairs(
 def get_connector_credential_pair(
     connector_id: int,
     credential_id: int,
+    organization_id: UUID | None,
     db_session: Session,
 ) -> ConnectorCredentialPair | None:
     stmt = select(ConnectorCredentialPair)
     stmt = stmt.where(ConnectorCredentialPair.connector_id == connector_id)
     stmt = stmt.where(ConnectorCredentialPair.credential_id == credential_id)
+    if organization_id is not None:
+        stmt = stmt.where(
+            and_(
+                ConnectorCredentialPair.connector.organization_id == organization_id,
+                ConnectorCredentialPair.credential.organization_id == organization_id,
+            )
+        )
     result = db_session.execute(stmt)
     return result.scalar_one_or_none()
 
+
 @log_sqlalchemy_error(logger)
-def update_connector_credential_pair(
+def backend_update_connector_credential_pair(
     connector_id: int,
     credential_id: int,
     attempt_status: IndexingStatus,
     net_docs: int | None,
     db_session: Session,
 ) -> bool:
+    """
+    This is mostly used in the backend, and will
+    pull update regardless of the organization_id
+    """
     try:
-        cc_pair = get_connector_credential_pair(connector_id, credential_id, db_session)
+        cc_pair = get_connector_credential_pair(
+            connector_id, 
+            credential_id,
+            organization_id = None, 
+            db_session = db_session,
+        )
+        if not cc_pair:
+            logger.warning(
+                f"Attempted to update pair for connector id {connector_id} "
+                f"and credential id {credential_id}"
+            )
+            return False
+        cc_pair.last_attempt_status = attempt_status
+        if attempt_status == IndexingStatus.SUCCESS:
+            cc_pair.last_successful_index_time = func.now()  # type:ignore
+        if net_docs is not None:
+            cc_pair.total_docs_indexed += net_docs
+        db_session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to update connector credential pair: {e}")
+        return False
+
+
+
+@log_sqlalchemy_error(logger)
+def update_connector_credential_pair(
+    connector_id: int,
+    credential_id: int,
+    organization_id: UUID,
+    attempt_status: IndexingStatus,
+    net_docs: int | None,
+    db_session: Session,
+) -> bool:
+    try:
+        cc_pair = get_connector_credential_pair(
+            connector_id, 
+            credential_id,
+            organization_id, 
+            db_session
+        )
         if not cc_pair:
             logger.warning(
                 f"Attempted to update pair for connector id {connector_id} "
@@ -67,11 +139,21 @@ def update_connector_credential_pair(
 def add_credential_to_connector(
     connector_id: int,
     credential_id: int,
+    organization_id: UUID,
     user: User,
     db_session: Session,
 ) -> StatusResponse[int]:
-    connector = fetch_connector_by_id(connector_id, db_session)
-    credential = fetch_credential_by_id(credential_id, user, db_session)
+    connector = fetch_connector_by_id_and_org(
+        connector_id, 
+        organization_id,
+        db_session
+    )
+    credential = fetch_credential_by_id_and_org(
+        credential_id, 
+        user, 
+        organization_id,
+        db_session
+    )
 
     if connector is None:
         raise HTTPException(status_code=404, detail="Connector does not exist")
@@ -111,15 +193,86 @@ def add_credential_to_connector(
         data=connector_id,
     )
 
+
+@log_sqlalchemy_error(logger)
+async def async_add_credential_to_connector(
+    connector_id: int,
+    credential_id: int,
+    organization_id: UUID,
+    user: User,
+    db_session: AsyncSession,
+) -> StatusResponse[int]:
+    connector = await async_fetch_connector_by_id_and_org(
+        connector_id, 
+        organization_id,
+        db_session
+    )
+    credential = await async_fetch_credential_by_id_and_org(
+        credential_id, 
+        user, 
+        organization_id,
+        db_session
+    )
+
+    if connector is None:
+        raise HTTPException(status_code=404, detail="Connector does not exist")
+
+    if credential is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Credential does not exist or does not belong to user",
+        )
+
+    existing_association = (
+        await db_session.execute(
+            select(ConnectorCredentialPair)
+            .where(
+                ConnectorCredentialPair.connector_id == connector_id,
+                ConnectorCredentialPair.credential_id == credential_id,
+            )
+        )
+    ).scalars().first()
+
+    if existing_association is not None:
+        return StatusResponse(
+            success=False,
+            message=f"Connector already has Credential {credential_id}",
+            data=connector_id,
+        )
+
+    association = ConnectorCredentialPair(
+        connector_id=connector_id,
+        credential_id=credential_id,
+        last_attempt_status=IndexingStatus.NOT_STARTED,
+    )
+    db_session.add(association)
+    await db_session.commit()
+
+    return StatusResponse(
+        success=True,
+        message=f"New Credential {credential_id} added to Connector",
+        data=connector_id,
+    )
+
 @log_sqlalchemy_error(logger)
 def remove_credential_from_connector(
     connector_id: int,
     credential_id: int,
+    organization_id: UUID,
     user: User,
     db_session: Session,
 ) -> StatusResponse[int]:
-    connector = fetch_connector_by_id(connector_id, db_session)
-    credential = fetch_credential_by_id(credential_id, user, db_session)
+    connector = fetch_connector_by_id_and_org(
+        connector_id, 
+        organization_id,
+        db_session,
+    )
+    credential = fetch_credential_by_id_and_org(
+        credential_id, 
+        user, 
+        organization_id,
+        db_session,
+    )
 
     if connector is None:
         raise HTTPException(status_code=404, detail="Connector does not exist")

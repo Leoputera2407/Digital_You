@@ -64,15 +64,13 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
       try{
         const connector = await handleCreateConnector(
           connectorBase,
-          user.id
         );
 
         await handleLinkCredential(
             connector.id,
             notionPublicCredential?.id,
-            user.id
         );
-        mutate("/api/connector/indexing-status")
+        mutate("/api/connector/admin/indexing-status")
         mutate("/api/connector/credential")
      } catch (error: any) {
         throw new Error("Failed to Enable Connector!"); 
@@ -103,7 +101,7 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
                 }
                 user={user}
                 onUpdate={() => {
-                  mutate("/api/connector/indexing-status");
+                  mutate("/api/connector/admin/indexing-status");
                 }}
               />
             )}
@@ -139,7 +137,6 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
                         await handleUnlinkCredential(
                             notionConnector?.id,
                             notionPublicCredential?.id,
-                            user.id
                         );
                         mutate("/api/connector/indexing-status")
                         mutate("/api/connector/credential")
@@ -153,9 +150,8 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
                         await handleLinkCredential(
                             notionConnector?.id,
                             notionPublicCredential?.id,
-                            user.id
                         );
-                        mutate("/api/connector/indexing-status")
+                        mutate("/api/connector/admin/indexing-status")
                         mutate("/api/connector/credential")
                     } catch (e) {
                         console.error(e);

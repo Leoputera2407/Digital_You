@@ -4,10 +4,9 @@ import { Connector, ConnectorBase } from "./types";
 export async function createConnector<T>(
   axiosInstance: Axios,
   connector: ConnectorBase<T>,
-  userId: string
 ): Promise<Connector<T>> {
 
-  const response = await axiosInstance.post(`/api/connector/create?supabase_user_id=${userId}`, {
+  const response = await axiosInstance.post(`/api/connector/admin/create`, {
     ...connector
   });
   if (response.status < 200 || response.status >= 300) {
@@ -19,13 +18,8 @@ export async function createConnector<T>(
 export async function getConnectorById<T>(
   axiosInstance: Axios,
   connectorId: number,
-  userId: string
 ): Promise<Connector<T>> {
-  const response = await axiosInstance.get(`/api/connector/${connectorId}`, {
-    params: {
-      supabase_user_id: userId,
-    },
-  });
+  const response = await axiosInstance.get(`/api/connector/${connectorId}`);
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to get connector - ${response.status}`);
   }
@@ -35,12 +29,10 @@ export async function getConnectorById<T>(
 export async function updateConnector<T>(
   axiosInstance: Axios,
   connector: Connector<T>,
-  userId: string
 ): Promise<Connector<T>> {
 
-  const response = await axiosInstance.patch(`/api/connector/${connector.id}`, {
+  const response = await axiosInstance.patch(`/api/connector/admin/${connector.id}`, {
     ...connector,
-    supabase_user_id: userId,
   });
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to delete connector - ${response.status}`);
@@ -51,13 +43,8 @@ export async function updateConnector<T>(
 export async function deleteConnector<T>(
   axiosInstance: Axios,
   connectorId: number,
-  userId: string
 ): Promise<Connector<T>> {
-  const response = await axiosInstance.delete(`/api/connector/${connectorId}`, {
-    data: {
-      supabase_user_id: userId,
-    },
-  });
+  const response = await axiosInstance.delete(`/api/connector/admin/${connectorId}`);
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to delete connector - ${response.status}`);
   }
@@ -67,18 +54,9 @@ export async function deleteConnector<T>(
 export async function deleteCredential<T>(
   axiosInstance: Axios,
   credentialId: number,
-  userId: string
 ) {
   const response = await axiosInstance.delete(
     `/api/connector/credential/${credentialId}`,
-    {
-      params: {
-        supabase_user_id: uUserId,
-      },
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
   );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to delete credential - ${response.status}`);
@@ -90,19 +68,9 @@ export async function linkCredential<T>(
   axiosInstance: Axios,
   connectorId: number,
   credentialId: number,
-  userId: string
 ) {
   const response = await axiosInstance.put(
-    `/api/connector/${connectorId}/credential/${credentialId}`,
-    {},
-    {
-      params: {
-        supabase_user_id: userId,
-      },
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
+    `/api/connector/${connectorId}/credential/${credentialId}`
   );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(
@@ -116,18 +84,9 @@ export async function unlinkCredential<T>(
   axiosInstance: Axios,
   connectorId: number,
   credentialId: number,
-  userId: string
 ) {
   const response = await axiosInstance.delete(
     `/api/connector/${connectorId}/credential/${credentialId}`,
-    {
-      params: {
-        supabase_user_id: userId,
-      },
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
   );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(

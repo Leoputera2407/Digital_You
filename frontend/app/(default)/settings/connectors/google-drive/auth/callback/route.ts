@@ -22,13 +22,11 @@ export const GET = async (request: NextRequest) => {
   if (process.env.NODE_ENV === "production") {
     const url = new URL(buildBackendUrl("/connector/google-drive/callback"));
     url.search = request.nextUrl.search;
-    url.searchParams.append('supabase_user_id', data?.session?.user?.id || '');
     // Make the request
     response = await axiosInstance.get(url.toString());
   } else {
     const url = new URL(buildBackendUrl("/connector/google-drive-non-prod/callback"));
     url.search = request.nextUrl.search;
-    url.searchParams.append('supabase_user_id', data?.session?.user?.id || '');
     // Make the request
     response = await axiosInstance.get(url.toString());
   }

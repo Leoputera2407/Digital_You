@@ -43,6 +43,7 @@ class DefaultEmbedder(Embedder):
 def semantic_reranking(
     query: str,
     chunks: list[InferenceChunk],
+    num_rerank: int = NUM_RERANKED_RESULTS
 ) -> list[InferenceChunk]:
     """
     Rerank the chunks based on the semantic similarity between the query and the chunks 
@@ -52,7 +53,7 @@ def semantic_reranking(
     content = []
     for chunk in chunks:
         content.append(chunk['content'])
-    results = co.rerank(query=query, documents=content, top_n=NUM_RERANKED_RESULTS, model='rerank-english-v2.0')
+    results = co.rerank(query=query, documents=content, top_n=num_rerank, model='rerank-english-v2.0')
     zipped_results = [{'chunk': inp, 'score': score.relevance_score} for inp, score in zip(chunks, results)]
     results_sorted = sorted(zipped_results, key=lambda x: x['score'], reverse=True)
     for result in results_sorted:
@@ -136,7 +137,7 @@ def retrieve_semantic_reranked_documents(
         )
         return None
 
-    ranked_chunks = semantic_reranking(query, top_chunks[:num_rerank])
+    ranked_chunks = semantic_reranking(query, top_chunks[:num_rerank], num_rerank)
 
     top_docs = [
         ranked_chunk.source_links[0]
@@ -193,7 +194,7 @@ async def async_retrieve_hybrid_reranked_documents(
         logger.info("Both semantic_top_chunks and keyword_top_chunks are non-empty.")
         top_chunks = semantic_top_chunks[:math.ceil(num_rerank/2)] + keyword_top_chunks[:math.floor(num_rerank/2)]
         
-    ranked_chunks = semantic_reranking(query, top_chunks)
+    ranked_chunks = semantic_reranking(query, top_chunks, num_rerank)
 
     top_docs = [
         ranked_chunk.source_links[0]

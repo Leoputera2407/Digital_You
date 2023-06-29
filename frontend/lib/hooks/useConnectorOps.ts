@@ -23,12 +23,7 @@ function verifyCredentialId(credentialId?: number): number {
   return credentialId;
 }
 
-function verifyUserId(userId?: string): string {
-  if (userId === undefined) {
-    throw new Error("User ID is undefined");
-  }
-  return userId;
-}
+
 export function useConnectorsOps() {
   const [isLoading, setIsLoading] = useState(false);
   const { axiosInstance } = useAxios();
@@ -37,19 +32,16 @@ export function useConnectorsOps() {
   const handleUnlinkCredential = async (
     connectorId?: number,
     credentialId?: number,
-    userId?: string
   ) => {
     setIsLoading(true);
 
     try {
       const validConnectorId = verifyConnectorId(connectorId);
       const validCredentialId = verifyCredentialId(credentialId);
-      const validUserId = verifyUserId(userId);
       await unlinkCredential(
         axiosInstance,
         validConnectorId,
         validCredentialId,
-        validUserId
       );
 
       publish({
@@ -68,14 +60,12 @@ export function useConnectorsOps() {
 
   const handleDeleteConnector = async (
     connectorId?: number,
-    userId?: string
   ) => {
     setIsLoading(true);
 
     try {
       const validConnectorId = verifyConnectorId(connectorId);
-      const validUserId = verifyUserId(userId);
-      await deleteConnector(axiosInstance, validConnectorId, validUserId);
+      await deleteConnector(axiosInstance, validConnectorId);
       publish({
         variant: "success",
         text: "Successfully deleted connector!",
@@ -92,12 +82,10 @@ export function useConnectorsOps() {
 
   const handleCreateConnector = async (
     connectorBase: ConnectorBase<{}>,
-    userId?: string
   ) => {
     setIsLoading(true);
     try {
-      const validUserId = verifyUserId(userId);
-      const connector = await createConnector(axiosInstance, connectorBase, validUserId);
+      const connector = await createConnector(axiosInstance, connectorBase);
       return connector;
     } catch (error: any) {
       publish({
@@ -113,14 +101,12 @@ export function useConnectorsOps() {
   const handleLinkCredential = async (
     connectorId?: number,
     credentialId?: number,
-    userId?: string
   ) => {
     setIsLoading(true);
     try {
       const validConnectorId = verifyConnectorId(connectorId);
       const validCredentialId = verifyCredentialId(credentialId);
-      const validUserId = verifyUserId(userId);
-      await linkCredential(axiosInstance, validConnectorId, validCredentialId, validUserId);
+      await linkCredential(axiosInstance, validConnectorId, validCredentialId);
       publish({
         variant: "success",
         text: "Successfully Enabled Connector!",

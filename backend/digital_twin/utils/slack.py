@@ -1,10 +1,339 @@
 import re 
 import time 
+from uuid import UUID
+from typing import Dict, Any, Optional, List
+from starlette.requests import Request
+from starlette.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from typing import Optional, List
+from slack_bolt import BoltResponse
+from slack_bolt.async_app import AsyncBoltRequest
+from slack_bolt.oauth.async_callback_options import (
+    AsyncSuccessArgs,
+    AsyncFailureArgs,
+)
+from slack_sdk.web.async_client import AsyncWebClient
+from slack_sdk.errors import SlackApiError
 
+
+from slack_sdk.oauth.installation_store import Installation
+from slack_bolt.error import BoltError
+from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
+
+from digital_twin.config.constants import DocumentSource
+from digital_twin.connectors.model import InputType
+from digital_twin.db.user import (
+     async_get_user_by_email,
+     async_insert_slack_user,    
+)
+from digital_twin.db.connectors.credentials import (
+    async_create_credential,
+)
+from digital_twin.db.connectors.connectors import (
+    async_fetch_connectors,
+)
+from digital_twin.db.connectors.connector_credential_pair import (
+    async_add_credential_to_connector,
+)
+from digital_twin.server.model import CredentialBase
 from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
+
+def to_async_bolt_request(
+    req: Request,
+    body: bytes,
+    addition_context_properties: Optional[Dict[str, Any]] = None,
+) -> AsyncBoltRequest:
+    request = AsyncBoltRequest(
+        body=body.decode("utf-8"),
+        query=req.query_params,
+        headers=req.headers,
+    )
+    if addition_context_properties is not None:
+        for k, v in addition_context_properties.items():
+            request.context[k] = v
+    return request
+
+
+def to_starlette_response(bolt_resp: BoltResponse) -> Response:
+    resp = Response(
+        status_code=bolt_resp.status,
+        content=bolt_resp.body,
+        headers=bolt_resp.first_headers_without_set_cookie(),
+    )
+    for cookie in bolt_resp.cookies():
+        for name, c in cookie.items():
+            resp.set_cookie(
+                key=name,
+                value=c.value,
+                max_age=c.get("max-age"),
+                expires=c.get("expires"),
+                path=c.get("path"),
+                domain=c.get("domain"),
+                secure=True,
+                httponly=True,
+            )
+    return resp
+
+async def custom_handle_installation(
+    oauth_flow: AsyncOAuthFlow,
+    organization_id: UUID,
+    db_session: AsyncSession,
+    request: Request,
+) -> BoltResponse:
+    set_cookie_value: Optional[str] = None
+    url = await oauth_flow.build_authorize_url("", request)
+    if oauth_flow.settings.state_validation_enabled is True:
+        state = await oauth_flow.settings.state_store.async_issue(
+            prosona_org_id=organization_id,
+            db_session=db_session,
+        )
+        url = await oauth_flow.build_authorize_url(state, request)
+        set_cookie_value = oauth_flow.settings.state_utils.build_set_cookie_for_new_state(state)
+    if oauth_flow.settings.install_page_rendering_enabled:
+        html = await oauth_flow.build_install_page_html(url, request)
+        return BoltResponse(
+            status=200,
+            body=html,
+            headers=await oauth_flow.append_set_cookie_headers(
+                {"Content-Type": "text/html; charset=utf-8"},
+                set_cookie_value,
+            ),
+        )
+    else:
+        return BoltResponse(
+            status=302,
+            body="",
+            headers=await oauth_flow.append_set_cookie_headers(
+                {"Content-Type": "text/html; charset=utf-8", "Location": url},
+                set_cookie_value,
+            ),
+        )
+
+
+
+async def custom_handle_slack_oauth_redirect(
+    oauth_flow: AsyncOAuthFlow,
+    db_session: AsyncSession,
+    request: Request,
+) -> BoltResponse:
+    """
+    Handles the installation flow's callback request from Slack.
+    This function associate the admin user to slack user using the email address.
+    It assumes that email address to sign up to Prosona == email address to sign up to Slack.
+
+    Within this function, we also create credentials for the admin slack user.
+    It also assumes that connector is already created for organization.
+    """
+    # Steps below are copied over from https://github.com/slackapi/bolt-python/blob/3e5f012767d37eaa01fb0ea55bd6ae364ecf320b/slack_bolt/oauth/async_oauth_flow.py#L215
+    # Reason why we have to copy is because we have a custom flow to store and associate installer to admin person.
+    
+    bolt_request: AsyncBoltRequest =  to_async_bolt_request(
+        request=request,
+        body=await request.body(),
+        addition_context_properties=None,
+    )
+    # failure due to end-user's cancellation or invalid redirection to slack.com
+    error = bolt_request.query.get("error", [None])[0]
+    if error is not None:
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason=error,  # type: ignore
+                suggested_status_code=200,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+
+    # state parameter verification
+    if oauth_flow.settings.state_validation_enabled is True:
+        state: Optional[str] = bolt_request.query.get("state", [None])[0]
+        if not oauth_flow.settings.state_utils.is_valid_browser(state, request.headers):
+            return await oauth_flow.failure_handler(
+                AsyncFailureArgs(
+                    request=request,
+                    reason="invalid_browser",
+                    suggested_status_code=400,
+                    settings=oauth_flow.settings,
+                    default=oauth_flow.default_callback_options,
+                )
+            )
+
+        valid_state_consumed, prosona_org_id = \
+            await oauth_flow.settings.state_store.async_consume(
+                state,
+                db_session,
+            )  # type: ignore
+        if not valid_state_consumed:
+            return await oauth_flow.failure_handler(
+                AsyncFailureArgs(
+                    request=request,
+                    reason="invalid_state",
+                    suggested_status_code=401,
+                    settings=oauth_flow.settings,
+                    default=oauth_flow.default_callback_options,
+                )
+            )
+
+    # run installation
+    code = bolt_request.query.get("code", [None])[0]
+    if code is None:
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason="missing_code",
+                suggested_status_code=401,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+
+    installation: Installation = await oauth_flow.run_installation(code)
+    if installation is None:
+        # failed to run installation with the code
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason="invalid_code",
+                suggested_status_code=401,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+    
+    # We need to associate admin_slack_user installer 
+    # with our DB user, and we do so by looking up the email
+    admin_slack_user_id = installation.user_id
+    admin_slack_team_id = installation.team_id
+    slack_token = installation.bot_token
+    slack_user_info = await async_get_user_info(
+        admin_slack_user_id, 
+        slack_token
+    )
+    slack_user_email = slack_user_info.get('profile', {}).get('email', None)
+    user = await async_get_user_by_email(
+        db_session,
+        slack_user_email,
+    )
+    if user is None or slack_user_email is None:
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason="associated_slack_user_not_found",
+                suggested_status_code=500,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+    
+    res = await async_insert_slack_user(
+            db_session,
+            admin_slack_user_id, 
+            admin_slack_team_id,
+            organization_id=prosona_org_id,
+            db_user_id=user.id,
+    )
+    if res is None:
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason="insert_slack_user_failed",
+                suggested_status_code=500,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+    
+    # Add credentials for the admin slack user
+    cred = CredentialBase(
+        credential_json={
+            "slack_bot_token": slack_token,
+        },
+        public_doc=True,
+    )
+    create_cred_resp = await async_create_credential(
+        credential_data=cred,
+        user=user,
+        organization_id=prosona_org_id,
+        db_session=db_session,
+    )
+    cred_id = create_cred_resp.id
+    if cred_id is None:
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason="insert_credential_failed",
+                suggested_status_code=500,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+    
+    # Associate the credential with the org's slack connector
+    # We assume a connector exists already
+    org_slack_connector = async_fetch_connectors(
+        db_session,
+        organization_id=prosona_org_id,
+        connector_type=DocumentSource.SLACK,
+        input_types=InputType.POLL,
+    )
+    if org_slack_connector is None:
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason="slack_connector_not_found",
+                suggested_status_code=500,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+    
+    #TODO: complete this
+    await async_add_credential_to_connector(
+        connector_id=org_slack_connector.id,
+        credential_id=cred_id,
+        db_session=db_session,
+        user=user,
+        organization_id=prosona_org_id,
+    )
+
+    
+
+
+    
+    # persist the installation
+    try:
+        await oauth_flow.store_installation(request, installation)
+    except BoltError as err:
+        return await oauth_flow.failure_handler(
+            AsyncFailureArgs(
+                request=request,
+                reason="storage_error",
+                error=err,
+                suggested_status_code=500,
+                settings=oauth_flow.settings,
+                default=oauth_flow.default_callback_options,
+            )
+        )
+
+    # display a successful completion page to the end-user
+    return await oauth_flow.success_handler(
+        AsyncSuccessArgs(
+            request=request,
+            installation=installation,
+            settings=oauth_flow.settings,
+            default=oauth_flow.default_callback_options,
+        )
+    )
+
+async def async_get_user_info(slack_user_id: str, slack_token: str) -> dict:
+    client = AsyncWebClient(token=slack_token)
+    try:
+        response = await client.users_info(user=slack_user_id)
+        return response["user"]
+    except SlackApiError as e:
+        logger.error(f"Failed to get user info: {e.response['error']}")
 
 
 def get_the_last_messages_in_thread(
@@ -19,7 +348,6 @@ def get_the_last_messages_in_thread(
             messages.append(message)
 
     return messages
-
 
 # Conversion from Slack mrkdwn to OpenAI markdown
 # See also: https://api.slack.com/reference/surfaces/formatting#basics

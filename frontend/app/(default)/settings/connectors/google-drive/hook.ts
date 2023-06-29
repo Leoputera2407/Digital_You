@@ -3,11 +3,11 @@ import { setupGoogleDriveOAuth } from "@/lib/googleDrive";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
 import {
-    AnyCredentialJson,
-    Connector,
-    ConnectorIndexingStatus,
-    Credential,
-    GoogleDriveCredentialJson,
+  AnyCredentialJson,
+  Connector,
+  ConnectorIndexingStatus,
+  Credential,
+  GoogleDriveCredentialJson,
 } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -17,7 +17,6 @@ export interface UseGoogleConnectorsProps {
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
   connectorsData: Connector<AnyCredentialJson>[] | undefined;
-  userId: string | undefined;
 }
 
 export interface UseGoogleConnectorsReturn {
@@ -46,7 +45,6 @@ export function useGoogleConnectors({
   connectorIndexingStatuses,
   credentialsData,
   connectorsData,
-  userId
 }: UseGoogleConnectorsProps): UseGoogleConnectorsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const { axiosInstance } = useAxios();
@@ -56,7 +54,7 @@ export function useGoogleConnectors({
     isLoading: isAppCredentialLoading,
     error: appCredentialError,
   } = useSWR<{ client_id: string }>(
-    "/api/connector/google-drive/app-credential",
+    "/api/connector/admin/google-drive/app-credential",
     fetcher
   );
   const router = useRouter();
@@ -93,14 +91,9 @@ export function useGoogleConnectors({
 
   const handleAuthenticate = async () => {
     setIsLoading(true);
-    try {
-       if (userId === undefined) {
-            throw new Error("User ID is undefined");
-       }
-      
+    try {    
       const [authUrl, errorMsg] = await setupGoogleDriveOAuth({
         axiosInstance,
-        userId,
         isPublic: true,
       });
 

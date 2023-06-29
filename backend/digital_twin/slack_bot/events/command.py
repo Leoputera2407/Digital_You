@@ -25,6 +25,7 @@ from digital_twin.indexdb.qdrant.store import QdrantVectorDB
 from digital_twin.indexdb.typesense.store import TypesenseIndex
 
 from digital_twin.utils.logging import setup_logger
+from digital_twin.utils.timing import log_function_time
 logger = setup_logger()
 
 
@@ -76,6 +77,7 @@ def temp_solution_create_collection_if_not_exist(
         )
         create_typesense_collection(collection_name=typesense_collection_name)
 
+@log_function_time()
 async def handle_digital_twin_command(
     context: AsyncBoltContext,
     ack: AsyncAck,
@@ -127,8 +129,6 @@ async def handle_digital_twin_command(
         )
         response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
        
-
-        response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
         private_metadata_str = json.dumps(
             {"response": response, "channel_id": channel_id,
                 "query": query, "conversation_style": conversation_style}

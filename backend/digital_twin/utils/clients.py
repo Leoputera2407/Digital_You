@@ -1,7 +1,6 @@
 import typesense  # type: ignore
 from qdrant_client import QdrantClient
 
-
 from digital_twin.config.app_config import (
     QDRANT_API_KEY,
     QDRANT_URL,
@@ -15,7 +14,6 @@ from digital_twin.config.app_config import (
 
 _qdrant_client: QdrantClient | None = None
 _typesense_client: typesense.Client | None = None
-
 
 def get_qdrant_client() -> QdrantClient:
     global _qdrant_client

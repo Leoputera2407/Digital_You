@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -37,7 +38,7 @@ from digital_twin.db.connectors.connectors import (
     update_connector,
     get_connector_credential_ids,
 )
-from digital_twin.db.connectors.credentials import fetch_credential_by_id
+from digital_twin.db.connectors.credentials import fetch_credential_by_id_and_org
 from digital_twin.db.connectors.index_attempt import create_index_attempt
 from digital_twin.utils.logging import setup_logger
 
@@ -73,15 +74,17 @@ def update_google_app_credentials(
     )
 """
 
-@router.get("/google-drive/check-auth/{credential_id}")
+@router.get("/{organization_id}/google-drive/check-auth/{credential_id}")
 def check_drive_tokens(
+    organization_id: UUID,
     credential_id: int,
-    user: User = Depends(current_admin_user),
+    admin_user: User = Depends(current_admin_user),
     db_session: Session = Depends(get_session),
 ) -> AuthStatus:
-    db_credentials: Optional[Credential] = fetch_credential_by_id(
+    db_credentials: Optional[Credential] = fetch_credential_by_id_and_org(
         credential_id,
-        user,
+        admin_user,
+        organization_id,
         db_session,
     )
     if (
@@ -96,8 +99,9 @@ def check_drive_tokens(
     return AuthStatus(authenticated=True)
 
 
-@router.get("/indexing-status")
+@router.get("/{organization_id}/indexing-status")
 def get_connector_indexing_status(
+    organization_id: UUID,
     _: User = Depends(current_admin_user),
     db_session: Session = Depends(get_session),
 ) -> list[ConnectorIndexingStatus]:

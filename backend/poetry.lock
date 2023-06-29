@@ -2315,6 +2315,28 @@ htmlsoup = ["BeautifulSoup4"]
 source = ["Cython (>=0.29.7)"]
 
 [[package]]
+name = "mailchimp-transactional"
+version = "1.0.50"
+description = "Mailchimp Transactional API"
+optional = false
+python-versions = "*"
+files = []
+develop = false
+
+[package.dependencies]
+certifi = ">=2017.4.17"
+python-dateutil = ">=2.1"
+requests = ">=2.23"
+six = ">=1.10"
+urllib3 = ">=1.23"
+
+[package.source]
+type = "git"
+url = "https://github.com/mailchimp/mailchimp-transactional-python.git"
+reference = "HEAD"
+resolved_reference = "32aa78467f1b71d48d7b417f02d13bd97d1a6855"
+
+[[package]]
 name = "mako"
 version = "1.2.4"
 description = "A super-fast templating language that borrows the best ideas from the existing templating languages."
@@ -5883,4 +5905,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "e1b61b22d8a6b650014d72fb991a1eb48d95d4a41aa0f1844ed32c48992cd2b0"
+content-hash = "327482cb76819172d6b577a4a4053433909e45f2cee15c8145bb87ba065932c0"

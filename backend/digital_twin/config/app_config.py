@@ -118,6 +118,14 @@ DEFAULT_MODEL_TYPE = os.environ.get("DEFAULT_LLM", "AZURE")
 MODEL_API_KEY = os.environ.get("MODEL_API_KEY", "")
 EMBEDDING_OPENAI_API_KEY = os.environ.get("EMBEDDING_OPENAI_API_KEY", "")
 
+#######################
+# EMAIL Sender Config #
+#######################
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "your-email@gmail.com")
+# Remember, if this is for gmail, this should be your app password, not your email password
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "your-gmail-password")
 
 
 #####################

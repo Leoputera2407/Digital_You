@@ -4,11 +4,11 @@ import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import { GoogleDriveIcon } from "@/components/ui/Icon";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
 import {
-    AnyCredentialJson,
-    Connector,
-    ConnectorBase,
-    ConnectorIndexingStatus,
-    Credential,
+  AnyCredentialJson,
+  Connector,
+  ConnectorBase,
+  ConnectorIndexingStatus,
+  Credential,
 } from "@/lib/types";
 import { useState } from "react";
 import { FaSpinner } from "react-icons/fa";
@@ -47,7 +47,6 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
     connectorIndexingStatuses,
     credentialsData,
     connectorsData,
-    userId: user?.id,
   });
 
   const {
@@ -73,15 +72,13 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
       try{
         const connector = await handleCreateConnector(
           connectorBase,
-          user.id
         );
 
         await handleLinkCredential(
             connector.id,
             googleDrivePublicCredential?.id,
-            user.id
         );
-        mutate("/api/connector/indexing-status")
+        mutate("/api/admin/connector/indexing-status")
         mutate("/api/connector/credential")
      } catch (error: any) {
         throw new Error("Failed to Enable Connector!"); 
@@ -116,7 +113,7 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
                 }
                 user={user}
                 onUpdate={() => {
-                  mutate("/api/connector/indexing-status");
+                  mutate("/api/connector/admin/indexing-status");
                 }}
               />
             )}
@@ -157,7 +154,6 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
                         await handleUnlinkCredential(
                             googleDriveConnector?.id,
                             googleDrivePublicCredential?.id,
-                            user.id
                         );
                         mutate("/api/connector/indexing-status")
                         mutate("/api/connector/credential")
@@ -171,7 +167,6 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
                         await handleLinkCredential(
                             googleDriveConnector?.id,
                             googleDrivePublicCredential?.id,
-                            user.id
                         );
                         mutate("/api/connector/indexing-status")
                         mutate("/api/connector/credential")

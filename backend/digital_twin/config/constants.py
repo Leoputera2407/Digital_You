@@ -26,6 +26,7 @@ SLACK_APP_PERMISSIONS = [
             "users.profile:read",
             "users:read",
             "groups:read",
+            "users:read.email",
         ]
 
 DEFAULT_SLACK_CONVERSATION_STYLE="""

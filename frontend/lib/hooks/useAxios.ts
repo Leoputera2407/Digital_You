@@ -9,8 +9,6 @@ export const useAxios = () => {
   axiosInstance.interceptors.request.use(
     async (config) => {
       config.headers["Authorization"] = "Bearer " + session?.access_token;
-      //config.baseURL = backendUrl ?? config.baseURL;
-
       return config;
     },
     (error) => {

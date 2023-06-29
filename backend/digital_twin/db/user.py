@@ -1,11 +1,17 @@
 from typing import Optional
 
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.db.model import SlackUser, User
+from digital_twin.db.model import (
+    SlackUser, 
+    User, 
+    UserOrganizationAssociation,
+    Organization,
+    Invitation,
+)
 from digital_twin.utils.logging import (
     setup_logger, 
     log_sqlalchemy_error,
@@ -15,26 +21,46 @@ from digital_twin.utils.logging import (
 
 logger = setup_logger()
 
-
 @log_sqlalchemy_error(logger)
-def get_user_by_id(
-    session: Session, 
-    user_id: UUID
-) -> Optional[User]:
-    user = session.query(User).filter(User.id == user_id).first()
-    return user
+def get_user_org_by_user_and_org_id(
+        session: Session, 
+        user_id: UUID,
+        organization_id: UUID
+) -> Optional[UserOrganizationAssociation]:
+    return session.query(
+        UserOrganizationAssociation
+    ).filter(
+        UserOrganizationAssociation.user_id == user_id, 
+        UserOrganizationAssociation.organization_id == organization_id
+    ).first()
 
 @async_log_sqlalchemy_error(logger)
-async def async_get_user_by_id(
-    session: AsyncSession, 
-    user_id: UUID
-) -> Optional[User]:
+async def async_get_user_org_by_user_and_org_id(
+        session: AsyncSession, 
+        user_id: UUID,
+        organization_id: UUID
+) -> Optional[UserOrganizationAssociation]:
     result = await session.execute(
-        select(User).where(User.id == user_id)
+        select(UserOrganizationAssociation)
+        .where(
+            and_(
+                UserOrganizationAssociation.user_id == user_id, 
+                UserOrganizationAssociation.organization_id == organization_id
+            )
+        )
     )
-    user = result.scalars().first()
-    return user
+    return result.scalars().first()
 
+@log_sqlalchemy_error(logger)
+def get_organization_by_id(
+    session: Session, 
+    organization_id: UUID
+) -> Optional[Organization]:
+    return session.query(
+            Organization
+        ).filter(
+            Organization.id == organization_id
+        ).first()
 
 @log_sqlalchemy_error(logger)
 def get_user_by_email(
@@ -44,7 +70,6 @@ def get_user_by_email(
     user = session.query(User).filter(User.email == user_email).first()
     return user
 
-
 @async_log_sqlalchemy_error(logger)
 async def async_get_user_by_email(
     session: AsyncSession, 
@@ -53,6 +78,38 @@ async def async_get_user_by_email(
     result = await session.execute(select(User).where(User.email == user_email))
     user = result.scalars().first()
     return user
+
+@log_sqlalchemy_error(logger)
+def is_user_in_organization(
+    session: Session, 
+    user_email: str, 
+    organization_id: UUID
+) -> bool:
+    user = get_user_by_email(session, user_email)
+    if not user:
+        return False
+
+    user_org_association = session.query(
+        UserOrganizationAssociation
+    ).filter(
+        UserOrganizationAssociation.user_id == user.id, 
+        UserOrganizationAssociation.organization_id == organization_id
+    ).first()
+
+    return user_org_association is not None
+
+def get_invitation_by_user_and_org(
+    db_session: Session, 
+    user_email: str,
+    organization_id: UUID
+) -> Optional[Invitation]:
+    
+    invitation = db_session.query(Invitation).filter(
+        Invitation.invitee_email == user_email,
+        Invitation.organization_id == organization_id
+    ).first()
+
+    return invitation
 
 @async_log_sqlalchemy_error(logger)
 async def async_get_slack_user(
@@ -76,31 +133,68 @@ def insert_slack_user(
     session: Session, 
     slack_user_id: str, 
     team_id: str, 
+    organization_id: UUID,
     db_user_id: UUID
 ) -> Optional[SlackUser]:
     slack_user = SlackUser(
         slack_user_id=slack_user_id,
         team_id=team_id,
+        organization_id=organization_id,
         user_id=db_user_id
     )
     session.add(slack_user)
     session.commit()
     return slack_user
 
+@async_log_sqlalchemy_error(logger)
+async def async_insert_slack_user(
+    session: AsyncSession, 
+    slack_user_id: str, 
+    team_id: str, 
+    organization_id: UUID,
+    db_user_id: UUID
+) -> Optional[SlackUser]:
+    slack_user = SlackUser(
+        slack_user_id=slack_user_id,
+        team_id=team_id,
+        organization_id=organization_id,
+        user_id=db_user_id
+    )
+    session.add(slack_user)
+    await session.commit()
+    await session.refresh(slack_user)
+    return slack_user
+
 
 @log_sqlalchemy_error(logger)
-def get_qdrant_collection_by_user_id(session: Session, user_id: UUID) -> Optional[str]:
-    user = get_user_by_id(session, user_id)
-    if user and user.organization:
-        return user.organization.get_qdrant_collection_key_str()
+def get_qdrant_collection_by_user_id(
+    session: Session, 
+    user_id: UUID,
+    organization_id: UUID
+) -> Optional[str]:
+    user_org = get_user_org_by_user_and_org_id(
+        session, 
+        user_id,
+        organization_id
+    )
+    if user_org and user_org.organization:
+        return user_org.organization.get_qdrant_collection_key_str()
     else:
         return None
 
 @log_sqlalchemy_error(logger)
-def get_typesense_collection_by_user_id(session: Session, user_id: UUID) -> Optional[str]:
-    user = get_user_by_id(session, user_id)
-    if user and user.organization:
-        return user.organization.get_typesense_collection_key_str()
+def get_typesense_collection_by_user_id(
+    session: Session, 
+    user_id: UUID,
+    organization_id: UUID,
+) -> Optional[str]:
+    user_org = get_user_org_by_user_and_org_id(
+        session, 
+        user_id,
+        organization_id
+    )
+    if user_org and user_org.organization:
+        return user_org.organization.get_typesense_collection_key_str()
     else:
         return None
 
@@ -116,8 +210,8 @@ async def async_get_qdrant_collection_for_slack(
         team_id
     )
     
-    if slack_user and slack_user.user and slack_user.user.organization:
-        return slack_user.user.organization.get_qdrant_collection_key_str()
+    if slack_user and slack_user.organization:
+        return slack_user.organization.get_qdrant_collection_key_str()
     else:
         return None
 
@@ -133,7 +227,7 @@ async def async_get_typesense_collection_for_slack(
         team_id,
     )
     
-    if slack_user and slack_user.user and slack_user.user.organization:
-        return slack_user.user.organization.get_typesense_collection_key_str()
+    if slack_user and slack_user.organization:
+        return slack_user.organization.get_typesense_collection_key_str()
     else:
         return None

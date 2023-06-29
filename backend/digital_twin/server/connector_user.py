@@ -1,4 +1,5 @@
 from typing import List
+from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from sqlalchemy.orm import Session
 
@@ -39,7 +40,7 @@ from digital_twin.db.connectors.connector_credential_pair import (
     remove_credential_from_connector,
 )
 from digital_twin.db.connectors.connectors import (
-    fetch_connector_by_id,
+    fetch_connector_by_id_and_org,
     fetch_connectors,
 )
 from digital_twin.db.connectors.credentials import (
@@ -47,7 +48,7 @@ from digital_twin.db.connectors.credentials import (
     create_credential,
     delete_credential,
     update_credential,
-    fetch_credential_by_id,
+    fetch_credential_by_id_and_org,
     mask_credential_dict,
 )
 
@@ -200,23 +201,32 @@ if IS_DEV:
        return StatusResponse(success=True, message="Updated Notion access tokens")
 
 
-@router.get("/list", response_model=list[ConnectorSnapshot], )
+@router.get("{organization_id}/list", response_model=list[ConnectorSnapshot], )
 def get_connectors(
+    organization_id: UUID,
      _: User = Depends(current_user),
     db_session: Session = Depends(get_session),
 ) -> list[ConnectorSnapshot]:
-    connectors = fetch_connectors(db_session)
+    connectors = fetch_connectors(
+        db_session,
+        organization_id=organization_id,
+    )
     return [
         ConnectorSnapshot.from_connector_db_model(connector) for connector in connectors
     ]
 
-@router.get("/{connector_id}")
+@router.get("{organization_id}/{connector_id}")
 def get_connector_by_id(
     connector_id: int,
+    organization_id: UUID,
     _: User = Depends(current_user),
     db_session: Session = Depends(get_session),
 ) -> ConnectorSnapshot | StatusResponse[int]:
-    connector = fetch_connector_by_id(connector_id, db_session)
+    connector = fetch_connector_by_id_and_org(
+        connector_id, 
+        organization_id,
+        db_session
+    )
     if connector is None:
         raise HTTPException(
             status_code=404, detail=f"Connector {connector_id} does not exist"
@@ -255,13 +265,19 @@ def get_credentials(
         for credential in credentials
     ]
 
-@router.get("/credential/{credential_id}")
+@router.get("/{organization_id}/credential/{credential_id}")
 def get_credential_by_id(
     credential_id: int,
+    organization_id: UUID,
     user: User = Depends(current_user),
     db_session: Session = Depends(get_session),
 ) -> CredentialSnapshot | StatusResponse[int]:
-    credential = fetch_credential_by_id(credential_id, user, db_session)
+    credential = fetch_credential_by_id_and_org(
+        credential_id, 
+        user, 
+        organization_id,
+        db_session
+    )
     if credential is None:
         raise HTTPException(
             status_code=401,
