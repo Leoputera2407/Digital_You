@@ -17,7 +17,6 @@ DOC_SEP_PAT = "---NEW DOCUMENT---"
 QUESTION_PAT = "Query:"
 ANSWER_PAT = "Answer:"
 QUOTE_PAT = "Quote:"
-STOP_PAT = "[STOP]"
 UNCERTAIN_PAT = "?[STOP]"
 
 
@@ -35,7 +34,6 @@ BASE_PROMPT = (
     f"Answer the query based on provided documents and quote relevant sections. "
     f"If you are unsure of the answer or if it isn't provided in the extracts, "
     f"answer '{UNCERTAIN_PAT}'.\n"
-    f"Conclude your answer with '{STOP_PAT}' when you're done.\n"
     f"Respond with a json containing a concise answer and up to three most relevant quotes from the documents. "
     f"The quotes must be EXACT substrings from the documents.\n"
 )
@@ -47,18 +45,17 @@ class BaseQA(BaseChain):
     def __init__(
             self, 
             llm: BaseLanguageModel, 
-            max_output_tokens: int, 
             prompt: PromptTemplate = None
         ) -> None:
-        super().__init__(llm, max_output_tokens, prompt)  
+        super().__init__(llm, prompt)  
     
     @log_function_time()
-    def run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+    def run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) ->str :
         formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
-    async def async_run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+    async def async_run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> str:
         formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return await self.llm.apredict(formatted_prompt)
     
@@ -78,10 +75,12 @@ class StuffQA(BaseQA):
         prompt = (
             "HUMAN:\n"
             f"{BASE_PROMPT}"
-            f"Sample response:\n{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
+            f"Sample question and response:\n"
+            f"{QUESTION_PAT}\n{SAMPLE_QUESTION}\n"
+            f"{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
             f'Each context document below is prefixed with "{DOC_SEP_PAT}".\n\n'
             "{context}\n\n---\n\n"
-            "Question: {question}\n"
+            f"{QUESTION_PAT}\n{{question}}\n"
         )
         return PromptTemplate(
             template=prompt, input_variables=["context", "question"]

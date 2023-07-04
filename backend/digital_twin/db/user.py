@@ -1,8 +1,7 @@
-from typing import Optional
-
+from typing import Optional, List
 from uuid import UUID
 from sqlalchemy import select, and_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.db.model import (
@@ -80,6 +79,41 @@ async def async_get_user_by_email(
     return user
 
 @log_sqlalchemy_error(logger)
+def get_user_org_assocations(
+    user: User,
+    db_session: Session,
+) -> List[UserOrganizationAssociation]:
+    result = db_session.execute(
+        select(UserOrganizationAssociation)
+        .where(UserOrganizationAssociation.user_id == user.id)
+    )
+    
+    associations = result.scalars().all()
+
+    if not associations:
+        return []
+
+    return associations
+
+
+@async_log_sqlalchemy_error(logger)
+async def async_get_user_org_assocations(
+    user: User,
+    db_session: AsyncSession,
+) -> List[Organization]:
+    result = await db_session.execute(
+        select(UserOrganizationAssociation)
+        .where(UserOrganizationAssociation.user_id == user.id)
+    )
+    
+    associations = result.scalars().all()
+
+    if not associations:
+        return []    
+    
+    return associations
+
+@log_sqlalchemy_error(logger)
 def is_user_in_organization(
     session: Session, 
     user_email: str, 
@@ -118,9 +152,7 @@ async def async_get_slack_user(
     team_id: str
 ) -> Optional[SlackUser]:
     result = await session.execute(
-        select(SlackUser).options(
-            joinedload(SlackUser.user).joinedload(User.organization)
-        )
+        select(SlackUser)
         .where(
             SlackUser.slack_user_id == slack_id, 
             SlackUser.team_id == team_id

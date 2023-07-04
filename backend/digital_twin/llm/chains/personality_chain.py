@@ -45,12 +45,12 @@ class BasePersonalityChain(BaseChain):
         return formatted_prompt
     
     @log_function_time()
-    def run(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
+    def run(self, examples: Optional[List[str]] = None, **kwargs) -> str:
         formatted_prompt = self.get_filled_prompt(examples, **kwargs)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
-    async def async_run(self, examples: Optional[List[str]] = None, **kwargs) -> dict:
+    async def async_run(self, examples: Optional[List[str]] = None, **kwargs) -> str:
         formatted_prompt = self.get_filled_prompt(examples, **kwargs)
         return await self.llm.apredict(formatted_prompt)
 

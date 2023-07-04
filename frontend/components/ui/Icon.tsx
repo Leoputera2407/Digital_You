@@ -11,6 +11,7 @@ import {
   XSquare,
 } from "@phosphor-icons/react";
 import { FaGlobe } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 import { SiConfluence, SiGithub, SiGoogledrive, SiNotion, SiSlack } from "react-icons/si";
 
 interface IconProps {
@@ -117,3 +118,10 @@ export const InfoIcon = ({
 }: IconProps) => {
   return <Info size={size} className={className} />;
 };
+
+export const GoogleFCIcon = ({
+  size = "16",
+  className,
+}: IconProps) => {
+  return <FcGoogle size={size} className={className} />;
+}

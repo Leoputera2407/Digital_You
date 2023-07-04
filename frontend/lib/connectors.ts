@@ -4,9 +4,11 @@ import { Connector, ConnectorBase } from "./types";
 export async function createConnector<T>(
   axiosInstance: Axios,
   connector: ConnectorBase<T>,
+  organizationId: string,
 ): Promise<Connector<T>> {
 
-  const response = await axiosInstance.post(`/api/connector/admin/create`, {
+  const response = await axiosInstance.post(
+    `/api/connector/admin/${organizationId}/create`, {
     ...connector
   });
   if (response.status < 200 || response.status >= 300) {
@@ -18,8 +20,11 @@ export async function createConnector<T>(
 export async function getConnectorById<T>(
   axiosInstance: Axios,
   connectorId: number,
+  organizationId: string,
 ): Promise<Connector<T>> {
-  const response = await axiosInstance.get(`/api/connector/${connectorId}`);
+  const response = await axiosInstance.get(
+    `/api/connector/${organizationId}/${connectorId}`
+    );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to get connector - ${response.status}`);
   }
@@ -29,9 +34,11 @@ export async function getConnectorById<T>(
 export async function updateConnector<T>(
   axiosInstance: Axios,
   connector: Connector<T>,
+  organizationId: string,
 ): Promise<Connector<T>> {
 
-  const response = await axiosInstance.patch(`/api/connector/admin/${connector.id}`, {
+  const response = await axiosInstance.patch(
+    `/api/connector/admin/${organizationId}/${connector.id}`, {
     ...connector,
   });
   if (response.status < 200 || response.status >= 300) {
@@ -43,8 +50,9 @@ export async function updateConnector<T>(
 export async function deleteConnector<T>(
   axiosInstance: Axios,
   connectorId: number,
+  organizationId: string,
 ): Promise<Connector<T>> {
-  const response = await axiosInstance.delete(`/api/connector/admin/${connectorId}`);
+  const response = await axiosInstance.delete(`/api/connector/admin/${organizationId}/${connectorId}`);
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to delete connector - ${response.status}`);
   }
@@ -54,9 +62,10 @@ export async function deleteConnector<T>(
 export async function deleteCredential<T>(
   axiosInstance: Axios,
   credentialId: number,
+  organizationId: string,
 ) {
   const response = await axiosInstance.delete(
-    `/api/connector/credential/${credentialId}`,
+    `/api/connector/${organizationId}/credential/${credentialId}`,
   );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to delete credential - ${response.status}`);
@@ -68,9 +77,10 @@ export async function linkCredential<T>(
   axiosInstance: Axios,
   connectorId: number,
   credentialId: number,
+  organizationId: string,
 ) {
   const response = await axiosInstance.put(
-    `/api/connector/${connectorId}/credential/${credentialId}`
+    `/api/connector/${organizationId}/${connectorId}/credential/${credentialId}`
   );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(
@@ -84,9 +94,10 @@ export async function unlinkCredential<T>(
   axiosInstance: Axios,
   connectorId: number,
   credentialId: number,
+  organizationId: string,
 ) {
   const response = await axiosInstance.delete(
-    `/api/connector/${connectorId}/credential/${credentialId}`,
+    `/api/connector/${organizationId}/${connectorId}/credential/${credentialId}`,
   );
   if (response.status < 200 || response.status >= 300) {
     throw new Error(

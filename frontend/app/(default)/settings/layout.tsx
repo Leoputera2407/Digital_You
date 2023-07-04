@@ -1,8 +1,9 @@
 import { Metadata } from "next"
 import Image from "next/image"
 
-import { Separator } from "@/components/ui/separator"
-import { SidebarNav } from "@/components/ui/sidebar-nav"
+import OrganizationSelect from "@/components/OrgSelector"
+import { Separator } from "@/components/ui/Separator"
+import { SidebarNav } from "@/components/ui/Sidebar-nav"
 
 export const metadata: Metadata = {
   title: "Forms",
@@ -18,15 +19,13 @@ const sidebarNavItems = [
     title: "Connectors",
     href: "/settings/connectors",
   },
-  {
-    title: "Models",
-    href: "/settings/models",
-  },
 ]
 
 interface SettingsLayoutProps {
   children: React.ReactNode
 }
+
+
 
 export default function SettingsLayout({ children }: SettingsLayoutProps) {
   return (
@@ -57,6 +56,7 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
         <Separator className="my-6" />
         <div className="flex flex-col space-y-8 lg:flex-row lg:space-x-12 lg:space-y-0">
           <aside className="-mx-4 lg:w-1/5">
+            <OrganizationSelect />
             <SidebarNav items={sidebarNavItems} />
           </aside>
           <div className="flex-1 lg:max-w-2xl">{children}</div>

@@ -55,7 +55,7 @@ def fetch_credentials(
                 Credential.organization_id == organization_id
             )
         )
-    results = db_session.scalars(stmt)
+    results = db_session.scalars(stmt).unique()
     return list(results.all())
 
 @log_sqlalchemy_error(logger)
@@ -86,7 +86,7 @@ def fetch_credential_by_id_and_org(
     credential = result.scalar_one_or_none()
     return credential
 
-@async_log_sqlalchemy_error(logger)
+@async_log_sqlalchemy_error
 async def async_fetch_credential_by_id_and_org(
     credential_id: int,
     user: User | None, 

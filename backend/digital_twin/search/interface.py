@@ -24,6 +24,7 @@ from digital_twin.search.models import Embedder
 from digital_twin.search.utils import (
     split_chunk_text_into_mini_chunks,
     get_default_embedding_model,
+    perform_reciprocal_rank_fusion,
 )
 from digital_twin.search.keyword_utils import keyword_search_query_processing
 from digital_twin.indexdb.chunking.models import InferenceChunk
@@ -184,17 +185,16 @@ async def async_retrieve_hybrid_reranked_documents(
     if not semantic_top_chunks and not keyword_top_chunks:
         logger.warning("Both semantic_top_chunks and keyword_top_chunks are empty.")
         return None, None
-    elif not semantic_top_chunks:
-        logger.info("semantic_top_chunks is empty, returning keyword_top_chunks.")
-        top_chunks = keyword_top_chunks[:num_rerank]
-    elif not keyword_top_chunks:
-        logger.info("keyword_top_chunks is empty, returning semantic_top_chunks.")
-        top_chunks = semantic_top_chunks[:num_rerank]
-    else:
-        logger.info("Both semantic_top_chunks and keyword_top_chunks are non-empty.")
-        top_chunks = semantic_top_chunks[:math.ceil(num_rerank/2)] + keyword_top_chunks[:math.floor(num_rerank/2)]
+    
+    rrf_combined_chunks = perform_reciprocal_rank_fusion(
+        semantic_top_chunks, keyword_top_chunks, lambda_weight = 0.5
+    )
         
-    ranked_chunks = semantic_reranking(query, top_chunks, num_rerank)
+    ranked_chunks = semantic_reranking(
+        query, 
+        rrf_combined_chunks[:num_rerank],
+        num_rerank
+    )
 
     top_docs = [
         ranked_chunk.source_links[0]
@@ -204,7 +204,7 @@ async def async_retrieve_hybrid_reranked_documents(
     files_log_msg = f"Top links from semantic search: {', '.join(top_docs)}"
     logger.info(files_log_msg)
 
-    return ranked_chunks, top_chunks[len(ranked_chunks):]
+    return ranked_chunks, rrf_combined_chunks[len(ranked_chunks):]
 
 
 @log_function_time()

@@ -1,6 +1,6 @@
 "use client"
 import AuthButton from "@/components/ui/AuthButton";
-import { useSupabase } from "@/lib/auth/authProvider";
+import { useSupabase } from "@/lib/context/authProvider";
 import { useToast } from "@/lib/hooks/useToast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

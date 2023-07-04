@@ -24,15 +24,6 @@ def is_valid_url(url: str) -> bool:
     except ValueError:
         return False
 
-
-def last_repeat(segments: list[str]) -> bool:
-    # 1 indexed, but also we allow the last section to repeat
-    for n in range(2, int(len(segments) / 2) + 1):
-        if segments[-n:] == segments[-2 * n : -n]:
-            return True
-    return False
-
-
 def get_internal_links(
     base_url: str, url: str, soup: BeautifulSoup, should_ignore_pound: bool = True
 ) -> set[str]:
@@ -41,9 +32,6 @@ def get_internal_links(
         href = cast(str | None, link.get("href"))
         if not href:
             continue
-
-        # Handles /../ and other edge cases
-        href = urlparse(href).geturl()
 
         if should_ignore_pound and "#" in href:
             href = href.split("#")[0]
@@ -54,17 +42,8 @@ def get_internal_links(
                 url += "/"
             href = urljoin(url, href)
 
-        if href[-1] == "/":
-            href = href[:-1]
-
         if urlparse(href).netloc == urlparse(url).netloc and base_url in href:
-            # In case of bad website design and local links recurse
-            segments = href.split("/")
-            counter = Counter(segments)
-            del counter[""]
-            repeats = max(counter.values())
-            if repeats < 10 and not last_repeat(segments):
-                internal_links.add(href)
+            internal_links.add(href)
     return internal_links
 
 
@@ -76,8 +55,6 @@ class WebConnector(LoadConnector):
     ) -> None:
         if "://" not in base_url:
             base_url = "https://" + base_url
-        if base_url[-1] == "/":
-            base_url = base_url[:-1]
         self.base_url = base_url
         self.batch_size = batch_size
 
@@ -104,6 +81,7 @@ class WebConnector(LoadConnector):
             if current_url in visited_links:
                 continue
             visited_links.add(current_url)
+            logger.info(f"Indexing {current_url}")
 
             try:
                 if restart_playwright:
@@ -133,6 +111,15 @@ class WebConnector(LoadConnector):
 
                 page = context.new_page()
                 page.goto(current_url)
+                final_page = page.url
+                if final_page != current_url:
+                    logger.info(f"Redirected to {final_page}")
+                    current_url = final_page
+                    if current_url in visited_links:
+                        logger.info(f"Redirected page already indexed")
+                        continue
+                    visited_links.add(current_url)
+
                 content = page.content()
                 soup = BeautifulSoup(content, "html.parser")
 
@@ -180,6 +167,8 @@ class WebConnector(LoadConnector):
                 page.close()
             except Exception as e:
                 logger.error(f"Failed to fetch '{current_url}': {e}")
+                playwright.stop()
+                restart_playwright = True
                 continue
 
             if len(doc_batch) >= self.batch_size:

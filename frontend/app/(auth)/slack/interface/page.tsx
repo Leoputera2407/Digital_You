@@ -1,5 +1,5 @@
 "use client"
-import { useSupabase } from '@/lib/auth/authProvider';
+import { useSupabase } from '@/lib/context/authProvider';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';

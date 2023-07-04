@@ -10,6 +10,7 @@ Ouath Flow for Google Drive
 
 """
 import json
+from uuid import UUID
 from typing import cast
 from urllib.parse import ParseResult, parse_qs, urlparse
 from sqlalchemy.orm import Session
@@ -81,9 +82,10 @@ def verify_csrf(credential_id: int, state: str) -> None:
 
 
 def get_auth_url(
+    db_session: Session,
     credential_id: int,
 ) -> str:
-    app_cred_dict = get_google_app_cred().dict()
+    app_cred_dict = get_google_app_cred(db_session).dict()
     credential_json = {"web": app_cred_dict}
     flow = InstalledAppFlow.from_client_config(
         credential_json,
@@ -95,7 +97,7 @@ def get_auth_url(
     parsed_url = cast(ParseResult, urlparse(auth_url))
     params = parse_qs(parsed_url.query)
 
-    google_state = store_csrf(credential_id, params.get("state", [None]))
+    google_state = store_csrf(credential_id, params.get("state", [None]), db_session)
     if not google_state:
         raise Exception("Failed to store google state in db")
     
@@ -105,10 +107,11 @@ def get_auth_url(
 def update_credential_access_tokens(
     auth_code: str,
     credential_id: int,
+    organization_id: UUID,
     user: User,
     db_session: Session,
 ) -> Credentials | None:
-    app_cred_dict = get_google_app_cred().dict()
+    app_cred_dict = get_google_app_cred(db_session).dict()
     credential_json = { "web": app_cred_dict }
     flow = InstalledAppFlow.from_client_config(
         credential_json,
@@ -123,6 +126,7 @@ def update_credential_access_tokens(
     if not update_credential_json(
         credential_id,
         new_creds_dict,
+        organization_id,
         user,
         db_session,
     ):

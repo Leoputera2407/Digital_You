@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.auth.users import current_admin_user, current_user
+from digital_twin.auth.users import current_admin_for_org, current_user
 from digital_twin.auth.invitation import (
     generate_invitation_token,
     send_user_invitation_email,
@@ -23,6 +23,7 @@ from digital_twin.db.user import (
     async_get_user_org_by_user_and_org_id,
     get_organization_by_id,
     get_invitation_by_user_and_org,
+    get_user_org_assocations,
 )
 from digital_twin.db.engine import (
     get_session,
@@ -31,8 +32,9 @@ from digital_twin.db.engine import (
 
 from digital_twin.server.model import (
     UserByEmail,
-    UserRoleResponse,
     StatusResponse,
+    OrganizationBase,
+    UserOrgResponse,
 )
 from digital_twin.utils.logging import setup_logger
 
@@ -43,23 +45,30 @@ router = APIRouter(prefix="/account")
 ################
 # User Account #
 ################
-@router.get("/{organization_id}/get-user-role", response_model=UserRoleResponse)
-async def get_user_role(
-    organization_id: UUID,
-    user: User = Depends(current_user),
-    db_session: Session = Depends(get_session)
-) -> UserRoleResponse:
-    if user is None:
-        raise ValueError("Invalid or missing user.")
-    user_org = get_user_org_by_user_and_org_id(
-        db_session, 
-        user.id, 
-        organization_id
-    )
-    if user_org is None:
-        raise HTTPException(status_code=404, detail="User not found in the specified organization")
 
-    return UserRoleResponse(role=user_org.role)
+@router.get("/get-user-org-and-roles", response_model=UserOrgResponse)
+async def get_user_org_and_roles(
+    user: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> UserOrgResponse:
+    if user is None:
+        raise HTTPException(status_code=404, detail="Invalid or missing user.")
+    
+    user_org_assocations = get_user_org_assocations(user, db_session)
+
+    if not user_org_assocations:
+        raise HTTPException(status_code=404, detail="User not found in any organization.")
+    
+    user_org = [
+        OrganizationBase(
+            id=user_org_assoc.organization.id,
+            name=user_org_assoc.organization.name,
+            role=user_org_assoc.role,
+            joined_at=user_org_assoc.joined_at,
+        )
+        for user_org_assoc in user_org_assocations
+    ]
+    return UserOrgResponse(organizations=user_org)
 
 
 ###################
@@ -70,7 +79,7 @@ async def get_user_role(
 async def promote_admin(
     organization_id: UUID,
     user_email: UserByEmail, 
-    user: User = Depends(current_admin_user),
+    user: User = Depends(current_admin_for_org),
     db_session: AsyncSession = Depends(get_async_session_generator)
 ) -> StatusResponse:
     admin_user_org = await async_get_user_org_by_user_and_org_id(
@@ -105,7 +114,7 @@ async def promote_admin(
 async def add_user_to_org(
     organization_id: UUID,
     user_email: UserByEmail, 
-    admin_user: User = Depends(current_admin_user),
+    admin_user: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_async_session_generator)
 ) -> StatusResponse:
     user_org = get_user_org_by_user_and_org_id(
@@ -149,7 +158,7 @@ async def add_user_to_org(
 def remove_user_from_org(
     organization_id: UUID,
     user_email: UserByEmail, 
-    admin_user: User = Depends(current_admin_user),
+    admin_user: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session)
 ) -> StatusResponse:
     user_org = get_user_org_by_user_and_org_id(

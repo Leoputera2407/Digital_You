@@ -38,18 +38,17 @@ class BaseVerify(BaseChain):
     def __init__(
             self, 
             llm: BaseLanguageModel, 
-            max_output_tokens: int, 
             prompt: PromptTemplate = None
         ) -> None:
-        super().__init__(llm, max_output_tokens, prompt)  
+        super().__init__(llm, prompt)  
 
     @log_function_time()
-    def run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+    def run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> str:
         formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
-    async def async_run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> dict:
+    async def async_run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> str:
         formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return await self.llm.apredict(formatted_prompt)
 

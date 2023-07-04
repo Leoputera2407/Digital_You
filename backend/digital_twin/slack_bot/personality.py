@@ -60,7 +60,6 @@ async def async_generate_and_store_user_or_default_conversation_style(
             llm=get_llm(
                 **PERSONALITY_MODEL_SETTINGS
             ),
-            max_output_tokens=PERSONALITY_MODEL_SETTINGS["max_output_tokens"],
         )
 
         # Generate personality description
@@ -90,10 +89,6 @@ async def async_handle_user_conversation_style(
             slack_user_id, 
             team_id
         )
-        logger.info(f"Conversation style for {slack_user_id}: {conversation_style}"
-                    f"Updated at: {updated_at}")
-        logger.info(f"Should update conversation style: {conversation_style is None or (updated_at is not None and (datetime.now(timezone.utc) - updated_at).days >= SLACK_DAYS_TO_RESCRAPE)}")
-        logger.info(f"Time now: {datetime.now(timezone.utc)}")
         if conversation_style is None or \
             (updated_at is not None and (datetime.now(timezone.utc) - updated_at).days >= SLACK_DAYS_TO_RESCRAPE):
             personality_view = get_view(
@@ -135,8 +130,6 @@ async def async_rephrase_response(
             llm=get_llm(
                 **PERSONALITY_MODEL_SETTINGS
             ),
-            # Does nothign for now
-            max_output_tokens=PERSONALITY_MODEL_SETTINGS["max_output_tokens"],
         )
         response = await rephrase_chain.async_run(
             examples=filter_chat_pairs,

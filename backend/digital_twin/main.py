@@ -77,12 +77,16 @@ def get_application() -> FastAPI:
 # Create the FastAPI application
 app = get_application()
 
+allowed_origins = [
+    # TODO:  Replace with your Next.js app's domain
+    "http://localhost:3000", 
+    "https://localhost:8080",
+]
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*"  # Change this to the list of allowed origins if needed
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

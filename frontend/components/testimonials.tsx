@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import Image, { StaticImageData } from 'next/image'
 import { Transition } from '@headlessui/react'
+import Image, { StaticImageData } from 'next/image'
+import { useEffect, useRef, useState } from 'react'
 import Particles from './particles'
 
 import TestimonialImg01 from '@/public/images/testimonial-01.jpg'
@@ -82,10 +82,10 @@ export default function Testimonials() {
                     key={index}
                     show={active === index}
                     className="absolute inset-0 h-full -z-10"
-                    enter="transition ease-[cubic-bezier(0.68,-0.3,0.32,1)] duration-700 order-first"
+                    enter="transition ease-&lsqb;cubic-bezier(0.68,-0.3,0.32,1)&rsqb; duration-700 order-first"
                     enterFrom="opacity-0 -rotate-[60deg]"
                     enterTo="opacity-100 rotate-0"
-                    leave="transition ease-[cubic-bezier(0.68,-0.3,0.32,1)] duration-700"
+                    leave="transition ease-&lsqb;cubic-bezier(0.68,-0.3,0.32,1)&rsqb; duration-700"
                     leaveFrom="opacity-100 rotate-0"
                     leaveTo="opacity-0 rotate-[60deg]"
                     beforeEnter={() => heightFix()}

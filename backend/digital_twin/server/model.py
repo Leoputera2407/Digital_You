@@ -1,12 +1,13 @@
 from datetime import datetime
-from typing import Any, Generic, Optional, TypeVar, TYPE_CHECKING
+from uuid import UUID
+from typing import Any, Generic, Optional, TypeVar, List
 from pydantic import BaseModel
 from pydantic.generics import GenericModel
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
 from digital_twin.indexdb.interface import IndexDBFilter
-from digital_twin.db.model import Connector, IndexingStatus
+from digital_twin.db.model import Connector, IndexingStatus, UserRole
 
 DataT = TypeVar("DataT")
 
@@ -54,10 +55,6 @@ class GDriveCallback(BaseModel):
 
 class NotionCallback(BaseModel):
     code: str
-
-class UserRoleResponse(BaseModel):
-    role: str
-
 
 class SearchDoc(BaseModel):
     semantic_identifier: str
@@ -149,3 +146,11 @@ class CredentialSnapshot(CredentialBase):
     updated_at: datetime
 
 
+class OrganizationBase(BaseModel):
+    id: UUID
+    name: str
+    role: UserRole
+    joined_at: datetime
+
+class UserOrgResponse(BaseModel):
+    organizations: List[OrganizationBase]

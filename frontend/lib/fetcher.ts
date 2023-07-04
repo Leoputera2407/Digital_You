@@ -1,8 +1,10 @@
-export const fetcher = (url: string) => 
-  fetch(url)
-    .then((res) => {
-      if (!res.ok) {
-        throw new Error(res.statusText);
-      }
-      return res.json();
-    });
+import { Axios } from 'axios';
+
+export const fetcher = async (url: string, axiosInstance: Axios) => {
+  try {
+    const response = await axiosInstance.get(url);
+    return response.data;
+  } catch (error) {
+    throw new Error('An error occurred while fetching the data.');
+  }
+};

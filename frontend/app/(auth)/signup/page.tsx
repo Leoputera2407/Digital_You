@@ -1,5 +1,5 @@
 "use client"
-import { useSupabase } from '@/lib/auth/authProvider'
+import { useSupabase } from '@/lib/context/authProvider'
 import { redirect, useSearchParams } from 'next/navigation'
 import AuthLogo from '../auth-logo'
 import SignUpForm from './signup-form'

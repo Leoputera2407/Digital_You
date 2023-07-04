@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from digital_twin.config.app_config import IS_DEV
-from digital_twin.auth.users import current_admin_user
+from digital_twin.auth.users import current_admin_for_org
 
 
 from digital_twin.server.model import (
@@ -46,9 +46,10 @@ router = APIRouter(prefix="/connector/admin")
 
 logger = setup_logger()
 
-@router.get("/google-drive/app-credential")
+@router.get("/{organization_id}/google-drive/app-credential")
 def check_google_app_credentials_exist(
-    _: User = Depends(current_admin_user),
+    organization_id: UUID,
+    _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session),
 ) -> dict[str, str]:
     try:
@@ -59,9 +60,9 @@ def check_google_app_credentials_exist(
 # TODO: Don't expose this methods below as we don't want people over-writing our app creds
 # Maybe admin level makes sense later
 """
-@router.put("/admin/google-drive/app-credential")
+@router.put("/google-drive/app-credential")
 def update_google_app_credentials(
-    _: User = Depends(current_admin_user),
+    _: User = Depends(current_admin_for_org),
     app_credentials: GoogleAppWebCredentials,
 ) -> StatusResponse:
     try:
@@ -78,7 +79,7 @@ def update_google_app_credentials(
 def check_drive_tokens(
     organization_id: UUID,
     credential_id: int,
-    admin_user: User = Depends(current_admin_user),
+    admin_user: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session),
 ) -> AuthStatus:
     db_credentials: Optional[Credential] = fetch_credential_by_id_and_org(
@@ -102,12 +103,12 @@ def check_drive_tokens(
 @router.get("/{organization_id}/indexing-status")
 def get_connector_indexing_status(
     organization_id: UUID,
-    _: User = Depends(current_admin_user),
+    _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session),
 ) -> list[ConnectorIndexingStatus]:
     indexing_statuses: list[ConnectorIndexingStatus] = []
 
-    cc_pairs = get_connector_credential_pairs(db_session)
+    cc_pairs = get_connector_credential_pairs(db_session, organization_id)
     for cc_pair in cc_pairs:
         connector = cc_pair.connector
         credential = cc_pair.credential
@@ -124,26 +125,37 @@ def get_connector_indexing_status(
 
     return indexing_statuses
 
-@router.post("/create", response_model=ObjectCreationIdResponse)
+@router.post("/{organization_id}/create", response_model=ObjectCreationIdResponse)
 def create_connector_from_model(
     connector_info: ConnectorBase,
-    _: User = Depends(current_admin_user),
+    organization_id: UUID,
+    _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session),
 ) -> ObjectCreationIdResponse:
     try:
-        return create_connector(connector_info, db_session)
+        return create_connector(
+            connector_info, 
+            organization_id,
+            db_session,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.patch("/{connector_id}")
+@router.patch("/{organization_id}/{connector_id}")
 def update_connector_from_model(
     connector_id: int,
+    organization_id: UUID,
     connector_data: ConnectorBase,
-    _: User = Depends(current_admin_user),
+    _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session),
 ) -> ConnectorSnapshot | StatusResponse[int]:
-    updated_connector = update_connector(connector_id, connector_data, db_session)
+    updated_connector = update_connector(
+        connector_id, 
+        connector_data, 
+        organization_id,
+        db_session
+    )
     if updated_connector is None:
         raise HTTPException(
             status_code=404, detail=f"Connector {connector_id} does not exist"
@@ -164,25 +176,33 @@ def update_connector_from_model(
         disabled=updated_connector.disabled,
     )
 
-@router.delete("/{connector_id}", response_model=StatusResponse[int])
+@router.delete("/{organization_id}/{connector_id}", response_model=StatusResponse[int])
 def delete_connector_by_id(
     connector_id: int,
-    _: User = Depends(current_admin_user),
+    organization_id: UUID,
+    _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session),
 ) -> StatusResponse[int]:
-    return delete_connector(connector_id, db_session)
+    return delete_connector(
+        connector_id,
+        organization_id,
+        db_session,
+    )
 
-@router.post("/run-once")
+@router.post("/{organization_id}/run-once")
 def connector_run_once(
+    organization_id: UUID,
     run_info: RunConnectorRequest,
-    _: User = Depends(current_admin_user),
+    _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session),
 ) -> StatusResponse[list[int]]:
     connector_id = run_info.connector_id
     specified_credential_ids = run_info.credential_ids
     try:
         possible_credential_ids = get_connector_credential_ids(
-            run_info.connector_id, db_session
+            run_info.connector_id,
+            organization_id,
+            db_session,
         )
     except ValueError:
         raise HTTPException(

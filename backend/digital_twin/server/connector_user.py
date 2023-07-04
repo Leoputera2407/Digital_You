@@ -56,21 +56,37 @@ router = APIRouter(prefix="/connector")
 
 
 _GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME = "google_drive_credential_id"
+_GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME = "google_drive_organization_id"
 
-@router.get("/google-drive/authorize/{credential_id}", response_model=AuthUrl)
+@router.get("/{organization_id}/google-drive/authorize/{credential_id}", response_model=AuthUrl)
 def google_drive_auth(
     response: Response, 
+    organization_id: UUID,
     credential_id: str,
     _: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
 ) -> AuthUrl:
     # set a cookie that we can read in the callback (used for `verify_csrf`)
     response.set_cookie(
         key=_GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME,
         value=credential_id,
         httponly=True,
+        samesite='None',
+        secure=True,
         max_age=600,
     )
-    return AuthUrl(auth_url=get_gdrive_auth_url(int(credential_id)))
+
+    # set a cookie for the organization_id
+    response.set_cookie(
+        key=_GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME,
+        value=str(organization_id),
+        httponly=True,
+        samesite='None',
+        secure=True,
+        max_age=600,
+    )
+    
+    return AuthUrl(auth_url=get_gdrive_auth_url(db_session, int(credential_id)))
 
 @router.get("/google-drive/callback")
 def google_drive_callback(
@@ -80,14 +96,30 @@ def google_drive_callback(
     db_session: Session = Depends(get_session),
 ) -> StatusResponse:
     credential_id_cookie = request.cookies.get(_GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME)
+    organization_id_cookie = request.cookies.get(_GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME)
+    from digital_twin.utils.logging import setup_logger
+    logger = setup_logger()
+    logger.info(f"credential_id_cookie: {credential_id_cookie}")
+    logger.info(f"organization_id_cookie: {organization_id_cookie}")
     if credential_id_cookie is None or not credential_id_cookie.isdigit():
         raise HTTPException(
             status_code=401, detail="Request did not pass CSRF verification."
         )
+    if organization_id_cookie is None:
+        raise HTTPException(
+            status_code=401, detail="Organization ID did not pass verification."
+        )
     credential_id = int(credential_id_cookie)
+    organization_id = UUID(organization_id_cookie)
     verify_gdrive_csrf(credential_id, callback.state)
     if (
-        update_gdrive_credential_access_tokens(callback.code, credential_id, user, db_session)
+        update_gdrive_credential_access_tokens(
+            callback.code, 
+            credential_id,
+            organization_id,
+            user,
+            db_session
+        )
         is None
     ):
         raise HTTPException(
@@ -98,10 +130,12 @@ def google_drive_callback(
 
 
 _NOTION_CREDENTIAL_ID_COOKIE_NAME = "notion_credential_id"
+_NOTION_ORGANIZATION_ID_COOKIE_NAME = "notion_organization_id"
 
-@router.get("/notion/authorize/{credential_id}", response_model=AuthUrl)
+@router.get("/{organization_id}/notion/authorize/{credential_id}", response_model=AuthUrl)
 def notion_auth(
     response: Response, 
+    organization_id: UUID,
     credential_id: str,
     _: User = Depends(current_user),
 ) -> AuthUrl:
@@ -109,6 +143,12 @@ def notion_auth(
     response.set_cookie(
         key=_NOTION_CREDENTIAL_ID_COOKIE_NAME,
         value=credential_id,
+        httponly=True,
+        max_age=600,
+    )
+    response.set_cookie(
+        key=_NOTION_ORGANIZATION_ID_COOKIE_NAME,
+        value=str(organization_id),
         httponly=True,
         max_age=600,
     )
@@ -122,15 +162,23 @@ def notion_callback(
     db_session: Session = Depends(get_session),
 ) -> StatusResponse:
     credential_id_cookie = request.cookies.get(_NOTION_CREDENTIAL_ID_COOKIE_NAME)
+    organization_id_cookie = request.cookies.get(_NOTION_ORGANIZATION_ID_COOKIE_NAME)
+
     if credential_id_cookie is None or not credential_id_cookie.isdigit():
         raise HTTPException(
             status_code=401, detail="Request did not pass CSRF verification."
         )
+    if organization_id_cookie is None:
+        raise HTTPException(
+            status_code=401, detail="Organization ID did not pass verification."
+        )
     credential_id = int(credential_id_cookie)
+    organization_id = UUID(organization_id_cookie)
     if (
         update_notion_credential_access_tokens(
             callback.code, 
             credential_id, 
+            organization_id,
             user,
             db_session,
         )
@@ -142,66 +190,7 @@ def notion_callback(
 
     return StatusResponse(success=True, message="Updated Notion access tokens")
 
-# TODO: Workaround, should remove on deployment once we figure out Cross-site Cookie
-if IS_DEV:
-    @router.get("/google-drive-non-prod/callback")
-    def google_drive_callback_non_prod(
-        callback: GDriveCallback = Depends(),
-        user: User = Depends(current_user),
-        db_session: Session = Depends(get_session),
-    ) -> StatusResponse:
-        credentials: List[Credential] = fetch_credentials(user, db_session)
-        credential_with_empty_json = next((credential for credential in credentials if not credential.credential_json), None)
-        if credential_with_empty_json is None:
-            raise HTTPException(
-                status_code=500, detail="Unable to fetch Google Drive access tokens"
-            )
-        if (
-            update_gdrive_credential_access_tokens(
-                callback.code, 
-                credential_with_empty_json.id, 
-                user,
-                db_session
-            )
-            is None
-        ):
-            raise HTTPException(
-                status_code=500, detail="Unable to fetch Google Drive access tokens"
-            )
-
-        return StatusResponse(success=True, message="Updated Google Drive access tokens")
-
-    @router.get("/notion-non-prod/callback")
-    def notion_callback_non_prod(
-        callback: NotionCallback = Depends(),
-        user: User = Depends(current_user),
-        db_session: Session = Depends(get_session),
-    ) -> StatusResponse:
-       from digital_twin.connectors.notion.connector_auth import  DB_CREDENTIALS_DICT_KEY
-       credentials: List[Credential] = fetch_credentials(user, db_session)
-       credential_with_empty_json = next((credential for credential in credentials if not credential.credential_json), None)
-       # Find first creds with empty_json just 
-       if credential_with_empty_json is None:
-            raise HTTPException(
-                status_code=500, detail="Unable to fetch Notion access tokens"
-            )
-       if (
-            update_notion_credential_access_tokens(
-                callback.code, 
-                credential_with_empty_json.id, 
-                user,
-                db_session
-            )
-            is None
-        ):
-            raise HTTPException(
-                status_code=500, detail="Unable to fetch Notion access tokens"
-            )
-       
-       return StatusResponse(success=True, message="Updated Notion access tokens")
-
-
-@router.get("{organization_id}/list", response_model=list[ConnectorSnapshot], )
+@router.get("/{organization_id}/list", response_model=list[ConnectorSnapshot], )
 def get_connectors(
     organization_id: UUID,
      _: User = Depends(current_user),
@@ -215,7 +204,122 @@ def get_connectors(
         ConnectorSnapshot.from_connector_db_model(connector) for connector in connectors
     ]
 
-@router.get("{organization_id}/{connector_id}")
+@router.get("/{organization_id}/credential")
+def get_credentials(
+    organization_id: UUID,
+    user: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> list[CredentialSnapshot]:
+    credentials = fetch_credentials(
+        user, 
+        organization_id,
+        db_session,
+    )
+    return [
+        CredentialSnapshot(
+            id=credential.id,
+            credential_json=mask_credential_dict(credential.credential_json),
+            user_id=str(credential.user_id),
+            public_doc=credential.public_doc,
+            created_at=credential.created_at,
+            updated_at=credential.updated_at,
+        )
+        for credential in credentials
+    ]
+
+@router.get("/{organization_id}/credential/{credential_id}")
+def get_credential_by_id(
+    credential_id: int,
+    organization_id: UUID,
+    user: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> CredentialSnapshot | StatusResponse[int]:
+    credential = fetch_credential_by_id_and_org(
+        credential_id, 
+        user, 
+        organization_id,
+        db_session
+    )
+    if credential is None:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Credential {credential_id} does not exist or does not belong to user",
+        )
+
+    return CredentialSnapshot(
+        id=credential.id,
+        credential_json=mask_credential_dict(credential.credential_json),
+        user_id=str(credential.user_id),
+        public_doc=credential.public_doc,
+        created_at=credential.created_at,
+        updated_at=credential.updated_at,
+    )
+
+
+@router.post("/{organization_id}/credential")
+def create_credential_from_model(
+    organization_id: UUID,
+    connector_info: CredentialBase,
+    user: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> ObjectCreationIdResponse:
+    return create_credential(
+        connector_info, 
+        user,
+        organization_id,
+        db_session
+    )
+
+@router.patch("/{organization_id}/credential/{credential_id}")
+def update_credential_from_model(
+    credential_id: int,
+    organization_id: UUID,
+    credential_data: CredentialBase,
+    user: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> CredentialSnapshot | StatusResponse[int]:
+    updated_credential = update_credential(
+        credential_id,
+        credential_data,
+        user,
+        organization_id,
+        db_session
+    )
+    if updated_credential is None:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Credential {credential_id} does not exist or does not belong to user",
+        )
+
+    return CredentialSnapshot(
+        id=updated_credential.id,
+        credential_json=updated_credential.credential_json,
+        user_id=str(updated_credential.user_id),
+        public_doc=updated_credential.public_doc,
+        created_at=updated_credential.created_at,
+        updated_at=updated_credential.updated_at,
+    )
+
+
+@router.delete("/{organization_id}/credential/{credential_id}", response_model=StatusResponse[int])
+def delete_credential_by_id(
+    credential_id: int,
+    organization_id: UUID,
+    user: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> StatusResponse:
+    delete_credential(
+        credential_id,
+        user,
+        organization_id,
+        db_session
+    )
+    return StatusResponse(
+        success=True, message="Credential deleted successfully", data=credential_id
+    )
+
+
+@router.get("/{organization_id}/{connector_id}")
 def get_connector_by_id(
     connector_id: int,
     organization_id: UUID,
@@ -247,118 +351,37 @@ def get_connector_by_id(
         disabled=connector.disabled,
     )
 
-@router.get("/credential")
-def get_credentials(
-    user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
-) -> list[CredentialSnapshot]:
-    credentials = fetch_credentials(user, db_session)
-    return [
-        CredentialSnapshot(
-            id=credential.id,
-            credential_json=mask_credential_dict(credential.credential_json),
-            user_id=credential.user_id,
-            public_doc=credential.public_doc,
-            created_at=credential.created_at,
-            updated_at=credential.updated_at,
-        )
-        for credential in credentials
-    ]
-
-@router.get("/{organization_id}/credential/{credential_id}")
-def get_credential_by_id(
-    credential_id: int,
-    organization_id: UUID,
-    user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
-) -> CredentialSnapshot | StatusResponse[int]:
-    credential = fetch_credential_by_id_and_org(
-        credential_id, 
-        user, 
-        organization_id,
-        db_session
-    )
-    if credential is None:
-        raise HTTPException(
-            status_code=401,
-            detail=f"Credential {credential_id} does not exist or does not belong to user",
-        )
-
-    return CredentialSnapshot(
-        id=credential.id,
-        credential_json=mask_credential_dict(credential.credential_json),
-        user_id=credential.user_id,
-        public_doc=credential.public_doc,
-        created_at=credential.created_at,
-        updated_at=credential.updated_at,
-    )
-
-
-@router.post("/credential")
-def create_credential_from_model(
-    connector_info: CredentialBase,
-    user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
-) -> ObjectCreationIdResponse:
-    return create_credential(connector_info, user, db_session)
-
-@router.patch("/credential/{credential_id}")
-def update_credential_from_model(
-    credential_id: int,
-    credential_data: CredentialBase,
-    user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
-) -> CredentialSnapshot | StatusResponse[int]:
-    updated_credential = update_credential(
-        credential_id, credential_data, user, db_session
-    )
-    if updated_credential is None:
-        raise HTTPException(
-            status_code=401,
-            detail=f"Credential {credential_id} does not exist or does not belong to user",
-        )
-
-    return CredentialSnapshot(
-        id=updated_credential.id,
-        credential_json=updated_credential.credential_json,
-        user_id=updated_credential.user_id,
-        public_doc=updated_credential.public_doc,
-        created_at=updated_credential.created_at,
-        updated_at=updated_credential.updated_at,
-    )
-
-
-@router.delete("/credential/{credential_id}", response_model=StatusResponse[int])
-def delete_credential_by_id(
-    credential_id: int,
-    user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
-) -> StatusResponse:
-    delete_credential(credential_id, user, db_session)
-    return StatusResponse(
-        success=True, message="Credential deleted successfully", data=credential_id
-    )
-
-
-@router.put("/{connector_id}/credential/{credential_id}")
+@router.put("/{organization_id}/{connector_id}/credential/{credential_id}")
 def associate_credential_to_connector(
+    organization_id: UUID,
     connector_id: int,
     credential_id: int,
     user: User = Depends(current_user),
     db_session: Session = Depends(get_session),
 ) -> StatusResponse[int]:
-    return add_credential_to_connector(connector_id, credential_id, user, db_session)
+    return add_credential_to_connector(
+        connector_id, 
+        credential_id, 
+        organization_id,
+        user, 
+        db_session,
+    )
 
 
 
-@router.delete("/{connector_id}/credential/{credential_id}")
+@router.delete("/{organization_id}/{connector_id}/credential/{credential_id}")
 def dissociate_credential_from_connector(
+    organization_id: UUID,
     connector_id: int,
     credential_id: int,
     user: User = Depends(current_user),
     db_session: Session = Depends(get_session),
 ) -> StatusResponse[int]:
     return remove_credential_from_connector(
-        connector_id, credential_id, user, db_session
+        connector_id, 
+        credential_id, 
+        organization_id,
+        user, 
+        db_session
     )
 

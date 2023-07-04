@@ -15,12 +15,10 @@ class QAModel:
     def _pick_qa_chain(
         self,
         llm: BaseLanguageModel,
-        max_output_tokens: int,
         prompt: PromptTemplate = None,
     ) -> BaseQA:
         return StuffQA(
             llm=llm,
-            max_output_tokens=max_output_tokens,
             prompt=prompt,
         )
       

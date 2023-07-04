@@ -1,4 +1,4 @@
-import { Separator } from "@/components/ui/separator"
+import { Separator } from "@/components/ui/Separator"
 import { ModelProviderForm } from "./model-provider-form"
 
 export default function SettingsProfilePage() {

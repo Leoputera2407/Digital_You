@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from langchain.llms.base import BaseLanguageModel
 from langchain.callbacks import AsyncIteratorCallbackHandler
@@ -10,8 +10,11 @@ from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 
-def get_default_model_type() -> SupportedModelType:
+def get_selected_model_type() -> SupportedModelType:
     return SupportedModelType[DEFAULT_MODEL_TYPE]
+
+def get_seleted_model_n_context_len() -> int:
+    return get_selected_model_type().n_context_len
 
 
 def get_llm(
@@ -21,7 +24,7 @@ def get_llm(
     callback_handler: Optional[AsyncIteratorCallbackHandler] = None,
     **kwargs,
 ) -> Optional[BaseLanguageModel]:
-    selected_model_type = get_default_model_type()
+    selected_model_type = get_selected_model_type()
     llm: BaseLanguageModel = None
     api_key = MODEL_API_KEY
     if not api_key:
@@ -67,6 +70,9 @@ def get_llm(
                 streaming=streaming,
                 callbacks=callback_handler,
                 request_timeout=kwargs.get("model_timeout", 10),
+                # We want to use the same encoding as GPT3.5, somehow this error out
+                # we put `gpt-35-turbo` eventho the mapping is there.
+                tiktoken_model_name="gpt-3.5-turbo"
             )
 
     else:

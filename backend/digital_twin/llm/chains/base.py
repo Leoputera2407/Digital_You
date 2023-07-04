@@ -1,7 +1,8 @@
 from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
-from typing import Optional, List
+from typing import Optional
 
+from digital_twin.llm.interface import get_seleted_model_n_context_len
 from digital_twin.utils.logging import setup_logger
 from digital_twin.utils.timing import log_function_time
 
@@ -16,11 +17,9 @@ class BaseChain:
     def __init__(
         self,
         llm: BaseLanguageModel,
-        max_output_tokens: int,
         prompt: Optional[PromptTemplate] = None,
     ):
         self.llm = llm
-        self.max_output_tokens = max_output_tokens
         self.prompt = prompt or self.default_prompt
 
     @property
@@ -39,17 +38,17 @@ class BaseChain:
     def tokens_within_limit(self, formatted_prompt: str) -> bool:
         """Check if the number of tokens is within the allowed limit."""
         num_tokens_in_prompt = self.llm.get_num_tokens(formatted_prompt)
-        return num_tokens_in_prompt + self.max_output_tokens <= self.llm.dict()["max_tokens"]
+        return num_tokens_in_prompt <= get_seleted_model_n_context_len() - self.llm.dict()["max_tokens"]
     
     def get_filled_prompt(self, **kwargs) -> str:
         raise NotImplementedError("This method should be overridden in subclasses.")
 
     @log_function_time()
-    def run(self, query: str, **kwargs) -> dict:
+    def run(self, query: str, **kwargs) -> str:
         formatted_prompt = self.get_filled_prompt(query, **kwargs)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
-    async def async_run(self, query: str, **kwargs) -> dict:
+    async def async_run(self, query: str, **kwargs) -> str:
         formatted_prompt = self.get_filled_prompt(query, **kwargs)
         return await self.llm.apredict(formatted_prompt)

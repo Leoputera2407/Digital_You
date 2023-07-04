@@ -13,7 +13,7 @@ from digital_twin.config.app_config import MIN_CHAT_PAIRS_THRESHOLD
 from digital_twin.slack_bot.personality import async_handle_user_conversation_style, async_rephrase_response
 from digital_twin.slack_bot.views import get_view, LOADING_TEXT, ERROR_TEXT
 from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
-from digital_twin.qa import async_get_default_backend_qa_model 
+from digital_twin.qa import async_get_default_backend_qa_model
 from digital_twin.db.async_slack_bot import async_get_chat_pairs
 from digital_twin.db.user import (
     async_get_qdrant_collection_for_slack,
@@ -21,9 +21,11 @@ from digital_twin.db.user import (
 )
 from digital_twin.db.engine import get_async_session
 from digital_twin.search.interface import async_retrieve_hybrid_reranked_documents
+from digital_twin.search.utils import chunks_to_search_docs
 from digital_twin.indexdb.qdrant.store import QdrantVectorDB
 from digital_twin.indexdb.typesense.store import TypesenseIndex
 
+from digital_twin.utils.slack import format_openai_to_slack
 from digital_twin.utils.logging import setup_logger
 from digital_twin.utils.timing import log_function_time
 logger = setup_logger()
@@ -113,7 +115,7 @@ async def handle_digital_twin_command(
             is_using_default_conversation_style = True
         
         temp_solution_create_collection_if_not_exist(qdrant_collection_name, typesense_collection_name)
-       
+        
         ranked_chunks, _ = await async_retrieve_hybrid_reranked_documents(
             query = query,
             user_id = None, # This mean it'll retrieve all public docs (which only that now)
@@ -121,37 +123,37 @@ async def handle_digital_twin_command(
             vectordb = QdrantVectorDB(collection=qdrant_collection_name),
             keywordb = TypesenseIndex(collection=typesense_collection_name),
         )  
+        logger.info(f"Retrieved ranked chunks {ranked_chunks}")
 
+        search_docs = chunks_to_search_docs(ranked_chunks)
+        display_doc_view = get_view(
+                "response_command_modal", 
+                private_metadata_str='', 
+                response='Synthezing AI generated response...',
+                is_using_default_conversation_style=is_using_default_conversation_style,
+                is_hide_button=True,
+                search_docs=search_docs,
+        )
+        await client.views_update(view_id=view_id, view=display_doc_view)
         qa_model = await async_get_default_backend_qa_model(model_timeout=10)
         qa_response, sources = await qa_model.async_answer_question_and_verify(
             query, 
-            context_docs=ranked_chunks
+            context_docs=ranked_chunks if ranked_chunks else [],
         )
-        response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
-       
-        private_metadata_str = json.dumps(
-            {"response": response, "channel_id": channel_id,
-                "query": query, "conversation_style": conversation_style}
-        )
-        response_view = get_view(
-            "response_command_modal", 
-            private_metadata_str=private_metadata_str, 
-            response=response,
-            is_using_default_conversation_style=is_using_default_conversation_style
-        )
-        await client.views_update(view_id=view_id, view=response_view)
-        """
         if qa_response is not  None:
             response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
+            processed_response = format_openai_to_slack(response)
             private_metadata_str = json.dumps(
-                {"response": response, "channel_id": channel_id,
+                {"response": processed_response, "channel_id": channel_id,
                     "query": query, "conversation_style": conversation_style}
             )
             response_view = get_view(
                 "response_command_modal", 
                 private_metadata_str=private_metadata_str, 
-                response=response,
-                is_using_default_conversation_style=is_using_default_conversation_style
+                response=processed_response,
+                is_using_default_conversation_style=is_using_default_conversation_style,
+                is_hide_button=False,
+                search_docs=search_docs,
             )
             await client.views_update(view_id=view_id, view=response_view)
             
@@ -159,9 +161,7 @@ async def handle_digital_twin_command(
             error_view = get_view("text_command_modal",
                                   text="Sorry, none of your documents are relevant to this question. ")
             await client.views_update(view_id=view_id, view=error_view)
-            return
-        """
-        
+            return    
         return
     except Exception as e:
         logger.error(f"Error handling Prosona for {slack_user_id}: {e}")

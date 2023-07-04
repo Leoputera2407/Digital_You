@@ -1,6 +1,7 @@
 import { fetcher } from "@/lib/fetcher";
 import { Connector, ConnectorIndexingStatus, Credential } from "@/lib/types";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
+import { useAxios } from "./useAxios";
 
 type UseConnectorResponse<T> = {
   isLoading: boolean,
@@ -10,35 +11,50 @@ type UseConnectorResponse<T> = {
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined,
   credentialsData: Credential<T>[] | undefined,
   connectorsData: Connector<T>[] | undefined,
+  revalidateIndexingStatus: () => void,
+  revalidateCredentials: () => void, 
+  revalidateConnectors: () => void, 
 };
 
-export const useConnectorData = <T>(): UseConnectorResponse<T> => {
+export const useConnectorData = <T>(organization_id: string | null | undefined): UseConnectorResponse<T> => {
+  const { axiosInstance } = useAxios();
   
   const {
     data: connectorIndexingStatuses,
     isLoading: isConnectorIndexingStatusesLoading,
     error: isConnectorIndexingStatusesError,
   } = useSWR<ConnectorIndexingStatus<any>[]>(
-    `/api/connector/admin/indexing-status`,
-    fetcher
+    organization_id ? `/api/connector/admin/${organization_id}/indexing-status` : null,
+    (url) => fetcher(url, axiosInstance)
   );
   const {
     data: credentialsData,
     isLoading: isCredentialsLoading,
     error: isCredentialsError,
   } = useSWR<Credential<T>[]>(
-    `/api/connector/credential`,
-    fetcher
+    organization_id ? `/api/connector/${organization_id}/credential` : null,
+    (url) => fetcher(url, axiosInstance),
   );
   const {
     data: connectorsData,
     isLoading: isConnectorsLoading,
     error: isConnectorsError,
   } = useSWR<Connector<T>[]>(
-    `/api/connector/list`,
-    fetcher
+    organization_id ? `/api/connector/${organization_id}/list` : null,
+    (url) => fetcher(url, axiosInstance)
   );
-  
+
+  const revalidateIndexingStatus = () => {
+    mutate(`/api/connector/admin/${organization_id}/indexing-status`);
+  };
+
+  const revalidateCredentials = () => {
+    mutate(`/api/connector/${organization_id}/credential`);
+  };
+
+  const revalidateConnectors = () => {
+    mutate(`/api/connector/${organization_id}/list`);
+  };
   return {
     isLoading: isConnectorIndexingStatusesLoading || isCredentialsLoading || isConnectorsLoading,
     isCredentialsError,
@@ -46,6 +62,9 @@ export const useConnectorData = <T>(): UseConnectorResponse<T> => {
     isConnectorsError,
     connectorIndexingStatuses,
     credentialsData,
-    connectorsData
+    connectorsData,
+    revalidateIndexingStatus,
+    revalidateCredentials,
+    revalidateConnectors,
   };
 };

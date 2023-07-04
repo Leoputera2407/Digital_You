@@ -2,6 +2,7 @@ import json
 import requests
 import base64
 import urllib.parse
+from uuid import UUID
 from typing import Dict
 from sqlalchemy.orm import Session
 
@@ -41,6 +42,7 @@ def get_auth_url() -> str:
 def update_credential_access_tokens(
     auth_code: str,
     credential_id: int,
+    organization_id: UUID,
     user: User,
     db_session: Session,
 ) -> Dict[str, str] | None:
@@ -68,6 +70,7 @@ def update_credential_access_tokens(
         if not update_credential_json(
             credential_id, 
             new_creds_dict,
+            organization_id,
             user,
             db_session,
         ):

@@ -27,7 +27,7 @@ from slack_bolt.adapter.fastapi.async_handler import (
 )
 from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
 
-from digital_twin.auth.users import current_user
+from digital_twin.auth.users import current_user, current_admin_for_org
 from digital_twin.llm.interface import get_llm
 from digital_twin.config.app_config import WEB_DOMAIN, SLACK_USER_TOKEN
 from digital_twin.db.model import User
@@ -55,7 +55,9 @@ from digital_twin.db.user import (
 from digital_twin.utils.slack import (
     to_starlette_response,
     custom_handle_slack_oauth_redirect,
-    custom_handle_installation
+    custom_handle_installation,
+    format_openai_to_slack,
+    format_slack_to_openai,
 )
 from digital_twin.utils.logging import setup_logger
 
@@ -73,9 +75,20 @@ async def before_authorize(
     next_: Callable[[], Awaitable[None]],
 ):
     if (
-        is_event(body)
-        and payload.get("type") == "message"
-        and payload.get("subtype") in MESSAGE_SUBTYPES_TO_SKIP
+        (
+            is_event(body)
+            and payload.get("type") == "message"
+            and payload.get("subtype") in MESSAGE_SUBTYPES_TO_SKIP
+        )
+        or (
+            # this covers things like channel_join, channel_leave, etc.
+            is_event(body)
+            and payload.get("event", {}).get("subtype") is not None
+        ) or (
+            # this covers things like bot_message
+            is_event(body)
+            and payload.get("event", {}).get("bot_profile")
+        )
     ):
         logger.debug(
             "Skipped the following middleware and listeners "
@@ -149,12 +162,14 @@ async def handle_slack_event(req: Request):
 async def install(
     organization_id: UUID,
     request: Request,
+    _: User = Depends(current_admin_for_org),
     db_session: AsyncSession = Depends(get_async_session_generator),
 ):
     oauth_flow: AsyncOAuthFlow = app_handler.app.oauth_flow
     if oauth_flow is not None and \
-        request.url.path == oauth_flow.install_path and \
             request.method == "GET":
+        logger.info(f"Handling slack install {organization_id}")
+
         bolt_resp = await custom_handle_installation(
             oauth_flow=oauth_flow,
             organization_id=organization_id,
@@ -182,6 +197,8 @@ async def slack_oauth_redirect(
     they used to register on slack is the same email that
     they used to register to our service. If this assumption is broken,
     this maybe a future cause of bug.
+
+    We'll also create a connector credential for the admin user here too.
     """
     oauth_flow: AsyncOAuthFlow = app_handler.app.oauth_flow
     if oauth_flow is not None and \
@@ -206,7 +223,6 @@ async def handle_url_verification(body: Dict[str, Any]):
 
 @slack_app.middleware
 async def set_user_info(
-    client: AsyncWebClient, 
     context: AsyncBoltContext, 
     payload: Dict[str, Any], 
     body: Dict[str, Any], 
@@ -237,7 +253,6 @@ async def set_user_info(
         logger.info(f"Error while verifying the slack token: {e}")
         return BoltResponse(status=200, body=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN}/slack/interface{search_params} | Prosona Website>")
     
-    context["OPENAI_MODEL"] = "gpt-3.5-turbo"
     await next_()
 
 @slack_app.event("app_home_opened")
@@ -311,11 +326,10 @@ async def handle_shuffle_click(
             llm=get_llm(
                 **PERSONALITY_MODEL_SETTINGS
             ),
-            max_output_tokens=500,
         )
         private_metadata_str = body['view']['private_metadata']
         private_metadata = json.loads(body['view']['private_metadata'])
-        old_response = private_metadata['response']
+        old_response = format_slack_to_openai(private_metadata['response'])
         conversation_style = private_metadata['conversation_style']
         slack_user_id = body['user']['id']
         response = await shuffle_chain.async_run(
@@ -323,7 +337,8 @@ async def handle_shuffle_click(
             conversation_style=conversation_style,
             slack_user_id=slack_user_id,
         )
-        response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=response)
+        processed_response = format_openai_to_slack(response)
+        response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=processed_response)
         await client.views_update(view_id=view_id, view=response_view)
     except Exception as e:
         logger.error(f"Error in shuffle click: {e}")
@@ -339,7 +354,6 @@ async def handle_edit_response(
     body: Dict[str, Any]
 ) -> None:
     await ack()
-    logger.info('went here')
     try:
         view_id = body['container']['view_id']
         metadata_dict = json.loads(body['view']['private_metadata'])

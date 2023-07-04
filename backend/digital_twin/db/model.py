@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer, 
     DateTime, 
     Boolean,
+    Float,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects import postgresql
@@ -57,6 +58,9 @@ class UserOrganizationAssociation(Base):
     )
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, native_enum=False, default=UserRole.BASIC), server_default=UserRole.BASIC.value
+    )
+    joined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
     user: Mapped["User"] = relationship(
         "User", back_populates="organizations"

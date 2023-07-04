@@ -54,7 +54,7 @@ CHUNK_OVERLAP = 5
 # Number of documents in a batch during indexing (further batching done by chunks before passing to bi-encoder)
 INDEX_BATCH_SIZE = 16
 
-NUM_RETURNED_HITS = 50
+NUM_RETURNED_HITS = 100
 NUM_RERANKED_RESULTS = 15
 # Better to keep it loose, surfacing more results better than missing results
 SEARCH_DISTANCE_CUTOFF = 0.1  # Cosine similarity (currently), range of -1 to 1 with -1 being completely opposite

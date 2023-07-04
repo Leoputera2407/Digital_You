@@ -3,9 +3,9 @@ from typing import Optional, List, Tuple
 from slack_sdk.web.async_client import AsyncWebClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from digital_twin.db.async_slack_bot import async_update_chat_pairs
 from digital_twin.config.app_config import MIN_SCRAPED_THRESHOLD, MIN_CHAT_PAIRS_THRESHOLD
 from digital_twin.utils.logging import setup_logger
-from digital_twin.db.async_slack_bot import async_update_chat_pairs
 
 logger = setup_logger()
 
@@ -99,6 +99,10 @@ async def scrape_and_store_chat_history(
             ]
         )
     """
+    # To avoid circular imports
+    from digital_twin.utils.slack import format_slack_to_openai
+
+
     cutoff = (datetime.now(timezone.utc) - timedelta(days=cutoff_days)).timestamp()
 
     validate_target_users(target_users, slack_user_id)
@@ -133,7 +137,8 @@ async def scrape_and_store_chat_history(
                     continue
 
                 user = message["user"]
-                text = f"{user}: {message['text']}\n"
+                formatted_text = format_slack_to_openai(message["text"])
+                text = f"{user}: {formatted_text}\n"
 
                 if is_interacted_with_target(user, target_users, slack_user_id):
                     if user != slack_user_id and last_input and last_input_user == slack_user_id:

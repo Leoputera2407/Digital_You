@@ -1,4 +1,4 @@
-import { useSupabase } from "@/lib/auth/authProvider";
+import { useSupabase } from "@/lib/context/authProvider";
 import { useToast } from "@/lib/hooks/useToast";
 import { useState } from "react";
 

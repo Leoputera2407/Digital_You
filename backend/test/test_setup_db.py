@@ -2,10 +2,9 @@ import requests
 import json
 
 from digital_twin.db.connectors.google_drive import upsert_db_google_app_cred
-from digital_twin.utils.clients import get_supabase_client
+from digital_twin.db.engine import get_session
 from digital_twin.server.model import GoogleAppWebCredentials, GoogleAppCredentials
 
-supabase = get_supabase_client()
 BUCKET_NAME = "Access Token Bucket"
 BUCKET_SOURCE = "localhost_google_app_credentials.json"
 destination ="./localhost_google_app_credentials.json"
@@ -36,8 +35,10 @@ else:
     print(f"Error occurred: {response.text}")
 """
 app_credentials = GoogleAppCredentials(**credentials['web'])
-res = upsert_db_google_app_cred(app_credentials.dict())
+db_session = next(get_session())
+res = upsert_db_google_app_cred(app_credentials.dict(), db_session)
 
+"""
 # URL of your API
 url = "http://localhost:8080/connector/google-drive/app-credential"
 
@@ -52,3 +53,4 @@ elif response.status_code == 404:
     print("Google App Credentials not found.")
 else:
     print(f"Unexpected status code received: {response.status_code}. Response text: {response.text}")
+"""

@@ -1,4 +1,4 @@
-import { buildBackendUrl, getDomain } from "@/lib/redirect";
+import { buildBackendHTTPUrl, getDomain } from "@/lib/redirect";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import axios from "axios";
 import { cookies } from "next/headers";
@@ -19,17 +19,17 @@ export const GET = async (request: NextRequest) => {
     },
   });
   let response = null;
-  if (process.env.NODE_ENV === "production") {
-    const url = new URL(buildBackendUrl("/connector/google-drive/callback"));
-    url.search = request.nextUrl.search;
-    // Make the request
-    response = await axiosInstance.get(url.toString());
-  } else {
-    const url = new URL(buildBackendUrl("/connector/google-drive-non-prod/callback"));
-    url.search = request.nextUrl.search;
-    // Make the request
-    response = await axiosInstance.get(url.toString());
-  }
+
+  const url = new URL(buildBackendHTTPUrl("/connector/google-drive/callback"));
+  url.search = request.nextUrl.search;
+  // This have to be withCredentials as we're making cross-origin cookies
+  response = await axiosInstance.get(
+    url.toString(),
+    {
+      withCredentials: true,
+    }
+  );
+
 
   if (response.status < 200 || response.status >= 300) {
     return NextResponse.redirect(new URL("/error", getDomain(request)));

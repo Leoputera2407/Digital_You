@@ -22,10 +22,10 @@ export const getDomain = (request: NextRequest) => {
   return request.nextUrl.origin;
 };
 
-export const buildBackendUrl = (path: string) => {
+export const buildBackendHTTPUrl = (path: string) => {
   if (path.startsWith("/")) {
-    return `${process.env.NEXT_PUBLIC_BACKEND_URL}${path}`;
+    return `${process.env.NEXT_PUBLIC_BACKEND_HTTP_URL}${path}`;
   }
-  return `${process.env.NEXT_PUBLIC_BACKEND_URL}/${path}`;
+  return `${process.env.NEXT_PUBLIC_BACKEND_HTTP_URL}/${path}`;
 };
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { useSupabase } from '@/lib/auth/authProvider';
+import { useSupabase } from '@/lib/context/authProvider';
 import { useAxios } from '@/lib/hooks/useAxios';
 import { useToast } from '@/lib/hooks/useToast';
 //import { getModelAPIKey, upsertModelAPIKey, validateModelAPIKey } from "@/lib/llm";

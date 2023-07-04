@@ -11,7 +11,7 @@ const nextConfig = {
       beforeFiles: [
         {
           source: "/api/:path*",
-          destination: "http://localhost:8080/:path*", 
+          destination: "https://a035-2600-1700-2f71-4890-ddfc-3ad4-c1ad-3dcf.ngrok-free.app/:path*", 
         },
       ],
     };

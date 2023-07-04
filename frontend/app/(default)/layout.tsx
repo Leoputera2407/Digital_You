@@ -5,8 +5,8 @@ import { useEffect } from 'react'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
-import Header from '@/components/ui/header'
-import Footer from '@/components/ui/footer'
+import Footer from '@/components/ui/Footer'
+import Header from '@/components/ui/Header'
 
 export default function DefaultLayout({
   children,

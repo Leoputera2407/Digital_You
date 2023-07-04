@@ -1,4 +1,4 @@
-import { buildBackendUrl, getDomain } from "@/lib/redirect";
+import { buildBackendHTTPUrl, getDomain } from "@/lib/redirect";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import axios from "axios";
 import { cookies } from "next/headers";
@@ -20,19 +20,15 @@ export const GET = async (request: NextRequest) => {
   });
 
   let response = null;
-  if (process.env.NODE_ENV === "production") {
-    const url = new URL(buildBackendUrl("/connector/notion/callback"));
-    url.search = request.nextUrl.search;
-    url.searchParams.append('supabase_user_id', data?.session?.user?.id || '');
-    // Make the request
-    response = await axiosInstance.get(url.toString());
-  } else {
-    const url = new URL(buildBackendUrl("/connector/notion-non-prod/callback"));
-    url.search = request.nextUrl.search;
-    url.searchParams.append('supabase_user_id', data?.session?.user?.id || '');
-    // Make the request
-    response = await axiosInstance.get(url.toString());
-  }
+  const url = new URL(buildBackendHTTPUrl("/connector/notion/callback"));
+  url.search = request.nextUrl.search;
+  
+  response = await axiosInstance.get(
+    url.toString(),
+    {
+      withCredentials: true,
+    }
+  );
 
   if (response.status < 200 || response.status >= 300) {
     console.log(

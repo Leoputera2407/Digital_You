@@ -12,8 +12,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/Collapsible";
-import { Separator } from "@/components/ui/separator";
-import { useSupabase } from "@/lib/auth/authProvider";
+import { Separator } from "@/components/ui/Separator";
+import { useSupabase } from "@/lib/context/authProvider";
+import { useOrganization } from "@/lib/context/orgProvider";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import {
   AnyCredentialJson,
@@ -39,7 +40,8 @@ export default function ConnectorMenuPage() {
     Array(ValidDataSourceTypesArray.length).fill(false)
   );
   const { user } = useSupabase();
-
+  const { currentOrganization } = useOrganization();
+  console.log("currentOrganization", currentOrganization);
   const {
     isLoading: isConnectorCredentialLoading,
     isConnectorIndexingStatusesError,
@@ -47,7 +49,7 @@ export default function ConnectorMenuPage() {
     connectorIndexingStatuses,
     credentialsData,
     connectorsData,
-  } = useConnectorData<AnyCredentialJson>(); 
+  } = useConnectorData<AnyCredentialJson>(currentOrganization?.id || ""); 
 
   const handleOpenDataChange = (index: number, newState: boolean) => {
     const newArr = [...isOpenDataArr];

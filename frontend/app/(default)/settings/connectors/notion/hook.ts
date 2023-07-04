@@ -1,6 +1,5 @@
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
-import { setupNotionOAuth } from "@/lib/notion";
 import {
   AnyCredentialJson,
   Connector,
@@ -8,6 +7,7 @@ import {
   Credential,
   NotionCredentialJson,
 } from "@/lib/types";
+import type { Axios, AxiosResponse } from "axios";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -15,7 +15,7 @@ export interface UseNotionConnectorsProps {
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
   connectorsData: Connector<AnyCredentialJson>[] | undefined;
-  userId: string | undefined;
+  organizationId: string | undefined;
 }
 
 export interface UseNotionConnectorsReturn {
@@ -30,6 +30,11 @@ export interface UseNotionConnectorsReturn {
   notionConnector: Connector<AnyCredentialJson> | undefined;
   credentialIsLinked: boolean;
 }
+interface SetupNotionArgs {
+  axiosInstance: Axios;
+  isPublic: boolean;
+  organizationId: string;
+}
 
 function isNotionCredentialJson(
   credential: Credential<AnyCredentialJson>
@@ -37,11 +42,41 @@ function isNotionCredentialJson(
   return credential.credential_json.hasOwnProperty("notion_access_tokens");
 }
 
+const setupNotionOAuth = async ({
+    axiosInstance,
+    isPublic,
+    organizationId,
+  }: SetupNotionArgs): Promise<[string | null, string]> => {
+    let credentialCreationResponse: AxiosResponse<Credential<{}>>;
+    let authorizationUrlResponse: AxiosResponse<{auth_url: string}>;
+  
+    try {
+      credentialCreationResponse = await axiosInstance.post(
+        `/api/connector/${organizationId}/credential`, {
+        public_doc: isPublic,
+        credential_json: {},
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      const { data: credential } = credentialCreationResponse;
+      authorizationUrlResponse = await axiosInstance.get(
+        `/api/${organizationId}/connector/notion/authorize/${credential.id}`
+      );
+      const { data: authorizationUrlJson } = authorizationUrlResponse;
+      return [authorizationUrlJson.auth_url, ""];
+    } catch (error: any) {
+        const status = error.response?.status || 500;
+        return [null, `Failed to create credential - ${status}`];
+    }
+  };
+
 export function useNotionConnectors({
   connectorIndexingStatuses,
   credentialsData,
   connectorsData,
-  userId,
+  organizationId,
 }: UseNotionConnectorsProps): UseNotionConnectorsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const { axiosInstance } = useAxios();
@@ -79,13 +114,13 @@ export function useNotionConnectors({
   const handleAuthenticate = async () => {
     setIsLoading(true);
     try {
-       if (userId === undefined) {
-            throw new Error("User ID is undefined");
+       if (organizationId === undefined) {
+            throw new Error("Org ID is undefined");
        }
       
       const [authUrl, errorMsg] = await setupNotionOAuth({
         axiosInstance,
-        userId,
+        organizationId: organizationId,
         isPublic: true,
       });
 
@@ -97,6 +132,11 @@ export function useNotionConnectors({
       publish({
         variant: "danger",
         text: errorMsg,
+      });
+    } catch (error: any){
+      publish({
+        variant: "danger",
+        text: error.message,
       });
     } finally {
       setIsLoading(false);

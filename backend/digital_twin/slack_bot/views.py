@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 LOADING_TEXT = "Thinking..."
 PERSONALITY_TEXT = "Learning how you speak from your chat history...This will only happen once!"
@@ -8,7 +9,7 @@ EDIT_BUTTON_ACTION_ID ="edit_response"
 SHUFFLE_BUTTON_ACTION_ID ="shuffle_response"
 EDIT_BLOCK_ID = "edit_block"
 
-def get_view(view_type, **kwargs):
+def get_view(view_type: str, **kwargs):
     views = {
         "text_command_modal": create_general_text_command_view,
         "response_command_modal": create_response_command_view,
@@ -21,7 +22,7 @@ def get_view(view_type, **kwargs):
     return views[view_type](**kwargs)
 
 
-def create_general_text_command_view(text):
+def create_general_text_command_view(text: str) -> None:
     return {
         "type": "modal",
         "callback_id": "text_modal",
@@ -37,21 +38,30 @@ def create_general_text_command_view(text):
         ]
     }
 
-def create_response_command_view(private_metadata_str, response, is_using_default_conversation_style):
+def create_response_command_view(
+        private_metadata_str: str, 
+        response: str, 
+        is_using_default_conversation_style: bool, 
+        is_hide_button: bool, 
+        search_docs,
+) -> None:
     blocks = [
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": "*Your AI-generated response:*\n\n" + response
-            },
-            "accessory": {
-                "type": "button",
-                "text": {"type": "plain_text", "text": ":pencil2: Edit", "emoji": True},
-                "action_id": EDIT_BUTTON_ACTION_ID
-            },
-        },
-        {
+            }
+        }
+    ]
+    
+    if not is_hide_button:
+        blocks[0]["accessory"] = {
+            "type": "button",
+            "text": {"type": "plain_text", "text": ":pencil2: Edit", "emoji": True},
+            "action_id": EDIT_BUTTON_ACTION_ID
+        }
+        blocks.append({
             "type": "actions",
             "elements": [
                 {
@@ -60,8 +70,7 @@ def create_response_command_view(private_metadata_str, response, is_using_defaul
                     "action_id": SHUFFLE_BUTTON_ACTION_ID
                 }
             ]
-        }
-    ]
+        })
 
     if is_using_default_conversation_style:
         warning_message = {
@@ -72,6 +81,18 @@ def create_response_command_view(private_metadata_str, response, is_using_defaul
             }
         }
         blocks.insert(1, warning_message)
+    
+    top_3_docs = "\n".join([f"{doc.source_type}{f'<{doc.link}|Link>' if doc.link else ''}\n{doc.blurb}" for doc in search_docs[:3]])
+    blocks.extend([
+        {"type": "divider"},
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Top 3 most relevant documents:*\n\n" + top_3_docs
+            }
+        }
+    ])
 
     return {
         "type": "modal",
@@ -82,7 +103,7 @@ def create_response_command_view(private_metadata_str, response, is_using_defaul
         "blocks": blocks
     }
 
-def create_edit_command_view(private_metadata, response):
+def create_edit_command_view(private_metadata: str, response: str):
     metadata_dict = json.loads(private_metadata)
     metadata_dict["source"] = "edit"
     private_metadata = json.dumps(metadata_dict)
@@ -99,6 +120,7 @@ def create_edit_command_view(private_metadata, response):
                 "element": {
                     "type": "plain_text_input",
                     "action_id": "response_input",
+                    "multiline": True,
                     "initial_value": response
                 },
                 "label": {

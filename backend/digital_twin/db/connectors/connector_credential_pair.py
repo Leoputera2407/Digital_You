@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.expression import and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,8 @@ from digital_twin.db.model import (
     ConnectorCredentialPair,
     IndexingStatus,
     User,
+    Credential,
+    Connector,
 )
 from digital_twin.server.model import StatusResponse
 from digital_twin.utils.logging import setup_logger, log_sqlalchemy_error
@@ -29,18 +31,25 @@ def get_connector_credential_pairs(
     organization_id: UUID,
     include_disabled: bool = True,
 ) -> list[ConnectorCredentialPair]:
-    stmt = select(ConnectorCredentialPair)
-    stmt = stmt.where(
+    ConnectorAlias = aliased(Connector)
+    CredentialAlias = aliased(Credential)
+
+    stmt = select(ConnectorCredentialPair).join(
+        ConnectorAlias, ConnectorCredentialPair.connector_id == ConnectorAlias.id
+    ).join(
+        CredentialAlias, ConnectorCredentialPair.credential_id == CredentialAlias.id
+    ).where(
         and_(
-            ConnectorCredentialPair.connector.organization_id == organization_id,
-            ConnectorCredentialPair.credential.organization_id == organization_id,
+            ConnectorAlias.organization_id == organization_id,
+            CredentialAlias.organization_id == organization_id,
         )
     )
+    
     if not include_disabled:
         stmt = stmt.where(
-            ConnectorCredentialPair.connector.disabled == False
+            ConnectorAlias.disabled == False
         )
-    results = db_session.scalars(stmt)
+    results = db_session.scalars(stmt).unique()
     return list(results.all())
 
 @log_sqlalchemy_error(logger)
@@ -50,19 +59,28 @@ def get_connector_credential_pair(
     organization_id: UUID | None,
     db_session: Session,
 ) -> ConnectorCredentialPair | None:
-    stmt = select(ConnectorCredentialPair)
-    stmt = stmt.where(ConnectorCredentialPair.connector_id == connector_id)
-    stmt = stmt.where(ConnectorCredentialPair.credential_id == credential_id)
+    ConnectorAlias = aliased(Connector)
+    CredentialAlias = aliased(Credential)
+    stmt = select(ConnectorCredentialPair).join(
+        ConnectorAlias, ConnectorCredentialPair.connector_id == ConnectorAlias.id
+    ).join(
+        CredentialAlias, ConnectorCredentialPair.credential_id == CredentialAlias.id
+    ).where(
+        and_(
+            ConnectorCredentialPair.connector_id == connector_id,
+            ConnectorCredentialPair.credential_id == credential_id,
+        )
+    )
     if organization_id is not None:
         stmt = stmt.where(
             and_(
-                ConnectorCredentialPair.connector.organization_id == organization_id,
-                ConnectorCredentialPair.credential.organization_id == organization_id,
+                ConnectorAlias.organization_id == organization_id,
+                CredentialAlias.organization_id == organization_id,
             )
         )
+    
     result = db_session.execute(stmt)
     return result.scalar_one_or_none()
-
 
 @log_sqlalchemy_error(logger)
 def backend_update_connector_credential_pair(

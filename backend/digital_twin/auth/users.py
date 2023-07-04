@@ -1,5 +1,5 @@
 import contextlib
-
+from uuid import UUID
 from typing import Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,10 @@ from fastapi import Request, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from digital_twin.db.model import User, UserRole, Organization
-from digital_twin.db.user import async_get_user_by_email
+from digital_twin.db.user import (
+    async_get_user_by_email,
+    async_get_user_org_by_user_and_org_id,
+)
 from digital_twin.db.engine import get_async_session_generator
 from digital_twin.config.app_config import DISABLE_AUTHENTICATION, JWT_SECRET_KEY, JWT_ALGORITHM
 from digital_twin.utils.logging import setup_logger
@@ -48,15 +51,21 @@ class AuthBearer(HTTPBearer):
         super().__init__(auto_error=auto_error)
 
     async def __call__(self, request: Request):
-        credentials: Optional[HTTPAuthorizationCredentials] = await super().__call__(request)
+        try:
+            credentials: Optional[HTTPAuthorizationCredentials] = await super().__call__(request)
+        except Exception as e:
+            logger.exception("Exception raised while extracting the auth bearer: %s", e)
+            raise  HTTPException(status_code=403, detail="No auth bearer provided.")
         self.check_scheme(credentials)
         token = credentials.credentials
         return await self.authenticate(token)
 
     def check_scheme(self, credentials: Optional[HTTPAuthorizationCredentials]):
         if credentials and not credentials.scheme == "Bearer":
+            logger.info("Invalid authorization scheme.")
             raise HTTPException(status_code=402, detail="Invalid authorization scheme.")
         elif not credentials:
+            logger.info("No credentials provided.")
             raise HTTPException(status_code=403, detail="Invalid authorization code.")
 
     async def authenticate(self, token: str):
@@ -65,6 +74,7 @@ class AuthBearer(HTTPBearer):
         elif verify_token(token):
             return decode_access_token(token)
         else:
+            logger.info("Invalid token or expired token.")
             raise HTTPException(status_code=402, detail="Invalid token or expired token.")
     def get_test_user(self):
         # Replace by test user details if needed
@@ -103,19 +113,28 @@ async def current_user(
 ) -> User:
     email = decoded_token.get("email")
     if email is None:
+        logger.info("Cannot find email in decoded auth token.")
         raise HTTPException(status_code=400, detail="Invalid authorization code.")
     
     user = await async_get_user_by_email(db_session, email)
     if user is None:
+        logger.info("Cannot find user with email: %s", email)
         raise HTTPException(status_code=400, detail="User not found.")
     return user
 
-async def current_admin_user(
-    user: User = Depends(current_user)
+async def current_admin_for_org(
+    organization_id: UUID,   # NOTE: This is a path parameter, and it's
+                             # important that the server also named the variable "organization_id"
+    user: User = Depends(current_user),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> User:
-    if user.role != UserRole.ADMIN:
+    association = await async_get_user_org_by_user_and_org_id(
+        db_session, user.id, organization_id
+    )
+    if not association or association.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=403,
-            detail="Access denied. User is not an admin.",
+            detail="Access denied. User is not an admin for this organization.",
         )
+    
     return user

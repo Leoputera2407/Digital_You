@@ -6,25 +6,46 @@ import {
 } from "@/lib/connectors";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
-import { ConnectorBase } from "@/lib/types";
+import { Connector, ConnectorBase } from "@/lib/types";
 import { useState } from "react";
+
+interface UseConnectorsOpsReturn {
+  isLoading: boolean;
+  handleUnlinkCredential: (
+    connectorId?: number,
+    credentialId?: number
+  ) => Promise<void>;
+  handleLinkCredential: (
+    connectorId?: number,
+    credentialId?: number
+  ) => Promise<void>;
+  handleDeleteConnector: (connectorId?: number) => Promise<void>;
+  handleCreateConnector: (connectorBase: ConnectorBase<{}>) => Promise<Connector<{}>>;
+}
 
 function verifyConnectorId(connectorId?: number): number {
   if (connectorId === undefined) {
-    throw new Error("Google Drive Connector ID is undefined");
+    throw new Error("Connector ID is undefined");
   }
   return connectorId;
 }
 
 function verifyCredentialId(credentialId?: number): number {
   if (credentialId === undefined) {
-    throw new Error("Google Drive Public Credential ID is undefined");
+    throw new Error("Credential ID is undefined");
   }
   return credentialId;
 }
 
+function verifyOrganizationId(organizationId?: string | null): string {
+  if (organizationId === undefined || organizationId === null) {
+    throw new Error("Organization ID is undefined");
+  }
+  return organizationId;
+}
 
-export function useConnectorsOps() {
+
+export function useConnectorsOps(organizationId: string| undefined | null): UseConnectorsOpsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const { axiosInstance } = useAxios();
   const { publish } = useToast();
@@ -38,10 +59,12 @@ export function useConnectorsOps() {
     try {
       const validConnectorId = verifyConnectorId(connectorId);
       const validCredentialId = verifyCredentialId(credentialId);
+      const validOrganizationId = verifyOrganizationId(organizationId);
       await unlinkCredential(
         axiosInstance,
         validConnectorId,
         validCredentialId,
+        validOrganizationId,
       );
 
       publish({
@@ -65,7 +88,13 @@ export function useConnectorsOps() {
 
     try {
       const validConnectorId = verifyConnectorId(connectorId);
-      await deleteConnector(axiosInstance, validConnectorId);
+      const validOrganizationId = verifyOrganizationId(organizationId);
+
+      await deleteConnector(
+        axiosInstance, 
+        validConnectorId,
+        validOrganizationId,
+      );
       publish({
         variant: "success",
         text: "Successfully deleted connector!",
@@ -85,7 +114,13 @@ export function useConnectorsOps() {
   ) => {
     setIsLoading(true);
     try {
-      const connector = await createConnector(axiosInstance, connectorBase);
+      const validOrganizationId = verifyOrganizationId(organizationId);
+
+      const connector = await createConnector(
+        axiosInstance, 
+        connectorBase,
+        validOrganizationId,
+      );
       return connector;
     } catch (error: any) {
       publish({
@@ -106,7 +141,14 @@ export function useConnectorsOps() {
     try {
       const validConnectorId = verifyConnectorId(connectorId);
       const validCredentialId = verifyCredentialId(credentialId);
-      await linkCredential(axiosInstance, validConnectorId, validCredentialId);
+      const validOrganizationId = verifyOrganizationId(organizationId);
+
+      await linkCredential(
+        axiosInstance, 
+        validConnectorId, 
+        validCredentialId,
+        validOrganizationId,
+      );
       publish({
         variant: "success",
         text: "Successfully Enabled Connector!",

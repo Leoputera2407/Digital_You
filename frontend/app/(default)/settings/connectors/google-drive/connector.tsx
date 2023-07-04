@@ -2,6 +2,8 @@ import AuthButton from "@/components/ui/AuthButton";
 import { Collapsible } from "@/components/ui/Collapsible";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import { GoogleDriveIcon } from "@/components/ui/Icon";
+import { useOrganization } from "@/lib/context/orgProvider";
+import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
 import {
   AnyCredentialJson,
@@ -12,7 +14,6 @@ import {
 } from "@/lib/types";
 import { useState } from "react";
 import { FaSpinner } from "react-icons/fa";
-import { useSWRConfig } from "swr";
 import { useGoogleConnectors } from "./hook";
 
 interface GoogleDriveConnectorProps {
@@ -30,9 +31,9 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
   connectorsData,
   isConnectorCredentialLoading,
 }) => {
-  const { mutate } = useSWRConfig();
   const [isOpen, setIsOpen] = useState(false);
-
+  const { currentOrganization } = useOrganization();
+  
   const {
     isLoading: isGoogleAuthenticating,
     handleAuthenticate: handleGoogleAuthenticate,
@@ -47,14 +48,22 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
     connectorIndexingStatuses,
     credentialsData,
     connectorsData,
+    organizationId: currentOrganization?.id,
   });
+
+  const {
+    revalidateCredentials,
+    revalidateIndexingStatus,
+  } = useConnectorData(currentOrganization?.id)
 
   const {
     isLoading: isLoadingConnectorOps,
     handleCreateConnector,
     handleUnlinkCredential,
     handleLinkCredential,
-  } = useConnectorsOps();
+  } = useConnectorsOps(
+    currentOrganization?.id
+  );
 
   const handleToggleOpen = () => {
     setIsOpen((prevIsOpen) => !prevIsOpen);
@@ -78,8 +87,8 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
             connector.id,
             googleDrivePublicCredential?.id,
         );
-        mutate("/api/admin/connector/indexing-status")
-        mutate("/api/connector/credential")
+        revalidateCredentials();
+        revalidateIndexingStatus();
      } catch (error: any) {
         throw new Error("Failed to Enable Connector!"); 
     };
@@ -113,7 +122,7 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
                 }
                 user={user}
                 onUpdate={() => {
-                  mutate("/api/connector/admin/indexing-status");
+                  revalidateIndexingStatus();
                 }}
               />
             )}
@@ -155,8 +164,8 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
                             googleDriveConnector?.id,
                             googleDrivePublicCredential?.id,
                         );
-                        mutate("/api/connector/indexing-status")
-                        mutate("/api/connector/credential")
+                        revalidateIndexingStatus();
+                        revalidateCredentials();
                     } catch (e) {
                         console.error(e);
                     }
@@ -168,8 +177,8 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
                             googleDriveConnector?.id,
                             googleDrivePublicCredential?.id,
                         );
-                        mutate("/api/connector/indexing-status")
-                        mutate("/api/connector/credential")
+                        revalidateIndexingStatus();
+                        revalidateCredentials();
                     } catch (e) {
                         console.error(e);
                     }

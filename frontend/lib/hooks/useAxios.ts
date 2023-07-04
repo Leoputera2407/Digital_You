@@ -1,4 +1,4 @@
-import { useSupabase } from "@/lib/auth/authProvider";
+import { useSupabase } from "@/lib/context/authProvider";
 import axios from "axios";
 
 const axiosInstance = axios.create();
@@ -9,6 +9,7 @@ export const useAxios = () => {
   axiosInstance.interceptors.request.use(
     async (config) => {
       config.headers["Authorization"] = "Bearer " + session?.access_token;
+      config.headers["ngrok-skip-browser-warning"] = "true"; 
       return config;
     },
     (error) => {

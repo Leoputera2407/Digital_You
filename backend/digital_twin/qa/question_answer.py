@@ -154,6 +154,8 @@ def process_answer(
     answer_raw: str, chunks: list[InferenceChunk]
 ) -> tuple[str | None, dict[str, dict[str, str | int | None]] | None]:
     answer, quote_strings = separate_answer_quotes(answer_raw)
+    #logger.info(f"Answer: {answer}")
+    #logger.info(f"Quotes: {quote_strings}")
     if not answer or not quote_strings:
         return None, None
     quotes_dict = match_quotes_to_docs(quote_strings, chunks)
@@ -176,13 +178,11 @@ async def async_verify_if_docs_are_relevant(
         llm=get_llm(
             **VERIFY_MODEL_SETTINGS
         ),
-        max_output_tokens=VERIFY_MODEL_SETTINGS["max_output_tokens"],
     )
     res = await verify_chain.async_run(
         query,
         context_docs=context_docs
     )
-    logger.info(f"Model verification result: {res.lower()}")
     if "yes" in res.lower():
         return True
     elif "no" in res.lower():
@@ -201,7 +201,6 @@ class QA(QAModel):
             model_timeout=model_timeout,
         )
         self.model_timeout = model_timeout
-        self.max_output_tokens = QA_MODEL_SETTINGS["max_output_tokens"]
 
     @log_function_time()
     def answer_question(
@@ -215,7 +214,6 @@ class QA(QAModel):
         try:
             qa_system = self._pick_qa_chain(
                 llm=self.llm,
-                max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
             )
             model_output = qa_system.run(query, context_docs)
@@ -241,7 +239,6 @@ class QA(QAModel):
         try:
             qa_system = self._pick_qa_chain(
                 llm=self.llm,
-                max_output_tokens=self.max_output_tokens,
                 prompt=prompt,
             )
             model_output = await qa_system.async_run(query, context_docs)
@@ -252,8 +249,6 @@ class QA(QAModel):
         logger.debug(model_output)
 
         answer, quotes_dict = process_answer(model_output, context_docs)
-        logger.info(f"QA Answer: {answer}, Quotes: {quotes_dict}")
-
         return answer, quotes_dict
     
     @log_function_time()
@@ -307,7 +302,6 @@ class QA(QAModel):
         )
         qa_system: BaseQA = self._pick_qa_chain(
             llm=self.llm_streaming,
-            max_output_tokens=self.max_output_tokens,
             prompt=prompt,
         )
 

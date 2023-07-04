@@ -23,7 +23,12 @@ const AuthButton: FC<ButtonProps> = forwardRef((
       {...props}
       ref={forwardedRef as LegacyRef<HTMLButtonElement>}
       >
-      {children} {isLoading && <FaSpinner className="animate-spin" />}
+      {
+        isLoading && 
+        <FaSpinner 
+          className={`animate-spin mr-2 transition-all duration-200 ${isLoading ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-2'}`} 
+        />
+      } {children} 
     </button>
   );
 });

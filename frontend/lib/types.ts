@@ -1,9 +1,17 @@
-export interface User {
+export enum UserRole {
+  BASIC = "basic",
+  ADMIN = "admin",
+}
+
+export interface OrganizationBase {
   id: string;
-  email: string;
-  is_active: string;
-  role: "basic" | "admin";
-  qdrant_collection_key: string;
+  name: string;
+  role: UserRole;
+  joined_at: string;
+}
+
+export interface UserOrgResponse {
+  organizations: OrganizationBase[];
 }
 
 export type SupportedModels = "GPT3_5" | "GPT4" | "ANTROPHIC";
