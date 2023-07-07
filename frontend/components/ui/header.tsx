@@ -4,7 +4,7 @@ import { useToast } from "@/lib/hooks/useToast"
 import { useState } from 'react'
 import AuthButton from './AuthButton'
 import { GoogleFCIcon } from './Icon'
-import Logo from './logo'
+import Logo from './Logo'
 
 
 export default function Header() {

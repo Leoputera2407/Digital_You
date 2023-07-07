@@ -25,21 +25,22 @@ export default function Testimonials() {
   const items: Item[] = [
     {
       img: TestimonialImg01,
-      quote: "The ability to capture responses is a game-changer. If a user gets tired of the sign up and leaves, that data is still persisted. Additionally, it's great to be able to select between formats.ture responses is a game-changer.",
-      name: 'Jessie J',
-      role: 'Ltd Head of Product'
+      quote: "Prosona has been a lifesaver, reducing the time I spend on routine queries dramatically while keeping my unique tone intact.",
+      name: 'Adrian Sarstedt',
+      role: 'CTO, Sphere'
     },
     {
       img: TestimonialImg02,
-      quote: "I have been using this product for a few weeks now and I am blown away by the results. My skin looks visibly brighter and smoother, and I have received so many compliments on my complexion.",
-      name: 'Mark Luk',
-      role: 'Spark Founder & CEO'
+      quote: "Prosona is transformative, embodying our experts' knowledge perfectly. It’s efficiency and reliability personified.",
+      name: 'Nina Brown',
+      role: 'Product Manger, CCV'
     },
     {
       img: TestimonialImg03,
-      quote: "As a busy professional, I don't have a lot of time to devote to working out. But with this fitness program, I have seen amazing results in just a few short weeks. The workouts are efficient and effective.",
-      name: 'Jeff Kahl',
-      role: 'Appy Product Lead'
+      quote: "Prosona has supercharged our collective hive mind, promoting documentation while maintaining a personal touch.",
+      name: 'Brian Chan',
+      role: 'Software Engineer, Start up'
+
     }
   ]
 
@@ -63,6 +64,8 @@ export default function Testimonials() {
 
   return (
     <section>
+
+      
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
         <div className="relative pb-12 md:pb-20">
 
