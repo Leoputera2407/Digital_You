@@ -1,0 +1,14 @@
+{
+  "web": {
+    "client_id": "684423295195-reh37hveiqe6gbq0hab5ovfndupcf9ne.apps.googleusercontent.com",
+    "project_id": "digital-twin-386821",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_secret": "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",
+    "redirect_uris": [
+      "http://localhost:3000/settings/connectors/google-drive/auth/callback",
+      "https://97fdc4a881f4.ngrok.app/settings/connectors/google-drive/auth/callback"
+    ]
+  }
+}

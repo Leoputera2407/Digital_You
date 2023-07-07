@@ -1,3 +1,4 @@
+import { createCredential } from "@/lib/connectors";
 import { fetcher } from "@/lib/fetcher";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
@@ -16,7 +17,7 @@ import useSWR from "swr";
 export interface UseGoogleConnectorsProps {
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
-  connectorsData: Connector<AnyCredentialJson>[] | undefined;
+  connectorsData: Connector<any>[] | undefined;
   organizationId: string | undefined;
 }
 interface SetupGoogleDriveArgs {
@@ -27,14 +28,14 @@ interface SetupGoogleDriveArgs {
 
 export interface UseGoogleConnectorsReturn {
   isLoading: boolean;
-  handleAuthenticate: () => Promise<void>;
+  handleConnect: () => Promise<void>;
   googleDriveConnectorIndexingStatus:
-    | ConnectorIndexingStatus<any>
+    | ConnectorIndexingStatus<{}>
     | undefined;
   googleDrivePublicCredential:
     | Credential<GoogleDriveCredentialJson>
     | undefined;
-  googleDriveConnector: Connector<AnyCredentialJson> | undefined;
+  googleDriveConnector: Connector<{}> | undefined;
   credentialIsLinked: boolean;
   appCredentialData: { client_id: string } | undefined;
   isAppCredentialLoading: boolean;
@@ -53,20 +54,15 @@ export const setupGoogleDriveOAuth = async ({
     isPublic,
     organizationId,
   }: SetupGoogleDriveArgs): Promise<[string | null, string]> => {
-    let credentialCreationResponse: AxiosResponse<Credential<{}>>;
     let authorizationUrlResponse: AxiosResponse<{auth_url: string}>;
   
     try {
-      credentialCreationResponse = await axiosInstance.post(
-        `/api/connector/${organizationId}/credential`, {
-        public_doc: isPublic,
-        credential_json: {},
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const credential = await createCredential({
+        axiosInstance,
+        publicDoc: isPublic,
+        credentialJson: {},
+        organizationId
       });
-      const { data: credential } = credentialCreationResponse;
       authorizationUrlResponse = await axiosInstance.get(
         `/api/connector/${organizationId}/google-drive/authorize/${credential.id}`
       );
@@ -127,7 +123,7 @@ export function useGoogleConnectors({
     );
 
 
-  const handleAuthenticate = async () => {
+  const handleConnect = async () => {
     setIsLoading(true);
     try {
       if (organizationId === undefined) {
@@ -160,7 +156,7 @@ export function useGoogleConnectors({
  
   return {
     isLoading,
-    handleAuthenticate,
+    handleConnect,
     googleDriveConnectorIndexingStatus,
     googleDrivePublicCredential,
     googleDriveConnector,

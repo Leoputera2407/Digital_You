@@ -16,10 +16,10 @@ const useAccount = (): UseAccountResponse => {
   const { session } = useSupabase();
   const { axiosInstance } = useAxios();
 
-  const shouldFetch = session !== null; // Define when we should fetch
+  const shouldFetch = session !== null; 
 
   const { data, error } = useSWR<UserOrgResponse>(
-    shouldFetch ? `/api/account/get-user-org-and-roles` : null,
+    shouldFetch ? `/api/organization/get-user-org-and-roles` : null,
     (url) => fetcher(url, axiosInstance),
   );
 
@@ -27,7 +27,7 @@ const useAccount = (): UseAccountResponse => {
     organizations: data?.organizations,
     isLoading: !error && !data,
     isError: error,
-    revalidate: () => mutate('/api/get-user-org-and-roles'),
+    revalidate: () => mutate('/api/organization/get-user-org-and-roles'),
   };
 };
 

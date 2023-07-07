@@ -1,15 +1,15 @@
 import AuthButton from "@/components/ui/AuthButton";
 import { Collapsible } from "@/components/ui/Collapsible";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
-import { NotionIcon } from "@/components/ui/Icon";
+import { SlackIcon } from "@/components/ui/Icon";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
-import { AnyCredentialJson, Connector, ConnectorBase, ConnectorIndexingStatus, Credential, OrganizationBase } from "@/lib/types";
+import { AnyCredentialJson, Connector, ConnectorIndexingStatus, Credential, OrganizationBase } from "@/lib/types";
 import { useState } from "react";
 import { FaSpinner } from "react-icons/fa";
-import { useNotionConnectors } from "./hook";
+import { useSlackConnectors } from "./hook";
 
-interface NotionConnectorProps {
+interface SlackConnectorProps {
   currentOrganization: OrganizationBase | null;
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
@@ -17,7 +17,7 @@ interface NotionConnectorProps {
   isConnectorCredentialLoading: boolean;
 }
 
-const NotionConnector: React.FC<NotionConnectorProps> = ({
+const SlackConnector: React.FC<SlackConnectorProps> = ({
   currentOrganization,
   connectorIndexingStatuses,
   credentialsData,
@@ -27,13 +27,13 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const {
-    isLoading: isNotionAuthenticating,
-    handleConnect: handleNotionAuthenticate,
-    notionConnectorIndexingStatus,
-    notionPublicCredential,
-    notionConnector,
-    credentialIsLinked: isNotionCredentialLinked,
-  } = useNotionConnectors({
+    isLoading: isSlackAuthenticating,
+    handleConnect: handleSlackAuthenticate,
+    slackConnectorIndexingStatus,
+    slackPublicCredential,
+    slackConnector,
+    credentialIsLinked: isSlackCredentialLinked,
+  } = useSlackConnectors({
     connectorIndexingStatuses,
     credentialsData,
     connectorsData,
@@ -41,14 +41,11 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
   });
 
   const {
-    revalidateCredentials,
     revalidateIndexingStatus,
   } = useConnectorData(currentOrganization?.id)
 
   const {
     isLoading: isLoadingConnectorOps,
-    handleCreateConnector,
-    handleLinkCredential,
     handleToggleConnector,
   } = useConnectorsOps(
     currentOrganization?.id
@@ -56,31 +53,6 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
 
   const handleToggleOpen = () => {
     setIsOpen((prevIsOpen) => !prevIsOpen);
-  };
-
-  const handleCreateLinkConnector = async () => {
-    const connectorBase: ConnectorBase<{}> = {
-        name: "NotionConnector",
-        input_type: "load_state",
-        source: "notion",
-        connector_specific_config: {},
-        refresh_freq: 60 * 30, // 30 minutes
-        disabled: false,
-      };
-      try{
-        const connector = await handleCreateConnector(
-          connectorBase,
-        );
-
-        await handleLinkCredential(
-            connector.id,
-            notionPublicCredential?.id,
-        );
-        revalidateIndexingStatus();
-        revalidateCredentials();
-     } catch (error: any) {
-        throw new Error("Failed to Enable Connector!"); 
-    };
   };
 
   return (
@@ -92,17 +64,17 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-2">
-            <NotionIcon />
-            <span>Notion</span>
+            <SlackIcon />
+            <span>Slack</span>
           </div>
           { !isConnectorCredentialLoading &&
-            notionConnectorIndexingStatus &&
-            notionPublicCredential &&
-            isNotionCredentialLinked && (
+            slackConnectorIndexingStatus &&
+            slackPublicCredential &&
+            isSlackCredentialLinked && (
               <ConnectorStatus
-                connectorIndexingStatus={notionConnectorIndexingStatus}
+                connectorIndexingStatus={slackConnectorIndexingStatus}
                 hasCredentialsIssue={
-                  notionConnectorIndexingStatus.connector.credential_ids
+                  slackConnectorIndexingStatus.connector.credential_ids
                     .length === 0
                 }
               />
@@ -111,22 +83,16 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
 
         {isConnectorCredentialLoading ? (
           <FaSpinner className="animate-spin" />
-        ) : notionPublicCredential === undefined ? (
+        ) : slackPublicCredential === undefined &&
+            slackConnectorIndexingStatus === undefined &&
+            slackConnector === undefined
+        ? (
           <AuthButton
             className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-            onClick={handleNotionAuthenticate}
-            isLoading={isNotionAuthenticating}
+            onClick={handleSlackAuthenticate}
+            isLoading={isSlackAuthenticating}
           >
             Connect
-          </AuthButton>
-        ) : notionConnectorIndexingStatus === undefined &&
-          notionConnector === undefined ? (
-          <AuthButton
-            className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-            onClick={handleCreateLinkConnector}
-            isLoading={isLoadingConnectorOps}
-          >
-            Enable?
           </AuthButton>
         ) : (
           <AuthButton
@@ -135,7 +101,7 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
             event.preventDefault();
             try {
               await handleToggleConnector(
-                notionConnector!,
+                slackConnector!,
               );
               revalidateIndexingStatus();
             } catch (e) {
@@ -144,7 +110,7 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
           }}
           isLoading={isLoadingConnectorOps}
         >
-          {notionConnector?.disabled ? "Enable" : "Disable"}
+          {slackConnector?.disabled ? "Enable" : "Disable"}
         </AuthButton>
         )}
       </div>
@@ -152,4 +118,4 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
   );
 };
 
-export default NotionConnector;
+export default SlackConnector;

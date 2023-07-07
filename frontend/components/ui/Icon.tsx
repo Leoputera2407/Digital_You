@@ -1,10 +1,9 @@
 "use client";
-
 import {
   Info,
   Key,
-  Link,
-  LinkBreak,
+  Lightning,
+  LightningSlash,
   Notebook,
   Plug,
   Trash,
@@ -53,14 +52,14 @@ export const LinkBreakIcon = ({
   size = "16",
   className = defaultTailwindCSS,
 }: IconProps) => {
-  return <LinkBreak size={size} className={className} />;
+  return <LightningSlash size={size} className={className} />;
 };
 
 export const LinkIcon = ({
   size = "16",
   className = defaultTailwindCSS,
 }: IconProps) => {
-  return <Link size={size} className={className} />;
+  return <Lightning size={size} className={className} />;
 };
 
 export const XSquareIcon = ({

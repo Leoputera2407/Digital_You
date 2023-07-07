@@ -20,7 +20,7 @@ from digital_twin.connectors.model import Document, Section
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
-DB_CREDENTIALS_DICT_KEY = "github_access_tokens"
+DB_CREDENTIALS_DICT_KEY = "github_access_token"
 MARKDOWN_EXT= (".md", ".rst", ".mdx", ".mkd", ".mdwn", ".mdown", ".mdtxt", ".mdtext", ".markdown")
 
 def to_timestamp(date_str: str) -> SecondsSinceUnixEpoch:

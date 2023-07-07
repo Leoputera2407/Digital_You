@@ -7,7 +7,8 @@ from digital_twin.server.model import GoogleAppWebCredentials, GoogleAppCredenti
 
 BUCKET_NAME = "Access Token Bucket"
 BUCKET_SOURCE = "localhost_google_app_credentials.json"
-destination ="./localhost_google_app_credentials.json"
+#destination ="./localhost_google_app_credentials.json"
+destination="./localhost.json"
 """
 with open(destination, 'wb+') as f:
   res = supabase.storage.from_(BUCKET_NAME).download(BUCKET_SOURCE)

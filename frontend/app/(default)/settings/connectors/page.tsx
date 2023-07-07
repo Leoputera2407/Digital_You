@@ -13,7 +13,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/Collapsible";
 import { Separator } from "@/components/ui/Separator";
-import { useSupabase } from "@/lib/context/authProvider";
 import { useOrganization } from "@/lib/context/orgProvider";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import {
@@ -39,7 +38,6 @@ export default function ConnectorMenuPage() {
   const [isOpenDataArr, setIsOpenDataArr] = React.useState(
     Array(ValidDataSourceTypesArray.length).fill(false)
   );
-  const { user } = useSupabase();
   const { currentOrganization } = useOrganization();
   console.log("currentOrganization", currentOrganization);
   const {
@@ -68,14 +66,14 @@ export default function ConnectorMenuPage() {
       </div>
       <Separator />
       <GoogleDriveConnector
-        user={user}
+        currentOrganization={currentOrganization}
         connectorIndexingStatuses={connectorIndexingStatuses}
         credentialsData={credentialsData}
         connectorsData={connectorsData}
         isConnectorCredentialLoading={isConnectorCredentialLoading}
       />
        <NotionConnector
-        user={user}
+        currentOrganization={currentOrganization}
         connectorIndexingStatuses={connectorIndexingStatuses}
         credentialsData={credentialsData}
         connectorsData={connectorsData}

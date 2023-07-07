@@ -73,9 +73,13 @@ def get_drive_tokens(
     return None
 
 
-def verify_csrf(credential_id: int, state: str) -> None:
-    csrf = consume_csrf(credential_id)
-    if csrf != state:
+def verify_csrf(
+        db_session: Session,
+        credential_id: int,
+        state: str
+    ) -> None:
+    csrf_token_obj = consume_csrf(credential_id, db_session)
+    if csrf_token_obj.csrf_token != state:
         raise PermissionError(
             "State from Google Drive Connector callback does not match expected"
         )
@@ -97,7 +101,12 @@ def get_auth_url(
     parsed_url = cast(ParseResult, urlparse(auth_url))
     params = parse_qs(parsed_url.query)
 
-    google_state = store_csrf(credential_id, params.get("state", [None]), db_session)
+    csrf_token = params.get("state", [None])[0]
+    if csrf_token:
+        csrf_token = csrf_token.strip('{}')
+    else:
+        raise ValueError("No CSRF token provided")
+    google_state = store_csrf(credential_id, csrf_token, db_session)
     if not google_state:
         raise Exception("Failed to store google state in db")
     

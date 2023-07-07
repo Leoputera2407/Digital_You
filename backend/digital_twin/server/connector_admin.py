@@ -17,6 +17,8 @@ from digital_twin.server.model import (
     ObjectCreationIdResponse,
     RunConnectorRequest,
     StatusResponse,
+    ConfluenceTestRequest,
+    GithubTestRequest,
 )
 from digital_twin.db.engine import get_session
 from digital_twin.db.model import (
@@ -236,3 +238,55 @@ def connector_run_once(
         message=f"Successfully created {len(index_attempt_ids)} index attempts",
         data=index_attempt_ids,
     )
+
+@router.post("/test-github", response_model=StatusResponse[bool])
+async def test_github_access_token(
+    github_test_info: GithubTestRequest, 
+    _: User = Depends(current_admin_for_org)
+) -> StatusResponse[bool]:
+    from github import (
+            Github, 
+            GithubException, 
+            UnknownObjectException, 
+            BadCredentialsException,
+    )
+    try:
+        # Initialize Github client
+        github_client = Github(github_test_info.access_token_value)
+        _ = github_client.get_user()
+        return StatusResponse(success=True, data=True)
+    except UnknownObjectException:
+        return StatusResponse(success=False, message="Invalid repository name or repository owner.", data=False)
+    except BadCredentialsException:
+        return StatusResponse(success=False, message="Invalid Github access token.", data=False)
+    except GithubException as e:
+        return StatusResponse(success=False, message=f"An error occurred: {e}", data=False)
+    except Exception as e:
+        return StatusResponse(success=False, message=f"Failed to validate Github access token: {str(e)}", data=False)
+    
+
+@router.post("/test-confluence", response_model=StatusResponse[bool])
+async def test_confluence_access_token(
+    confluence_test_info: ConfluenceTestRequest,
+    _: User = Depends(current_admin_for_org)
+ ) -> StatusResponse[bool]:
+    from atlassian import Confluence
+    from atlassian.errors import ApiNotFoundError, ApiPermissionError
+    try:
+        confluence_client = Confluence(
+            url=confluence_test_info.wiki_page_url,
+            username=confluence_test_info.confluence_username,
+            password=confluence_test_info.confluence_access_token,
+            cloud=True,
+        )
+        # If the token is invalid or we don't have access, this will raise an exception
+        _ = confluence_client.get_user_details_by_username(
+            user_name=confluence_test_info.confluence_username
+        )
+        return StatusResponse[bool](success=True, message="Successfully validated Confluence access token.", data=True)
+    except ApiNotFoundError:
+        return StatusResponse(success=False, message="Wiki page not found.", data=False)
+    except ApiPermissionError:
+        return StatusResponse(success=False, message="Invalid Confluence username or access token.", data=False)
+    except Exception as e:
+        return StatusResponse(success=False, message=f"Failed to validate Confluence access token: {str(e)}", data=False)

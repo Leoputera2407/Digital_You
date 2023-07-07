@@ -80,6 +80,20 @@ class QAResponse(SearchResponse):
 class UserByEmail(BaseModel):
     user_email: str
 
+class InvitationBase(BaseModel):
+    email: str
+    status: str
+
+class OrganizationName(BaseModel):
+    name: str
+class OrganizationAdminInfo(OrganizationName):
+    whitelisted_email_domain: str
+    pending_invitations: List[InvitationBase]
+    users: List[UserByEmail]
+
+class OrganizationUpdateInfoRequest(BaseModel):
+    name: Optional[str] = None
+    whitelisted_email_domain: Optional[str] = None
 
 class IndexAttemptRequest(BaseModel):
     input_type: InputType = InputType.POLL
@@ -154,3 +168,14 @@ class OrganizationBase(BaseModel):
 
 class UserOrgResponse(BaseModel):
     organizations: List[OrganizationBase]
+
+
+class GithubTestRequest(BaseModel):
+    access_token_value: str 
+    repository_name: str 
+    repository_owner: str
+
+class ConfluenceTestRequest(BaseModel):
+    confluence_access_token: str
+    confluence_username: str
+    wiki_page_url: str

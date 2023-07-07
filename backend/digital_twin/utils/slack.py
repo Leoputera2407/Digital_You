@@ -3,13 +3,12 @@ import time
 from uuid import UUID
 from typing import Dict, Any, Optional, List, Tuple, Union
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from slack_bolt import BoltResponse
 from slack_bolt.async_app import AsyncBoltRequest
 from slack_bolt.oauth.async_callback_options import (
-    AsyncSuccessArgs,
     AsyncFailureArgs,
 )
 from slack_sdk.web.async_client import AsyncWebClient
@@ -233,7 +232,7 @@ async def custom_handle_slack_oauth_redirect(
     oauth_flow: AsyncOAuthFlow,
     db_session: AsyncSession,
     request: Request,
-) -> BoltResponse:
+) -> Union[BoltResponse, RedirectResponse]:
     """
     Handles the installation flow's callback request from Slack.
     This function associate the admin user to slack user using the email address.
@@ -369,7 +368,9 @@ async def custom_handle_slack_oauth_redirect(
             )
         )
 
-    # display a successful completion page to the end-user
+    # On success, we'll redirect back to our frontend
+    """
+    # TODO: Use the propoer success handler
     return await oauth_flow.success_handler(
         AsyncSuccessArgs(
             request=bolt_request,
@@ -378,6 +379,9 @@ async def custom_handle_slack_oauth_redirect(
             default=oauth_flow.default_callback_options,
         )
     )
+    """
+    # We set the redirect on frontend on our settings
+    return RedirectResponse(url=oauth_flow.settings.success_url)
 
 async def async_get_user_info(slack_user_id: str, slack_token: str) -> dict:
     client = AsyncWebClient(token=slack_token)

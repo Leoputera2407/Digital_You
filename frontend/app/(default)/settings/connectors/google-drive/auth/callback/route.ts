@@ -12,14 +12,11 @@ export const GET = async (request: NextRequest) => {
   const axiosInstance = axios.create({
     headers: {
       "Authorization": `Bearer ${data?.session?.access_token}`, 
-      "Cookie": cookies()
-        .getAll()
-        .map((cookie) => `${cookie.name}=${cookie.value}`)
-        .join("; "),
+      "Cookie": cookies().toString(),
     },
   });
-  let response = null;
 
+  let response = null;
   const url = new URL(buildBackendHTTPUrl("/connector/google-drive/callback"));
   url.search = request.nextUrl.search;
   // This have to be withCredentials as we're making cross-origin cookies
@@ -29,13 +26,11 @@ export const GET = async (request: NextRequest) => {
       withCredentials: true,
     }
   );
-
-
+  
   if (response.status < 200 || response.status >= 300) {
     return NextResponse.redirect(new URL("/error", getDomain(request)));
   }
   
   const redirectResponse = NextResponse.redirect(new URL("/settings/connectors", getDomain(request)));
   return redirectResponse
-
 };

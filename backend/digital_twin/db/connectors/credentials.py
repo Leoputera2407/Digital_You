@@ -83,7 +83,7 @@ def fetch_credential_by_id_and_org(
             )
         )
     result = db_session.execute(stmt)
-    credential = result.scalar_one_or_none()
+    credential = result.scalars().first()
     return credential
 
 @async_log_sqlalchemy_error

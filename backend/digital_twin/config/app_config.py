@@ -19,7 +19,7 @@ POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
 #####################
 # Authentication    #
 #####################
-# This is out front-end URL
+# This is our front-end URL
 WEB_DOMAIN=os.environ.get("WEB_DOMAIN", "http://localhost:3000")
 # This is the backend URL
 APP_HOST = os.environ.get("APP_HOST", "localhost")

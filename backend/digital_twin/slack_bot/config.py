@@ -152,5 +152,6 @@ def get_oauth_settings():
             expiration_seconds=120,
             logger=logger,
         ),
+        success_url="{WEB_DOMAIN}/slack/settings",
         logger=logger,
     )

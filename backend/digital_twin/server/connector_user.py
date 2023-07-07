@@ -70,7 +70,10 @@ def google_drive_auth(
     response.set_cookie(
         key=_GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME,
         value=credential_id,
-        httponly=True,
+        # TODO: this is sketch, but the only way 
+        # I can think of doing cross-site cookies,
+        # without sub-domains/reverse proxy
+        #httponly=True,
         samesite='None',
         secure=True,
         max_age=600,
@@ -80,7 +83,10 @@ def google_drive_auth(
     response.set_cookie(
         key=_GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME,
         value=str(organization_id),
-        httponly=True,
+        # TODO: this is sketch, but the only way 
+        # I can think of doing cross-site cookies,
+        # without sub-domains/reverse proxy
+        #httponly=True,
         samesite='None',
         secure=True,
         max_age=600,
@@ -97,10 +103,6 @@ def google_drive_callback(
 ) -> StatusResponse:
     credential_id_cookie = request.cookies.get(_GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME)
     organization_id_cookie = request.cookies.get(_GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME)
-    from digital_twin.utils.logging import setup_logger
-    logger = setup_logger()
-    logger.info(f"credential_id_cookie: {credential_id_cookie}")
-    logger.info(f"organization_id_cookie: {organization_id_cookie}")
     if credential_id_cookie is None or not credential_id_cookie.isdigit():
         raise HTTPException(
             status_code=401, detail="Request did not pass CSRF verification."
@@ -111,7 +113,7 @@ def google_drive_callback(
         )
     credential_id = int(credential_id_cookie)
     organization_id = UUID(organization_id_cookie)
-    verify_gdrive_csrf(credential_id, callback.state)
+    verify_gdrive_csrf(db_session, credential_id, callback.state)
     if (
         update_gdrive_credential_access_tokens(
             callback.code, 
@@ -143,13 +145,23 @@ def notion_auth(
     response.set_cookie(
         key=_NOTION_CREDENTIAL_ID_COOKIE_NAME,
         value=credential_id,
-        httponly=True,
+        # TODO: this is sketch, but the only way 
+        # I can think of doing cross-site cookies,
+        # without sub-domains/reverse proxy
+        #httponly=True,
+        samesite='None',
+        secure=True,
         max_age=600,
     )
     response.set_cookie(
         key=_NOTION_ORGANIZATION_ID_COOKIE_NAME,
         value=str(organization_id),
-        httponly=True,
+        # TODO: this is sketch, but the only way 
+        # I can think of doing cross-site cookies,
+        # without sub-domains/reverse proxy
+        #httponly=True,
+        samesite='None',
+        secure=True,
         max_age=600,
     )
     return AuthUrl(auth_url=get_notion_auth_url())

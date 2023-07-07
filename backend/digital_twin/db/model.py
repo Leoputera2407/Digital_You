@@ -74,6 +74,7 @@ class Organization(Base):
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     name: Mapped[str | None] = mapped_column(String, nullable=True)
+    whitelisted_email_domain: Mapped[str | None] = mapped_column(String, nullable=True, server_default=None)
     qdrant_collection_key: Mapped[UUID] = mapped_column(UUID(as_uuid=True), server_default=func.gen_random_uuid())
     typesense_collection_key: Mapped[UUID] = mapped_column(UUID(as_uuid=True), server_default=func.gen_random_uuid())
 

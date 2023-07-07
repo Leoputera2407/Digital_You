@@ -72,7 +72,11 @@ class NotionConnector(LoadConnector, PollConnector):
             raise PermissionError("Not logged into Notion")
 
         parser = NotionParser(self.access_token)
-        all_pages = parser.notion_search({})
+        
+        all_pages, next_cursor = parser.notion_search({})
+        while next_cursor:
+            new_pages, next_cursor = parser.notion_search({"start_cursor": next_cursor})
+            all_pages.extend(new_pages)
 
         for page_batch in get_notion_pages_in_batches(all_pages, self.batch_size, time_range_start, time_range_end):
             batch: list(Document) = []

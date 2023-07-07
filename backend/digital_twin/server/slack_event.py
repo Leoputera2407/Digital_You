@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import Response
+from starlette.responses import Response as StarletteResponse
 
 
 from slack_sdk.http_retry.builtin_async_handlers import AsyncRateLimitErrorRetryHandler
@@ -178,7 +178,7 @@ async def install(
         ) 
         return to_starlette_response(bolt_resp)
  
-    return Response(
+    return StarletteResponse(
             status_code=404,
             content="Not found",
     )
@@ -204,13 +204,18 @@ async def slack_oauth_redirect(
     if oauth_flow is not None and \
         request.url.path == oauth_flow.redirect_uri_path and \
             request.method == "GET":
-        bolt_resp = await custom_handle_slack_oauth_redirect(
+        response = await custom_handle_slack_oauth_redirect(
             oauth_flow=oauth_flow,
             db_session=db_session,
             request=request,
-        )    
-        return to_starlette_response(bolt_resp)
-    return Response(
+        )
+        if isinstance(response, BoltResponse):
+            return to_starlette_response(response)
+        elif isinstance(response, StarletteResponse):
+            return response
+        else:
+            raise ValueError("Unexpected response type")
+    return StarletteResponse(
             status_code=404,
             content="Not found",
     )

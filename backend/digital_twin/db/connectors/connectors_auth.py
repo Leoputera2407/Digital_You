@@ -27,7 +27,11 @@ def store_csrf(credential_id: int, csrf: str, db_session: Session) -> Optional[C
 
 @log_sqlalchemy_error(logger)
 def consume_csrf(credential_id: int, db_session: Session) -> Optional[CSRFToken]:
-    stmt = select(CSRFToken).where(CSRFToken.credential_id == credential_id)
+    stmt = (
+        select(CSRFToken)
+        .where(CSRFToken.credential_id == credential_id)
+        .order_by(CSRFToken.created_at.desc()) 
+    )
     result = db_session.execute(stmt)
     token = result.scalars().first()
 

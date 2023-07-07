@@ -1,5 +1,7 @@
 from uuid import UUID
+from typing import List
 from fastapi import APIRouter, HTTPException, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,8 @@ from digital_twin.db.model import (
     UserRole,
     Invitation,
     UserOrganizationAssociation,
+    InvitationStatus,
+    Organization,
 )
 
 from digital_twin.db.user import (
@@ -24,6 +28,7 @@ from digital_twin.db.user import (
     get_organization_by_id,
     get_invitation_by_user_and_org,
     get_user_org_assocations,
+    async_get_organization_admin_info,
 )
 from digital_twin.db.engine import (
     get_session,
@@ -35,11 +40,14 @@ from digital_twin.server.model import (
     StatusResponse,
     OrganizationBase,
     UserOrgResponse,
+    OrganizationAdminInfo,
+    OrganizationName,
+    OrganizationUpdateInfoRequest,
 )
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
-router = APIRouter(prefix="/account")
+router = APIRouter(prefix="/organization")
 
 
 ################
@@ -55,7 +63,6 @@ async def get_user_org_and_roles(
         raise HTTPException(status_code=404, detail="Invalid or missing user.")
     
     user_org_assocations = get_user_org_assocations(user, db_session)
-
     if not user_org_assocations:
         raise HTTPException(status_code=404, detail="User not found in any organization.")
     
@@ -70,25 +77,92 @@ async def get_user_org_and_roles(
     ]
     return UserOrgResponse(organizations=user_org)
 
+@router.post("/autojoin-if-whitelisted", response_model=StatusResponse[List[OrganizationName]])
+async def autojoin_if_whitelisted(
+    current_user: User = Depends(current_user),
+    db_session: Session = Depends(get_session)
+) -> StatusResponse[List[OrganizationName]]:
+    # Extract the domain from the current user's email
+    domain = current_user.email.split('@')[-1]
+
+    result = db_session.execute(select(Organization))
+    organizations = result.scalars().all()
+
+    joined_orgs = []
+
+    for organization in organizations:
+        if organization.whitelisted_email_domain == domain:
+            # If the user is already associated with the organization, skip it
+            for user_org in current_user.organizations:
+                if user_org.organization_id == organization.id:
+                    break
+            else:
+                user_org_association = UserOrganizationAssociation(
+                    user_id=current_user.id,
+                    organization_id=organization.id,
+                    role=UserRole.BASIC
+                )
+                db_session.add(user_org_association)
+                db_session.commit()
+                
+                joined_orgs.append(OrganizationName(name=organization.name))
+
+    return StatusResponse(
+        success=True, 
+        message=f"User auto-joined to the following organizations: {', '.join([org.name for org in joined_orgs])}",
+        data=joined_orgs
+    )
+
+
+@router.get("/{organization_id}/handle-accept-invitation", response_model=StatusResponse)
+def handle_accept_invitation(
+    organization_id: UUID,
+    current_user: User = Depends(current_user),
+    db_session: Session = Depends(get_session)
+) -> StatusResponse:
+    invitation = get_invitation_by_user_and_org(
+        db_session, 
+        current_user.email, 
+        organization_id
+    )
+
+    if not invitation:
+        return StatusResponse(
+            success=False, 
+            message="No invitation found."
+        )
+    
+    # Change the status of the invitation to ACCEPTED
+    invitation.status = InvitationStatus.ACCEPTED
+    user_org_association = UserOrganizationAssociation(
+        user_id=current_user.id,
+        organization_id=organization_id,
+        role=UserRole.BASIC 
+    )
+
+    # Add the new association to the session and commit
+    db_session.add(user_org_association)
+    db_session.add(invitation)
+    db_session.commit()
+
+
+    return StatusResponse(
+        success=True, 
+        message="Invitation accepted. User is now part of the organization."
+    )
+
+
 
 ###################
 # Admin Account   #
 ###################
-
 @router.patch("/{organization_id}/admin/promote-user-to-admin", response_model=StatusResponse)
 async def promote_admin(
     organization_id: UUID,
     user_email: UserByEmail, 
-    user: User = Depends(current_admin_for_org),
+    _: User = Depends(current_admin_for_org),
     db_session: AsyncSession = Depends(get_async_session_generator)
 ) -> StatusResponse:
-    admin_user_org = await async_get_user_org_by_user_and_org_id(
-        db_session, 
-        user.id, 
-        organization_id
-    )
-    if admin_user_org.role != UserRole.ADMIN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
     user_to_promote = await async_get_user_by_email(
         db_session, 
         user_email
@@ -115,15 +189,8 @@ async def add_user_to_org(
     organization_id: UUID,
     user_email: UserByEmail, 
     admin_user: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_async_session_generator)
+    db_session: Session = Depends(get_session)
 ) -> StatusResponse:
-    user_org = get_user_org_by_user_and_org_id(
-        db_session, 
-        admin_user.id, 
-        organization_id
-    )
-    if user_org.role != UserRole.ADMIN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
     if is_user_in_organization(db_session, user_email, organization_id):
         raise HTTPException(status_code=404, detail="User is already in the organization")
     
@@ -135,6 +202,7 @@ async def add_user_to_org(
         inviter_id=admin_user.id,
         invitee_email=user_email,
         token=invitation_token,
+        status=InvitationStatus.PENDING,
     )
     try:
         send_user_invitation_email(
@@ -158,17 +226,9 @@ async def add_user_to_org(
 def remove_user_from_org(
     organization_id: UUID,
     user_email: UserByEmail, 
-    admin_user: User = Depends(current_admin_for_org),
+    _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session)
 ) -> StatusResponse:
-    user_org = get_user_org_by_user_and_org_id(
-        db_session, 
-        admin_user.id, 
-        organization_id
-    )
-    if user_org.role != UserRole.ADMIN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
     user_to_remove = get_user_by_email(db_session, user_email)
     if not user_to_remove:
         raise HTTPException(status_code=404, detail="User not found")
@@ -189,36 +249,40 @@ def remove_user_from_org(
         message="User removed successfully from the organization."
     )
 
-@router.get("/{organization_id}/handle-accept-invitation", response_model=StatusResponse)
-def handle_accept_invitation(
-    organization_id: UUID,
-    current_user: User = Depends(current_user),
-    db_session: Session = Depends(get_session)
-) -> StatusResponse:
-    invitation = get_invitation_by_user_and_org(
-        db_session, 
-        current_user.email, 
-        organization_id
-    )
-
-    if not invitation:
-        return StatusResponse(
-            success=False, 
-            message="No invitation found."
-        )
+@router.get("/{organization_id}/admin/info", response_model=OrganizationAdminInfo)
+async def get_admin_organization_info(
+    organization_id: UUID, 
+    _: User = Depends(current_admin_for_org),
+    db_session: AsyncSession = Depends(get_async_session_generator),
+) -> OrganizationAdminInfo: 
+    organization_info = await async_get_organization_admin_info(organization_id, db_session)
     
-    user_org_association = UserOrganizationAssociation(
-        user_id=current_user.id,
-        organization_id=organization_id,
-        role=UserRole.BASIC 
-    )
+    if not organization_info:
+        raise HTTPException(status_code=404, detail="Organization not found")
 
-    # Add the new association to the session and commit
-    db_session.add(user_org_association)
+    return organization_info
+
+
+@router.put("/{organization_id}/admin/info", response_model=StatusResponse[OrganizationAdminInfo])
+async def update_admin_organization_info(
+    organization_id: UUID, 
+    update_info: OrganizationUpdateInfoRequest,
+    _: User = Depends(current_admin_for_org),
+    db_session: AsyncSession = Depends(get_async_session_generator),
+) -> StatusResponse[OrganizationAdminInfo]:
+    organization = await db_session.get(Organization, organization_id)
+    
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    if update_info.name is not None:
+        organization.name = update_info.name
+    if update_info.whitelisted_email_domain is not None:
+        organization.whitelisted_email_domain = update_info.whitelisted_email_domain
+    
     db_session.commit()
 
-
     return StatusResponse(
-        success=True, 
-        message="Invitation accepted. User is now part of the organization."
+        success=True,
+        message="Organization information successfully updated.",
     )

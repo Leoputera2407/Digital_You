@@ -87,12 +87,14 @@ class NotionParser:
 
 
     def notion_search(self, query: Dict):
-        res = requests.post(f"{BASE_URL}/v1/search", headers=self.headers, data=query)
+        res = requests.post(f"{BASE_URL}/v1/search", headers=self.headers, json=query)
         res_json = res.json()
         pages = res_json.get('results')
+        next_cursor = res_json.get('next_cursor')
+
         if pages:
-            return pages
-        return []
+            return pages, next_cursor
+        return [], None
     
     def parse_property(self, property):
         result = ""

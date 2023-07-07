@@ -2,7 +2,8 @@ import {
   createConnector,
   deleteConnector,
   linkCredential,
-  unlinkCredential
+  unlinkCredential,
+  updateConnector,
 } from "@/lib/connectors";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
@@ -21,6 +22,7 @@ interface UseConnectorsOpsReturn {
   ) => Promise<void>;
   handleDeleteConnector: (connectorId?: number) => Promise<void>;
   handleCreateConnector: (connectorBase: ConnectorBase<{}>) => Promise<Connector<{}>>;
+  handleToggleConnector: (oldConnector: Connector<{}>) =>  Promise<Connector<{}>>;
 }
 
 function verifyConnectorId(connectorId?: number): number {
@@ -49,37 +51,6 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
   const [isLoading, setIsLoading] = useState(false);
   const { axiosInstance } = useAxios();
   const { publish } = useToast();
-  
-  const handleUnlinkCredential = async (
-    connectorId?: number,
-    credentialId?: number,
-  ) => {
-    setIsLoading(true);
-
-    try {
-      const validConnectorId = verifyConnectorId(connectorId);
-      const validCredentialId = verifyCredentialId(credentialId);
-      const validOrganizationId = verifyOrganizationId(organizationId);
-      await unlinkCredential(
-        axiosInstance,
-        validConnectorId,
-        validCredentialId,
-        validOrganizationId,
-      );
-
-      publish({
-        variant: "success",
-        text: "Successfully disconnected.",
-      });
-    } catch (error: any) {
-      publish({
-        variant: "danger",
-        text: "Failed to disconnect"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDeleteConnector = async (
     connectorId?: number,
@@ -163,11 +134,79 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
     }
   };
 
+
+  const handleUnlinkCredential = async (
+    connectorId?: number,
+    credentialId?: number,
+  ) => {
+    setIsLoading(true);
+
+    try {
+      const validConnectorId = verifyConnectorId(connectorId);
+      const validCredentialId = verifyCredentialId(credentialId);
+      const validOrganizationId = verifyOrganizationId(organizationId);
+      await unlinkCredential(
+        axiosInstance,
+        validConnectorId,
+        validCredentialId,
+        validOrganizationId,
+      );
+
+      publish({
+        variant: "success",
+        text: "Successfully disconnected.",
+      });
+    } catch (error: any) {
+      publish({
+        variant: "danger",
+        text: "Failed to disconnect"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggleConnector = async (
+    oldConnector: Connector<{}>,
+  ) => {
+    setIsLoading(true);
+    try {
+      const validOrganizationId = verifyOrganizationId(organizationId);
+
+      const toggledConnector: Connector<{}> = {
+        ...oldConnector,
+        disabled: !oldConnector.disabled,
+      }
+
+      const updatedConnector = await updateConnector(
+        axiosInstance, 
+        toggledConnector,
+        validOrganizationId,
+      );
+      publish({
+        variant: "success",
+        text: `Successfully ${oldConnector.disabled ? "enabled" : "disabled"} connector`,
+      });
+      return updatedConnector;
+    } catch (error: any) {
+      publish({
+        variant: "danger",
+        text: `Failed to ${oldConnector.disabled ? "enable" : "disable"} connector`
+      });
+      throw new Error(`Failed to ${oldConnector.disabled ? "enable" : "disable"} connector`); 
+    } finally {
+      setIsLoading(false);
+    }
+
+  }
+
+
   return {
     isLoading,
     handleUnlinkCredential,
     handleLinkCredential,
     handleDeleteConnector,
     handleCreateConnector,
+    handleToggleConnector,
   };
 }

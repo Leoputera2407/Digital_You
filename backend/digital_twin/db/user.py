@@ -1,7 +1,7 @@
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy import select, and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.db.model import (
@@ -10,13 +10,18 @@ from digital_twin.db.model import (
     UserOrganizationAssociation,
     Organization,
     Invitation,
+    InvitationStatus,
 )
 from digital_twin.utils.logging import (
     setup_logger, 
     log_sqlalchemy_error,
     async_log_sqlalchemy_error,
 )
-
+from digital_twin.server.model import (
+    UserByEmail,
+    InvitationBase,
+    OrganizationAdminInfo,
+)
 
 logger = setup_logger()
 
@@ -49,6 +54,37 @@ async def async_get_user_org_by_user_and_org_id(
         )
     )
     return result.scalars().first()
+
+@async_log_sqlalchemy_error(logger)
+async def async_get_organization_admin_info(
+    organization_id: UUID,
+    db_session: AsyncSession,
+) -> Optional[OrganizationAdminInfo]:
+    result = await db_session.execute(
+        select(Organization)
+        .where(Organization.id == organization_id)
+        .options(joinedload(Organization.users).joinedload(UserOrganizationAssociation.user), 
+                 joinedload(Organization.invitations))
+    )
+
+    organization = result.scalars().one_or_none()
+
+    if not organization:
+        return None
+
+    pending_invitations = [
+        InvitationBase(email=invitation.invitee_email, status=invitation.status.value) 
+        for invitation in organization.invitations if invitation.status == InvitationStatus.PENDING
+    ]
+
+    users = [UserByEmail(user_email=user_association.user.email) for user_association in organization.users]
+
+    return OrganizationAdminInfo(
+        name=organization.name, 
+        whitelisted_email_domain=organization.whitelisted_email_domain,
+        pending_invitations=pending_invitations,
+        users=users,
+    )
 
 @log_sqlalchemy_error(logger)
 def get_organization_by_id(
@@ -112,6 +148,8 @@ async def async_get_user_org_assocations(
         return []    
     
     return associations
+
+
 
 @log_sqlalchemy_error(logger)
 def is_user_in_organization(

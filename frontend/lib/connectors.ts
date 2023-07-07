@@ -1,5 +1,5 @@
 import type { Axios } from "axios";
-import { Connector, ConnectorBase } from "./types";
+import { ConfluenceTestBase, Connector, ConnectorBase, Credential, GithubTestBase } from "./types";
 
 export async function createConnector<T>(
   axiosInstance: Axios,
@@ -59,6 +59,39 @@ export async function deleteConnector<T>(
   return response.data;
 }
 
+export async function createCredential<T>(
+  {
+    axiosInstance,
+    publicDoc,
+    credentialJson,
+    organizationId,
+  }: {
+    axiosInstance: Axios;
+    publicDoc: boolean;
+    credentialJson: T;
+    organizationId: string;
+  }
+): Promise<Credential<T>> {
+  const response = await axiosInstance.post<Credential<T>>(
+    `/api/connector/${organizationId}/credential`,
+    {
+      public_doc: publicDoc,
+      credential_json: credentialJson,
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Failed to create credential - ${response.status}`);
+  }
+  
+  return response.data;
+}
+
 export async function deleteCredential<T>(
   axiosInstance: Axios,
   credentialId: number,
@@ -107,3 +140,54 @@ export async function unlinkCredential<T>(
   return response.data;
 }
 
+export async function testGithubAccessToken(
+  axiosInstance: Axios,
+  githubTestInfo: GithubTestBase,
+): Promise<{ data: any; error: string | null }> {
+  try {
+    const response = await axiosInstance.post(
+      `/api/connector/admin/test-github`,
+      {
+        ...githubTestInfo,
+      }
+    );
+    if (response.data.success === false) {
+      return { data: null, error: response.data.message };
+    }
+    return { data: response.data, error: null };
+  } catch (error: any) {
+    if (error.response) {
+      // The request was made and the server responded with a non-2xx status code
+      return { data: null, error: `Failed to validate github access token - ${error.response.data.message}` };
+    } else {
+      // Something happened in setting up the request and triggered an Error
+      return { data: null, error: error.message };
+    }
+  }
+}
+
+export async function testConfluenceAccessToken(
+  axiosInstance: Axios,
+  confleunceTestInfo: ConfluenceTestBase,
+): Promise<{ data: any; error: string | null }> {
+  try {
+    const response = await axiosInstance.post(
+      `/api/connector/admin/test-confluence`,
+      {
+        ...confleunceTestInfo,
+      }
+    );
+    if (response.data.success === false) {
+      return { data: null, error: response.data.message };
+    }
+    return { data: response.data, error: null };
+  } catch (error: any) {
+    if (error.response) {
+      // The request was made and the server responded with a non-2xx status code
+      return { data: null, error: `Failed to validate confluence access token - ${error.response.data.message}` };
+    } else {
+      // Something happened in setting up the request and triggered an Error
+      return { data: null, error: error.message };
+    }
+  }
+}

@@ -3,12 +3,45 @@ export enum UserRole {
   ADMIN = "admin",
 }
 
+export interface GithubTestBase {
+  access_token_value: string;
+  repository_name: string;
+  repository_owner: string;
+}
+
+export interface ConfluenceTestBase {
+  confluence_access_token: string;
+  confluence_username: string;
+  wiki_page_url: string;
+}
+
 export interface OrganizationBase {
   id: string;
   name: string;
   role: UserRole;
   joined_at: string;
 }
+
+export interface UserByEmail {
+    user_email: string;
+}
+
+export interface InvitationBase {
+    email: string;
+    status: string;
+}
+
+export interface OrganizationAdminInfo{
+  name: string;
+  whitelisted_email_domain: string;
+  pending_invitations: InvitationBase[];
+  users: UserByEmail[];
+}
+
+export interface OrganizationUpdateInfo{
+  name?: string;
+  whitelisted_email_domain?: string;
+};
 
 export interface UserOrgResponse {
   organizations: OrganizationBase[];
@@ -59,6 +92,15 @@ export interface GithubConfig {
   repo_name: string;
 }
 
+export interface ConfluenceConfig {
+  wiki_page_url: string;
+}
+
+export interface SlackConfig {
+  workspace: string;
+}
+
+
 export interface ConnectorIndexingStatus<T> {
   connector: Connector<T>;
   owner: string;
@@ -82,7 +124,7 @@ export interface Credential<T> extends CredentialBase<T> {
 }
 
 export interface GithubCredentialJson {
-  github_access_tokens: string;
+  github_access_token: string;
 }
 
 export interface ConfluenceCredentialJson {
