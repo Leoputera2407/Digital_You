@@ -137,3 +137,8 @@ COHERE_KEY=os.environ.get("COHERE_KEY", "")
 # Connector Configs #
 #####################
 GOOGLE_DRIVE_INCLUDE_SHARED = False
+
+#####################
+# PromptLayer      #
+#####################
+PROMPTLAYER_API_KEY = os.environ.get("PROMPTLAYER_API_KEY", "")
