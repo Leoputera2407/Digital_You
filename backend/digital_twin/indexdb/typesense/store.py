@@ -20,6 +20,7 @@ from digital_twin.config.constants import (
     SEMANTIC_IDENTIFIER,
     SOURCE_LINKS,
     SOURCE_TYPE,
+    METADATA,
 )
 from digital_twin.indexdb.utils import (
     DEFAULT_BATCH_SIZE, 
@@ -70,6 +71,7 @@ def create_typesense_collection(
             {"name": SECTION_CONTINUATION, "type": "bool"},
             {"name": ALLOWED_USERS, "type": "string[]"},
             {"name": ALLOWED_GROUPS, "type": "string[]"},
+            {"name": METADATA, "type": "string"},
         ],
     }
     client.collections.create(collection_schema)
@@ -147,6 +149,7 @@ def index_typesense_chunks(
                 SECTION_CONTINUATION: chunk.section_continuation,
                 ALLOWED_USERS: doc_user_map[document.id][ALLOWED_USERS],
                 ALLOWED_GROUPS: doc_user_map[document.id][ALLOWED_GROUPS],
+                METADATA: json.dumps(document.metadata),
             }
         )
 

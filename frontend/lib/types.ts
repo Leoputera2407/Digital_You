@@ -26,6 +26,7 @@ export interface UserByEmail {
     user_email: string;
 }
 
+
 export interface InvitationBase {
     email: string;
     status: string;
@@ -33,7 +34,7 @@ export interface InvitationBase {
 
 export interface OrganizationAdminInfo{
   name: string;
-  whitelisted_email_domain: string;
+  whitelisted_email_domain?: string;
   pending_invitations: InvitationBase[];
   users: UserByEmail[];
 }

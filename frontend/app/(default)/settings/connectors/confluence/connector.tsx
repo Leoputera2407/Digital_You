@@ -1,9 +1,6 @@
 "use client";
 import AuthButton from "@/components/ui/AuthButton";
-import { Button } from "@/components/ui/Button";
-import {
-  Collapsible
-} from "@/components/ui/Collapsible";
+import { Collapsible } from "@/components/ui/Collapsible";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import {
   Dialog,
@@ -32,6 +29,7 @@ import {
   Credential,
   OrganizationBase,
 } from "@/lib/types";
+import { verifyValidParamString } from "@/lib/utils";
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaSpinner } from "react-icons/fa";
@@ -52,6 +50,7 @@ interface FormValues {
 }
 interface InitialConnectFormProps {
   onSubmitUpsert: (data: any) => void;
+  orgnizationId: string | undefined;
 }
 
 const confluenceConnectorNameBuilder = (wiki_page_url: string): string => {
@@ -60,6 +59,7 @@ const confluenceConnectorNameBuilder = (wiki_page_url: string): string => {
 
 const InitialConnectForm: FC<InitialConnectFormProps> = ({
   onSubmitUpsert,
+  organizationId,
 }) => {
   const [buttonState, setButtonState] = useState<"testing" | "store">(
     "testing"
@@ -69,30 +69,40 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
 
   const { register, handleSubmit } = useForm<FormValues>();
 
-  const onSubmitTest = (data: {
+  const onSubmitTest = async (data: {
     accessTokenValue: string;
     userName: string;
     wikiUrl: string;
   }) => {
-    const confluenceTest: ConfluenceTestBase = {
-      confluence_access_token: data.accessTokenValue,
-      confluence_username: data.userName,
-      wiki_page_url: data.wikiUrl,
-    };
-    testConfluenceAccessToken(axiosInstance, confluenceTest).then(
-      ({ error }) => {
-        if (error) {
-          console.log(
-            "Error while validating Confluence Access Token: ",
-            error
-          );
-          setTestingText(`Error! ${error}`);
-        } else {
-          setButtonState("store");
-          setTestingText(`Success! Access token is valid.`);
-        }
+    try {
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined or null",
+      });
+
+      const confluenceTest: ConfluenceTestBase = {
+        confluence_access_token: data.accessTokenValue,
+        confluence_username: data.userName,
+        wiki_page_url: data.wikiUrl,
+      };
+
+      const { error } = await testConfluenceAccessToken(
+        axiosInstance,
+        confluenceTest,
+        validOrganizationId
+      );
+
+      if (error) {
+        console.log("Error while validating Confluence Access Token: ", error);
+        setTestingText(`Error! ${error}`);
+      } else {
+        setButtonState("store");
+        setTestingText(`Success! Access token is valid.`);
       }
-    );
+    } catch (error) {
+      console.log("Error while validating Confluence Access Token: ", error);
+      setTestingText(`Error! ${error}`);
+    }
   };
 
   return (
@@ -158,9 +168,9 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">
+            <AuthButton type="submit">
               {buttonState === "testing" ? "Test" : "Enable"}
-            </Button>
+            </AuthButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -189,9 +199,11 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
     connectorsData,
   });
 
-  const { revalidateCredentials, revalidateIndexingStatus } = useConnectorData(
-    currentOrganization?.id
-  );
+  const {
+    revalidateConnectors,
+    revalidateCredentials,
+    revalidateIndexingStatus,
+  } = useConnectorData(currentOrganization?.id);
 
   const {
     isLoading: isLoadingConnectorOps,
@@ -210,9 +222,7 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
     wikiUrl: string;
   }) => {
     const connectorBase: ConnectorBase<ConfluenceConfig> = {
-      name: confluenceConnectorNameBuilder(
-        data.wikiUrl
-      ),
+      name: confluenceConnectorNameBuilder(data.wikiUrl),
       input_type: "load_state",
       source: "confluence",
       connector_specific_config: {
@@ -240,6 +250,7 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
       await handleLinkCredential(connector.id, credential.id);
       revalidateIndexingStatus();
       revalidateCredentials();
+      revalidateConnectors();
     } catch (error: any) {
       throw new Error("Failed to Connect!");
     }
@@ -253,10 +264,10 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
     >
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <ConfluenceIcon />
-            <span>Confluence</span>
-          </div>
+          <ConfluenceIcon />
+          <span>Confluence</span>
+        </div>
+        <div className="flex items-center space-x-4">
           {!isConnectorCredentialLoading &&
             confluenceConnectorIndexingStatus &&
             confluencePublicCredential &&
@@ -269,32 +280,45 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
                 }
               />
             )}
-        </div>
 
-        {isConnectorCredentialLoading ? (
-          <FaSpinner className="animate-spin" />
-        ) : confluencePublicCredential === undefined &&
-          confluenceConnectorIndexingStatus === undefined  &&
-          confluenceConnector === undefined 
-            ? (
-           <InitialConnectForm onSubmitUpsert={handleConnect} />
-         )  : (
-          <AuthButton
-            className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-            onClick={async (event) => {
-              event.preventDefault();
-              try {
-                await handleToggleConnector(confluenceConnector!);
-                revalidateIndexingStatus();
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-            isLoading={isLoadingConnectorOps}
-          >
-            {confluenceConnector?.disabled ? "Enable" : "Disable"}
-          </AuthButton>
-        )}
+          {isConnectorCredentialLoading ? (
+            <div className="animate-spin mr-2">
+              <FaSpinner className="h-5 w-5 text-white" />
+            </div>
+          ) : confluencePublicCredential === undefined &&
+            confluenceConnectorIndexingStatus === undefined &&
+            confluenceConnector === undefined ? (
+            <InitialConnectForm
+              onSubmitUpsert={handleConnect}
+              orgnizationId={currentOrganization?.id}
+            />
+          ) : (
+            <AuthButton
+              className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+              onClick={async (event) => {
+                event.preventDefault();
+                try {
+                  await handleToggleConnector(confluenceConnector!);
+                  revalidateConnectors();
+                  revalidateIndexingStatus();
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
+              isLoading={isLoadingConnectorOps}
+            >
+              {isLoadingConnectorOps ? (
+                <div className="animate-spin mr-2">
+                  <FaSpinner className="h-5 w-5 text-white" />
+                </div>
+              ) : confluenceConnector?.disabled ? (
+                "Enable"
+              ) : (
+                "Disable"
+              )}
+            </AuthButton>
+          )}
+        </div>
       </div>
     </Collapsible>
   );

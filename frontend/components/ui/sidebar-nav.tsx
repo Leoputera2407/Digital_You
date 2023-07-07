@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { buttonVariants } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
@@ -29,7 +28,7 @@ export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
           key={item.href}
           href={item.href}
           className={cn(
-            buttonVariants({ variant: "ghost" }),
+            "hover:bg-accent hover:text-accent-foreground",
             pathname === item.href
               ? "bg-muted hover:bg-muted"
               : "hover:bg-transparent hover:underline",

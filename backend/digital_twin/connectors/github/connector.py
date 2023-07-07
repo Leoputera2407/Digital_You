@@ -46,7 +46,7 @@ def get_markdown_and_code_contents(
         file_content = contents.pop(0)
         if file_content.type == "dir":
             contents.extend(repo.get_contents(file_content.path))
-        elif file_content.path.endswith(MARKDOWN_EXT):
+        elif file_content.path.lower().endswith(MARKDOWN_EXT):
             md_files.append(file_content)
         else:
             code_files.append(file_content)

@@ -135,7 +135,10 @@ class ConfluenceConnector(LoadConnector, PollConnector):
                         sections=[Section(link=page_url, text=page_text)],
                         source=DocumentSource.CONFLUENCE,
                         semantic_identifier=page["title"],
-                        metadata={},
+                        metadata={
+                            "wiki_space_name": self.space,
+                            "last_modified": page["version"]["friendlyWhen"],
+                        },
                     )
                 )
         return doc_batch, len(batch)

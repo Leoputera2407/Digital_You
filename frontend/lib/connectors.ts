@@ -143,10 +143,11 @@ export async function unlinkCredential<T>(
 export async function testGithubAccessToken(
   axiosInstance: Axios,
   githubTestInfo: GithubTestBase,
+  organizationId: string,
 ): Promise<{ data: any; error: string | null }> {
   try {
     const response = await axiosInstance.post(
-      `/api/connector/admin/test-github`,
+      `/api/connector/admin/${organizationId}/test-github`,
       {
         ...githubTestInfo,
       }
@@ -169,10 +170,11 @@ export async function testGithubAccessToken(
 export async function testConfluenceAccessToken(
   axiosInstance: Axios,
   confleunceTestInfo: ConfluenceTestBase,
+  organizationId: string,
 ): Promise<{ data: any; error: string | null }> {
   try {
     const response = await axiosInstance.post(
-      `/api/connector/admin/test-confluence`,
+      `/api/connector/admin/${organizationId}/test-confluence`,
       {
         ...confleunceTestInfo,
       }

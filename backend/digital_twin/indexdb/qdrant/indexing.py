@@ -1,4 +1,4 @@
-import uuid
+import json
 from uuid import UUID
 from functools import partial
 
@@ -25,6 +25,7 @@ from digital_twin.config.constants import (
     PUBLIC_DOC_PAT,
     ALLOWED_USERS,
     ALLOWED_GROUPS,
+    METADATA,
 )
 
 from digital_twin.config.app_config import DOC_EMBEDDING_DIM
@@ -112,7 +113,7 @@ def get_qdrant_document_whitelists(
 def delete_qdrant_doc_chunks(
     document_id: str, collection_name: str, q_client: QdrantClient
 ) -> bool:
-    res = q_client.delete(
+    q_client.delete(
         collection_name=collection_name,
         points_selector=models.FilterSelector(
             filter=models.Filter(
@@ -176,6 +177,7 @@ def index_qdrant_chunks(
                         SECTION_CONTINUATION: chunk.section_continuation,
                         ALLOWED_USERS: doc_user_map[document.id][ALLOWED_USERS],
                         ALLOWED_GROUPS: doc_user_map[document.id][ALLOWED_GROUPS],
+                        METADATA: json.dumps(document.metadata),
                     },
                     vector=embedding,
                 )

@@ -4,20 +4,19 @@ from typing import List, Optional
 from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
 
-from digital_twin.llm.chains.base import BaseChain
+from digital_twin.llm.chains.base import (
+    BaseChain,
+    QUESTION_PAT,
+    DOC_SEP_PAT,
+    UNCERTAIN_PAT,
+)
+from digital_twin.llm.chains.utils import add_metadata_section
 from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.utils.logging import setup_logger
 from digital_twin.utils.timing import log_function_time
 
 
 logger = setup_logger()
-
-NULL_DOC_TOKEN = "?[DOCUMENT]"
-DOC_SEP_PAT = "---NEW DOCUMENT---"
-QUESTION_PAT = "Query:"
-ANSWER_PAT = "Answer:"
-QUOTE_PAT = "Quote:"
-UNCERTAIN_PAT = "?[STOP]"
 
 
 SAMPLE_QUESTION = "Where is the Eiffel Tower?"
@@ -30,12 +29,20 @@ SAMPLE_JSON_RESPONSE = {
     ],
 }
 
+SAMPLE_JSON_CANNOT_ANSWER = {
+    "answer": UNCERTAIN_PAT,
+    "quotes": [],
+}
+
 BASE_PROMPT = (
     f"Answer the query based on provided documents and quote relevant sections. "
     f"If you are unsure of the answer or if it isn't provided in the extracts, "
-    f"answer '{UNCERTAIN_PAT}'.\n"
-    f"Respond with a json containing a concise answer and up to three most relevant quotes from the documents. "
+    f"respond with {json.dumps(SAMPLE_JSON_CANNOT_ANSWER).replace('{', '{{').replace('}', '}}')}.\n"
+    f"Respond with a json containing answering the user's query and quote the most relevant quotes from the documents provided."
     f"The quotes must be EXACT substrings from the documents.\n"
+    f"Sample question and response:\n"
+    f"{QUESTION_PAT}\n{SAMPLE_QUESTION}\n"
+    f"{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
 )
 
 QA_MODEL_SETTINGS = {"temperature": 0.0, "max_output_tokens": 2000}
@@ -50,13 +57,22 @@ class BaseQA(BaseChain):
         super().__init__(llm, prompt)  
     
     @log_function_time()
-    def run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) ->str :
-        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
+    def run(self, 
+            input_str: str, 
+            context_docs: Optional[List[InferenceChunk]],
+            add_metadata: bool = False
+        ) ->str :
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs, add_metadata)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
-    async def async_run(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> str:
-        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
+    async def async_run(
+        self, 
+        input_str: str, 
+        context_docs: Optional[List[InferenceChunk]],
+        add_metadata: bool = False
+    ) -> str:
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs, add_metadata)
         return await self.llm.apredict(formatted_prompt)
     
 
@@ -75,9 +91,6 @@ class StuffQA(BaseQA):
         prompt = (
             "HUMAN:\n"
             f"{BASE_PROMPT}"
-            f"Sample question and response:\n"
-            f"{QUESTION_PAT}\n{SAMPLE_QUESTION}\n"
-            f"{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
             f'Each context document below is prefixed with "{DOC_SEP_PAT}".\n\n'
             "{context}\n\n---\n\n"
             f"{QUESTION_PAT}\n{{question}}\n"
@@ -87,12 +100,15 @@ class StuffQA(BaseQA):
         )
 
    
-    def format_documents(self, documents: List[InferenceChunk]) -> str:
+    def format_documents(self, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
         """Format the documents for the prompt."""
-        return "".join(
-            f"{DOC_SEP_PAT}\n{ranked_document.content}\n"
-            for ranked_document in documents
-        ).strip()
+        formatted_docs = ""
+        for ranked_document in documents:
+            formatted_docs += f"{DOC_SEP_PAT}\n"
+            if add_metadata:
+                formatted_docs = self.add_metadata_section(formatted_docs, ranked_document)
+            formatted_docs += f"{ranked_document.content}\n"
+        return formatted_docs.strip()
 
     def create_prompt(self, question: str, documents: List[InferenceChunk]) -> str:
         """Create a formatted prompt with the given question and documents."""
@@ -101,17 +117,22 @@ class StuffQA(BaseQA):
             question=question, context=context
         ).to_string()
     
-    def get_filled_prompt(self, input_str: str, context_docs: Optional[List[InferenceChunk]]) -> str:
+    def get_filled_prompt(
+            self, 
+            input_str: str, 
+            context_docs: Optional[List[InferenceChunk]],
+            add_metadata: bool = False
+        ) -> str:
         documents = []
         if context_docs:
             for ranked_doc in context_docs:
                 documents.append(ranked_doc)
-                formatted_prompt = self.create_prompt(input_str, documents)
+                formatted_prompt = self.create_prompt(input_str, documents, add_metadata)
                 if not self.tokens_within_limit(formatted_prompt):
                     documents.pop()
                     break
 
-        print(f"Stuffed {len(documents)} documents in the context")
+        logger.info(f"Stuffed {len(documents)} documents in the context")
         formatted_prompt = self.create_prompt(input_str, documents)
         self.log_filled_prompt(formatted_prompt)
         return formatted_prompt

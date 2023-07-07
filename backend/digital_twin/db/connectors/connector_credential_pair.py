@@ -79,7 +79,7 @@ def get_connector_credential_pair(
             )
         )
     
-    result = db_session.execute(stmt)
+    result = db_session.execute(stmt).unique()
     return result.scalar_one_or_none()
 
 @log_sqlalchemy_error(logger)

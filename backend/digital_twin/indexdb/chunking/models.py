@@ -1,7 +1,9 @@
 import inspect
+import json
 from dataclasses import dataclass
 from typing import Any, cast
 
+from digital_twin.config.constants import METADATA, SOURCE_LINKS
 from digital_twin.connectors.model import Document
 
 
@@ -13,7 +15,8 @@ class BaseChunk:
     source_links: dict[
         int, str
     ] | None  # Holds the link and the offsets into the raw Chunk text
-    section_continuation: bool  # True if this Chunk's start is not at the start of a Section
+    # True if this Chunk's start is not at the start of a Section
+    section_continuation: bool
 
 
 @dataclass
@@ -31,6 +34,7 @@ class InferenceChunk(BaseChunk):
     document_id: str
     source_type: str
     semantic_identifier: str
+    metadata: dict[str, Any]
 
     @classmethod
     def from_dict(cls, init_dict: dict[str, Any]) -> "InferenceChunk":
@@ -39,11 +43,16 @@ class InferenceChunk(BaseChunk):
             for k, v in init_dict.items()
             if k in inspect.signature(cls).parameters
         }
-        if "source_links" in init_kwargs:
-            init_kwargs["source_links"] = {
-                int(k): v
-                for k, v in cast(
-                    dict[str, str], init_kwargs["source_links"]
-                ).items()
-            }
+        if SOURCE_LINKS in init_kwargs:
+            source_links = init_kwargs[SOURCE_LINKS]
+            source_links_dict = (
+                json.loads(source_links)
+                if isinstance(source_links, str)
+                else source_links
+            )
+            init_kwargs[SOURCE_LINKS] = {int(k): v for k, v in cast(
+                dict[str, str], source_links_dict).items()}
+
+        if METADATA in init_kwargs:
+            init_kwargs[METADATA] = json.loads(init_kwargs[METADATA])
         return cls(**init_kwargs)

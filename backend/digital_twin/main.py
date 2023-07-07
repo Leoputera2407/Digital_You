@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from digital_twin.config.app_config import APP_HOST, APP_PORT
+from digital_twin.config.app_config import APP_HOST, APP_PORT, WEB_DOMAIN
 from digital_twin.server.slack_event import router as slack_event_router
 from digital_twin.server.account import router as account_router
 from digital_twin.server.connector_admin import router as connector_admin_router
@@ -81,6 +81,7 @@ allowed_origins = [
     # TODO:  Replace with your Next.js app's domain
     "http://localhost:3000", 
     "https://localhost:8080",
+    WEB_DOMAIN,
 ]
 
 # Add CORS middleware

@@ -20,13 +20,13 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
   const {
     data: {session},
   }= await supabase.auth.getSession();
-
-  if (session && req.nextUrl.pathname === "/") {
+  if (session && (req.nextUrl.pathname === "/" || req.nextUrl.toString() === "/?"+req.nextUrl.search)) {
+    console.log("went here")
     //const redirectUrl = req.nextUrl.clone(); 
     //redirectUrl.pathname = "/settings";
     const redirectUrl = new URL('/settings', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000');
     redirectUrl.search = req.nextUrl.search;
     return NextResponse.redirect(redirectUrl);
-  }
+  } 
   return res;
 };

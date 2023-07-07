@@ -5,30 +5,40 @@ from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
 
 from digital_twin.indexdb.chunking.models import InferenceChunk
-from digital_twin.llm.chains.base import BaseChain
+from digital_twin.llm.chains.base import (
+    BaseChain,
+    DOC_SEP_PAT,
+    QUESTION_PAT,
+)
 from digital_twin.utils.logging import setup_logger
 from digital_twin.utils.timing import log_function_time
 
 logger = setup_logger()
 
-NULL_DOC_TOKEN = "?[DOCUMENT]"
-DOC_SEP_PAT = "---NEW DOCUMENT---"
-QUESTION_PAT = "Query:"
-ANSWER_PAT = "Answer:"
-QUOTE_PAT = "Quote:"
-STOP_PAT = "[STOP]"
-UNCERTAIN_PAT = "?[STOP]"
-
+SAMPLE_QUESTION = "Where is the Eiffel Tower?"
+SAMPLE_DOCUMENT = "The Eiffel Tower is an iconic symbol of Paris, France. It is located on the Champ de Mars in France."
 
 SAMPLE_JSON_RESPONSE = {
     "answerable": "Yes",
     "confidence score": '0.954',
 }
 
+SAMPLE_JSON_CANNOT_ANSWER = {
+    "answerable": "No",
+    "confidence score": '0.0',
+}
+
+
 BASE_PROMPT = (
     "Is it possible to answer the query based on provided documents?"
     "Respond with 'answerable' a binary 'Yes' or 'No' depending on whether you can answer the question or not given the provided documents.\n"
     "Respond with a 'confidence score' (between 0 and 1) depending on your confidence that you can ACCURATELY answer the question given the provided documents.\n"
+    f"Sample question and response:\n"
+    f"{QUESTION_PAT}\n{SAMPLE_QUESTION}\n"
+    f"{DOC_SEP_PAT}\n{SAMPLE_DOCUMENT}\n"
+    f"{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
+    "If you are unsure of the answer or if it isn't provided in the extracts, "
+    f"respond with {json.dumps(SAMPLE_JSON_CANNOT_ANSWER).replace('{', '{{').replace('}', '}}')}.\n"
 )
 VERIFY_MODEL_SETTINGS = {"temperature": 0.0, "max_output_tokens": 100}
 
@@ -68,7 +78,6 @@ class StuffVerify(BaseVerify):
         prompt = (
            "HUMAN:\n"
             f"{BASE_PROMPT}"
-            f"Please answer in this format:\n{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
             f'Each context document below is prefixed with "{DOC_SEP_PAT}".\n\n'
             "{context}\n\n---\n\n"
             "Question: {question}\n"

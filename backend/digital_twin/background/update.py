@@ -23,8 +23,9 @@ from digital_twin.db.connectors.index_attempt import (
     mark_attempt_succeeded,
 )
 from digital_twin.db.model import Connector, IndexAttempt, IndexingStatus
-
 from digital_twin.db.user import get_qdrant_collection_by_user_id, get_typesense_collection_by_user_id
+from digital_twin.indexdb.qdrant.store import QdrantVectorDB
+from digital_twin.indexdb.typesense.store import TypesenseIndex
 from digital_twin.utils.indexing_pipeline import build_indexing_pipeline
 from digital_twin.utils.logging import setup_logger
 
@@ -118,7 +119,7 @@ def create_indexing_jobs(db_session: Session) -> None:
 
 
 def run_indexing_jobs(db_session: Session) -> None:
-    indexing_pipeline = build_indexing_pipeline()
+    
 
     new_indexing_attempts = get_not_started_index_attempts(db_session)
     logger.info(f"Found {len(new_indexing_attempts)} new indexing tasks.")
@@ -133,6 +134,22 @@ def run_indexing_jobs(db_session: Session) -> None:
         db_connector = attempt.connector
         db_credential = attempt.credential
         task = db_connector.input_type
+
+        org_qdrant_collection = get_qdrant_collection_by_user_id(
+            db_session, 
+            db_credential.user_id,
+            db_credential.organization_id,
+        )
+        org_typesense_collection = get_typesense_collection_by_user_id(
+            db_session, 
+            db_credential.user_id,
+            db_credential.organization_id,
+        )
+
+        org_indexing_pipeline = build_indexing_pipeline(
+            vectordb=QdrantVectorDB(collection=org_qdrant_collection),
+            keyword_index=TypesenseIndex(collection=org_typesense_collection),
+        )   
 
         backend_update_connector_credential_pair(
             connector_id=db_connector.id,
@@ -183,8 +200,8 @@ def run_indexing_jobs(db_session: Session) -> None:
                 continue
 
             create_collections_if_not_exist(
-                qdrant_collection_name=get_qdrant_collection_by_user_id(db_session, db_credential.user_id),
-                typesense_collection_name=get_typesense_collection_by_user_id(db_session, db_credential.user_id)
+                qdrant_collection_name=org_qdrant_collection,
+                typesense_collection_name=org_typesense_collection,
             )
 
             document_ids: list[str] = []
@@ -192,7 +209,7 @@ def run_indexing_jobs(db_session: Session) -> None:
                 index_user_id = (
                     None if db_credential.public_doc else db_credential.user_id
                 )
-                net_doc_change += indexing_pipeline(
+                net_doc_change += org_indexing_pipeline(
                     documents=doc_batch, user_id=index_user_id
                 )
                 document_ids.extend([doc.id for doc in doc_batch])

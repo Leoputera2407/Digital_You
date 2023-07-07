@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import * as ToastPrimitive from "@radix-ui/react-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { ReactNode } from "react";
-import { Button } from "../../Button";
+import AuthButton from "../../AuthButton";
 import { ToastContext } from "../domain/ToastContext";
 import { ToastVariants } from "../domain/types";
 import { useToastBuilder } from "../hooks/useToastBuilder";
@@ -42,9 +42,9 @@ export const Toast = ({
                     {toast.text}
                   </ToastPrimitive.Description>
                   <ToastPrimitive.Close asChild>
-                    <Button variant={"tertiary"} className="text-white">
+                    <AuthButton className="text-white">
                       Dismiss
-                    </Button>
+                    </AuthButton>
                   </ToastPrimitive.Close>
                 </motion.div>
               </ToastPrimitive.Root>

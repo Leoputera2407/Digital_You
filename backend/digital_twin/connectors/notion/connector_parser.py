@@ -203,6 +203,26 @@ class NotionParser:
             html += "</tr></tbody></table>"
         return html
     
+    def parse_desired_metadata_dict(self, page):
+        properties = page.get('properties')
+        
+        # Mapping from properties keys to result keys
+        key_mapping = {
+            'Title': 'title',
+            'Created time': 'created_time',
+            'Created by': 'created_by',
+            'Last edited time': 'last_edited_time',
+            'Last edited by': 'last_edited_by',
+        }
+        
+        result = {value: None for value in key_mapping.values()} 
+
+        if properties:
+            for key, value in properties.items():
+                if key in key_mapping:
+                    result[key_mapping[key]] = self.parse_property(value)
+        return result
+    
     def parse_title(self, page):
         title = ""
         properties = page.get('properties')

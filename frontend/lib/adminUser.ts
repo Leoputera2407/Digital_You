@@ -63,6 +63,26 @@ export async function removeUserFromOrganization(
   return response.data as StatusResponse;
 }
 
+export async function removeUserInvitation(
+  axiosInstance: Axios,
+  organizationId: string,
+  userEmail: string,
+) {
+  const response = await axiosInstance.delete(
+    `/api/organization/${organizationId}/admin/remove-invitation`,
+    { data: { user_email: userEmail } }
+  );
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(
+      `Failed to remove user invitation - ${response.status}`
+    );
+  }
+
+  return response.data as StatusResponse;
+}
+
+
 
 export async function updateAdminOrganizationInfo(
     axiosInstance: Axios,

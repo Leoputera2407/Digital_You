@@ -67,7 +67,7 @@ async def async_get_organization_admin_info(
                  joinedload(Organization.invitations))
     )
 
-    organization = result.scalars().one_or_none()
+    organization = result.scalars().unique().one_or_none()
 
     if not organization:
         return None

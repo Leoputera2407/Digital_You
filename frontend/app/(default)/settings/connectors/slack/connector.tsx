@@ -4,7 +4,13 @@ import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import { SlackIcon } from "@/components/ui/Icon";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
-import { AnyCredentialJson, Connector, ConnectorIndexingStatus, Credential, OrganizationBase } from "@/lib/types";
+import {
+  AnyCredentialJson,
+  Connector,
+  ConnectorIndexingStatus,
+  Credential,
+  OrganizationBase,
+} from "@/lib/types";
 import { useState } from "react";
 import { FaSpinner } from "react-icons/fa";
 import { useSlackConnectors } from "./hook";
@@ -40,16 +46,12 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
     organizationId: currentOrganization?.id,
   });
 
-  const {
-    revalidateIndexingStatus,
-  } = useConnectorData(currentOrganization?.id)
-
-  const {
-    isLoading: isLoadingConnectorOps,
-    handleToggleConnector,
-  } = useConnectorsOps(
+  const { revalidateConnectors, revalidateIndexingStatus } = useConnectorData(
     currentOrganization?.id
   );
+
+  const { isLoading: isLoadingConnectorOps, handleToggleConnector } =
+    useConnectorsOps(currentOrganization?.id);
 
   const handleToggleOpen = () => {
     setIsOpen((prevIsOpen) => !prevIsOpen);
@@ -63,11 +65,11 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
     >
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <SlackIcon />
-            <span>Slack</span>
-          </div>
-          { !isConnectorCredentialLoading &&
+          <SlackIcon />
+          <span>Slack</span>
+        </div>
+        <div className="flex items-center space-x-4">
+          {!isConnectorCredentialLoading &&
             slackConnectorIndexingStatus &&
             slackPublicCredential &&
             isSlackCredentialLinked && (
@@ -79,40 +81,48 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
                 }
               />
             )}
-        </div>
 
-        {isConnectorCredentialLoading ? (
-          <FaSpinner className="animate-spin" />
-        ) : slackPublicCredential === undefined &&
+          {isConnectorCredentialLoading ? (
+            <div className="animate-spin mr-2">
+              <FaSpinner className="h-5 w-5 text-white" />
+            </div>
+          ) : slackPublicCredential === undefined &&
             slackConnectorIndexingStatus === undefined &&
-            slackConnector === undefined
-        ? (
-          <AuthButton
-            className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-            onClick={handleSlackAuthenticate}
-            isLoading={isSlackAuthenticating}
-          >
-            Connect
-          </AuthButton>
-        ) : (
-          <AuthButton
-          className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-          onClick={async (event) => {
-            event.preventDefault();
-            try {
-              await handleToggleConnector(
-                slackConnector!,
-              );
-              revalidateIndexingStatus();
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-          isLoading={isLoadingConnectorOps}
-        >
-          {slackConnector?.disabled ? "Enable" : "Disable"}
-        </AuthButton>
-        )}
+            slackConnector === undefined ? (
+            <AuthButton
+              className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+              onClick={handleSlackAuthenticate}
+              isLoading={isSlackAuthenticating}
+            >
+              Connect
+            </AuthButton>
+          ) : (
+            <AuthButton
+              className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+              onClick={async (event) => {
+                event.preventDefault();
+                try {
+                  await handleToggleConnector(slackConnector!);
+                  revalidateConnectors();
+                  revalidateIndexingStatus();
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
+              isLoading={isLoadingConnectorOps}
+            >
+              {isLoadingConnectorOps ? (
+                <div className="animate-spin mr-2">
+                  <FaSpinner className="h-5 w-5 text-white" />
+                </div>
+              ) : slackConnector?.disabled ? (
+                "Enable"
+              ) : (
+                "Disable"
+              )}
+            </AuthButton>
+          )}
+        </div>
       </div>
     </Collapsible>
   );

@@ -87,7 +87,7 @@ class InvitationBase(BaseModel):
 class OrganizationName(BaseModel):
     name: str
 class OrganizationAdminInfo(OrganizationName):
-    whitelisted_email_domain: str
+    whitelisted_email_domain: Optional[str]
     pending_invitations: List[InvitationBase]
     users: List[UserByEmail]
 

@@ -47,7 +47,7 @@ class IndexingPipelineProtocol(Protocol):
 def _indexing_pipeline(
     chunker: Chunker,
     embedder: Embedder,
-    datastore: VectorIndexDB,
+    vectordb: VectorIndexDB,
     keyword_index: KeywordIndex,
     documents: list[Document],
     user_id: str | None,
@@ -57,7 +57,7 @@ def _indexing_pipeline(
     chunks = list(chain(*[chunker.chunk(document) for document in documents]))
     chunks_with_embeddings = embedder.embed(chunks)
     net_doc_count_keyword = keyword_index.index(chunks, user_id)
-    net_doc_count_vector = datastore.index(chunks_with_embeddings, user_id)
+    net_doc_count_vector = vectordb.index(chunks_with_embeddings, user_id)
     if net_doc_count_vector != net_doc_count_vector:
         logger.exception(
             "Number of documents indexed by keyword and vector indices aren't align"
@@ -70,10 +70,8 @@ def build_indexing_pipeline(
     *,
     chunker: Optional[Chunker] = None,
     embedder: Optional[Embedder] = None,
-    datastore: Optional[VectorIndexDB] = None,
+    vectordb: Optional[VectorIndexDB] = None,
     keyword_index: Optional[KeywordIndex] = None,
-    typesense_collection_name: Optional[str] = None,
-    qdrant_collection_name: Optional[str] = None,
 ) -> Callable[[List[Document]], List[EmbeddedIndexChunk]]:
     """Builds a pipline which takes in a list of docs and indexes them.
 
@@ -85,9 +83,15 @@ def build_indexing_pipeline(
         embedder = DefaultEmbedder()
     
     if keyword_index is None:
-        keyword_index = TypesenseIndex(typesense_collection_name if typesense_collection_name else TYPESENSE_DEFAULT_COLLECTION)
+        keyword_index = TypesenseIndex(collection=TYPESENSE_DEFAULT_COLLECTION)
 
-    if datastore is None:
-        datastore = QdrantVectorDB(qdrant_collection_name if qdrant_collection_name else QDRANT_DEFAULT_COLLECTION)
+    if vectordb is None:
+        vectordb = QdrantVectorDB(collection=QDRANT_DEFAULT_COLLECTION)
 
-    return partial(_indexing_pipeline, chunker, embedder, datastore)
+    return partial(
+        _indexing_pipeline, 
+        chunker=chunker, 
+        embedder=embedder,
+        vectordb=vectordb,
+        keyword_index=keyword_index,
+    )

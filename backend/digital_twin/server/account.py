@@ -165,7 +165,7 @@ async def promote_admin(
 ) -> StatusResponse:
     user_to_promote = await async_get_user_by_email(
         db_session, 
-        user_email
+        user_email.user_email
     )
     if not user_to_promote:
         raise HTTPException(status_code=404, detail="User not found")
@@ -191,7 +191,7 @@ async def add_user_to_org(
     admin_user: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session)
 ) -> StatusResponse:
-    if is_user_in_organization(db_session, user_email, organization_id):
+    if is_user_in_organization(db_session, user_email.user_email, organization_id):
         raise HTTPException(status_code=404, detail="User is already in the organization")
     
     organization = get_organization_by_id(db_session, organization_id)
@@ -200,18 +200,18 @@ async def add_user_to_org(
     invite = Invitation(
         organization_id=organization_id,
         inviter_id=admin_user.id,
-        invitee_email=user_email,
+        invitee_email=user_email.user_email,
         token=invitation_token,
         status=InvitationStatus.PENDING,
     )
     try:
         send_user_invitation_email(
             workspace_name=organization.name,
-            invitee_email=user_email,
-            invitation_token=invitation_token,
+            invitee_email=user_email.user_email,
+            token=invitation_token,
         )
     except Exception as e:
-        logger.error(f"Failed to send invitation email to {user_email} for organization {organization.name}")
+        logger.error(f"Failed to send invitation email to {user_email.user_email} for organization {organization.name}: {e}")
         raise HTTPException(status_code=500, detail="Failed to send invitation email")
 
     db_session.add(invite)
@@ -229,7 +229,7 @@ def remove_user_from_org(
     _: User = Depends(current_admin_for_org),
     db_session: Session = Depends(get_session)
 ) -> StatusResponse:
-    user_to_remove = get_user_by_email(db_session, user_email)
+    user_to_remove = get_user_by_email(db_session, user_email.user_email)
     if not user_to_remove:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -248,6 +248,35 @@ def remove_user_from_org(
         success=True, 
         message="User removed successfully from the organization."
     )
+
+@router.delete("/{organization_id}/admin/remove-invitation", response_model=StatusResponse)
+async def remove_invitation(
+    organization_id: UUID,
+    user_email: UserByEmail, 
+    _: User = Depends(current_admin_for_org),
+    db_session: AsyncSession = Depends(get_async_session_generator)
+) -> StatusResponse:
+
+    # Get the invitation using the invitee_email and organization_id
+    result = await db_session.execute(
+        select(Invitation).where(
+            Invitation.invitee_email == user_email.user_email,
+            Invitation.organization_id == organization_id
+        )
+    )
+    invitation = result.scalars().first()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    await db_session.delete(invitation)
+    await db_session.commit()
+
+    return StatusResponse(
+        success=True,
+        message="Invitation removed successfully."
+    )
+
 
 @router.get("/{organization_id}/admin/info", response_model=OrganizationAdminInfo)
 async def get_admin_organization_info(

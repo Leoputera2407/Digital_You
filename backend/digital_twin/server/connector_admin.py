@@ -239,8 +239,9 @@ def connector_run_once(
         data=index_attempt_ids,
     )
 
-@router.post("/test-github", response_model=StatusResponse[bool])
+@router.post("/{organization_id}/test-github", response_model=StatusResponse[bool])
 async def test_github_access_token(
+    organization_id: UUID,  # type: ignore
     github_test_info: GithubTestRequest, 
     _: User = Depends(current_admin_for_org)
 ) -> StatusResponse[bool]:
@@ -251,7 +252,6 @@ async def test_github_access_token(
             BadCredentialsException,
     )
     try:
-        # Initialize Github client
         github_client = Github(github_test_info.access_token_value)
         _ = github_client.get_user()
         return StatusResponse(success=True, data=True)
@@ -265,8 +265,9 @@ async def test_github_access_token(
         return StatusResponse(success=False, message=f"Failed to validate Github access token: {str(e)}", data=False)
     
 
-@router.post("/test-confluence", response_model=StatusResponse[bool])
+@router.post("/{organization_id}/test-confluence", response_model=StatusResponse[bool])
 async def test_confluence_access_token(
+    organization_id: UUID,  # type: ignore 
     confluence_test_info: ConfluenceTestRequest,
     _: User = Depends(current_admin_for_org)
  ) -> StatusResponse[bool]:

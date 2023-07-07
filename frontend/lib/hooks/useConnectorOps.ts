@@ -1,3 +1,4 @@
+"use client"
 import {
   createConnector,
   deleteConnector,
@@ -8,6 +9,7 @@ import {
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
 import { Connector, ConnectorBase } from "@/lib/types";
+import { verifyValidParamString } from "@/lib/utils";
 import { useState } from "react";
 
 interface UseConnectorsOpsReturn {
@@ -25,28 +27,6 @@ interface UseConnectorsOpsReturn {
   handleToggleConnector: (oldConnector: Connector<{}>) =>  Promise<Connector<{}>>;
 }
 
-function verifyConnectorId(connectorId?: number): number {
-  if (connectorId === undefined) {
-    throw new Error("Connector ID is undefined");
-  }
-  return connectorId;
-}
-
-function verifyCredentialId(credentialId?: number): number {
-  if (credentialId === undefined) {
-    throw new Error("Credential ID is undefined");
-  }
-  return credentialId;
-}
-
-function verifyOrganizationId(organizationId?: string | null): string {
-  if (organizationId === undefined || organizationId === null) {
-    throw new Error("Organization ID is undefined");
-  }
-  return organizationId;
-}
-
-
 export function useConnectorsOps(organizationId: string| undefined | null): UseConnectorsOpsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const { axiosInstance } = useAxios();
@@ -58,9 +38,15 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
     setIsLoading(true);
 
     try {
-      const validConnectorId = verifyConnectorId(connectorId);
-      const validOrganizationId = verifyOrganizationId(organizationId);
-
+      
+      const validConnectorId = verifyValidParamString({
+        param: connectorId,
+        errorText: "Connector ID is undefined",
+      });
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
       await deleteConnector(
         axiosInstance, 
         validConnectorId,
@@ -85,8 +71,10 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
   ) => {
     setIsLoading(true);
     try {
-      const validOrganizationId = verifyOrganizationId(organizationId);
-
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
       const connector = await createConnector(
         axiosInstance, 
         connectorBase,
@@ -110,10 +98,18 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
   ) => {
     setIsLoading(true);
     try {
-      const validConnectorId = verifyConnectorId(connectorId);
-      const validCredentialId = verifyCredentialId(credentialId);
-      const validOrganizationId = verifyOrganizationId(organizationId);
-
+      const validConnectorId = verifyValidParamString({
+        param: connectorId,
+        errorText: "Connector ID is undefined",
+      });
+      const validCredentialId = verifyValidParamString({
+        param: credentialId,
+        errorText: "Credential ID is undefined",
+      });
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
       await linkCredential(
         axiosInstance, 
         validConnectorId, 
@@ -142,9 +138,18 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
     setIsLoading(true);
 
     try {
-      const validConnectorId = verifyConnectorId(connectorId);
-      const validCredentialId = verifyCredentialId(credentialId);
-      const validOrganizationId = verifyOrganizationId(organizationId);
+      const validConnectorId = verifyValidParamString({
+        param: connectorId,
+        errorText: "Connector ID is undefined",
+      });
+      const validCredentialId = verifyValidParamString({
+        param: credentialId,
+        errorText: "Credential ID is undefined",
+      });
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
       await unlinkCredential(
         axiosInstance,
         validConnectorId,
@@ -171,8 +176,10 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
   ) => {
     setIsLoading(true);
     try {
-      const validOrganizationId = verifyOrganizationId(organizationId);
-
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
       const toggledConnector: Connector<{}> = {
         ...oldConnector,
         disabled: !oldConnector.disabled,
@@ -199,7 +206,6 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
     }
 
   }
-
 
   return {
     isLoading,

@@ -1,13 +1,16 @@
+"use client";
 import {
-    addUserToOrganization,
-    promoteUserToAdmin,
-    removeUserFromOrganization,
-    updateAdminOrganizationInfo,
+  addUserToOrganization,
+  promoteUserToAdmin,
+  removeUserFromOrganization,
+  removeUserInvitation,
+  updateAdminOrganizationInfo,
 } from "@/lib/adminUser";
 import { fetcher } from "@/lib/fetcher";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
 import { OrganizationAdminInfo, OrganizationUpdateInfo } from "@/lib/types";
+import { verifyValidParamString } from "@/lib/utils";
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
 
@@ -17,7 +20,10 @@ interface UseOrgAdminOpsReturn {
   isAdminOrgInfoError: boolean;
   revalidateAdminOrgInfo: () => void;
   handleAddUserToOrg: (userEmail: string) => Promise<void>;
-  handleRemoveUserFromOrg: (userEmail: string, isPending: boolean) => Promise<void>;
+  handleRemoveUserFromOrg: (
+    userEmail: string,
+    isPending: boolean
+  ) => Promise<void>;
   handlePromoteUserToAdmin: (userEmail: string) => Promise<void>;
   handleUpdateAdminOrganizationInfo: (
     organizationName: string,
@@ -57,7 +63,10 @@ export function useOrgAdminOps(
     );
 
     try {
-      const validOrganizationId = verifyOrganizationId(organizationId);
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
 
       await addUserToOrganization(
         axiosInstance,
@@ -112,13 +121,23 @@ export function useOrgAdminOps(
     );
 
     try {
-      const validOrganizationId = verifyOrganizationId(organizationId);
-
-      await removeUserFromOrganization(
-        axiosInstance,
-        validOrganizationId,
-        userEmail
-      );
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
+      if (isPending) {
+        await removeUserInvitation(
+          axiosInstance, 
+          validOrganizationId, 
+          userEmail
+        );
+      } else {
+        await removeUserFromOrganization(
+          axiosInstance,
+          validOrganizationId,
+          userEmail
+        );
+      }
       publish({
         variant: "success",
         text: "Successfully removed user from organization!",
@@ -142,8 +161,10 @@ export function useOrgAdminOps(
     // We shouldn't optimisiically update here,
     // since we don't know if the user is already an admin
     try {
-      const validOrganizationId = verifyOrganizationId(organizationId);
-
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });
       await promoteUserToAdmin(axiosInstance, validOrganizationId, userEmail);
       publish({
         variant: "success",
@@ -181,8 +202,10 @@ export function useOrgAdminOps(
     );
 
     try {
-      const validOrganizationId = verifyOrganizationId(organizationId);
-      const updateInfo: OrganizationUpdateInfo = {
+      const validOrganizationId = verifyValidParamString({
+        param: organizationId,
+        errorText: "Organization ID is undefined",
+      });      const updateInfo: OrganizationUpdateInfo = {
         name: organizationName,
         whitelisted_email_domain: whitelistedEmailDomain,
       };
@@ -223,11 +246,4 @@ export function useOrgAdminOps(
     handlePromoteUserToAdmin,
     handleUpdateAdminOrganizationInfo,
   };
-}
-
-function verifyOrganizationId(organizationId?: string | null): string {
-  if (organizationId === undefined || organizationId === null) {
-    throw new Error("Organization ID is undefined");
-  }
-  return organizationId;
 }

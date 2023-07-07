@@ -50,9 +50,11 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
     organizationId: currentOrganization?.id,
   });
 
-  const { revalidateCredentials, revalidateIndexingStatus } = useConnectorData(
-    currentOrganization?.id
-  );
+  const {
+    revalidateConnectors,
+    revalidateCredentials,
+    revalidateIndexingStatus,
+  } = useConnectorData(currentOrganization?.id);
 
   const {
     isLoading: isLoadingConnectorOps,
@@ -78,8 +80,9 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
       const connector = await handleCreateConnector(connectorBase);
 
       await handleLinkCredential(connector.id, googleDrivePublicCredential?.id);
-      revalidateCredentials();
       revalidateIndexingStatus();
+      revalidateCredentials();
+      revalidateConnectors();
     } catch (error: any) {
       throw new Error("Failed to Enable Connector!");
     }
@@ -93,10 +96,10 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
     >
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <GoogleDriveIcon />
-            <span>Google Drive</span>
-          </div>
+          <GoogleDriveIcon />
+          <span>Google Drive</span>
+        </div>
+        <div className="flex items-center space-x-4">
           {!isAppCredentialLoading &&
             !isConnectorCredentialLoading &&
             appCredentialData &&
@@ -111,50 +114,59 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
                 }
               />
             )}
-        </div>
 
-        {isAppCredentialLoading || isConnectorCredentialLoading ? (
-          <FaSpinner className="animate-spin" />
-        ) : appCredentialError && !appCredentialData ? (
-          <div className="text-red-500">
-            Something went wrong, please contact the admin.
-          </div>
-        ) : googleDrivePublicCredential === undefined ? (
-          <AuthButton
-            className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-            onClick={handleGoogleAuthenticate}
-            isLoading={isGoogleAuthenticating}
-          >
-            Connect
-          </AuthButton>
-        ) : googleDriveConnector === undefined &&
-          googleDriveConnectorIndexingStatus === undefined ? (
-          <AuthButton
-            className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-            onClick={handleCreateLinkConnector}
-            isLoading={isLoadingConnectorOps}
-          >
-            Enable?
-          </AuthButton>
-        ) : (
-          <AuthButton
-            className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group"
-            onClick={async (event) => {
-              event.preventDefault();
-              try {
-                await handleToggleConnector(
-                  googleDriveConnector!,
-                );
-                revalidateIndexingStatus();
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-            isLoading={isLoadingConnectorOps}
-          >
-            {googleDriveConnector?.disabled ? "Enable" : "Disable"}
-          </AuthButton>
-        )}
+          {isAppCredentialLoading || isConnectorCredentialLoading ? (
+            <div className="animate-spin mr-2">
+              <FaSpinner className="h-5 w-5 text-white" />
+            </div>
+          ) : appCredentialError && !appCredentialData ? (
+            <div className="text-red-500">
+              Something went wrong, please contact the admin.
+            </div>
+          ) : googleDrivePublicCredential === undefined ? (
+            <AuthButton
+              className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+              onClick={handleGoogleAuthenticate}
+              isLoading={isGoogleAuthenticating}
+            >
+              Connect
+            </AuthButton>
+          ) : googleDriveConnector === undefined &&
+            googleDriveConnectorIndexingStatus === undefined ? (
+            <AuthButton
+              className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+              onClick={handleCreateLinkConnector}
+              isLoading={isLoadingConnectorOps}
+            >
+              Enable?
+            </AuthButton>
+          ) : (
+            <AuthButton
+              className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+              onClick={async (event) => {
+                event.preventDefault();
+                try {
+                  await handleToggleConnector(googleDriveConnector!);
+                  revalidateConnectors();
+                  revalidateIndexingStatus();
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
+              isLoading={isLoadingConnectorOps}
+            >
+              {isLoadingConnectorOps ? (
+                <div className="animate-spin mr-2">
+                  <FaSpinner className="h-5 w-5 text-white" />
+                </div>
+              ) : googleDriveConnector?.disabled ? (
+                "Enable"
+              ) : (
+                "Disable"
+              )}
+            </AuthButton>
+          )}
+        </div>
       </div>
     </Collapsible>
   );

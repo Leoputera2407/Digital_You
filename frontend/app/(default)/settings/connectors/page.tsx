@@ -1,26 +1,17 @@
 "use client";
 
 import { InfoIcon } from "@/components/ui/Icon";
-import { ChevronsUpDown } from "lucide-react";
 import * as React from "react";
 
-import AuthButton from "@/components/ui/AuthButton";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/Collapsible";
 import { Separator } from "@/components/ui/Separator";
 import { useOrganization } from "@/lib/context/orgProvider";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
-import {
-  AnyCredentialJson,
-  ValidDataSourceTypesArray,
-} from "@/lib/types";
+import { AnyCredentialJson, ValidDataSourceTypesArray } from "@/lib/types";
+import ConfluenceConnector from "./confluence/connector";
+import GithubConnector from "./github/connector";
 import GoogleDriveConnector from "./google-drive/connector";
 import NotionConnector from "./notion/connector";
+import SlackConnector from "./slack/connector";
 
 const getDataSourceTypeDetails = (sourceType: string) => {
   switch (sourceType) {
@@ -47,7 +38,7 @@ export default function ConnectorMenuPage() {
     connectorIndexingStatuses,
     credentialsData,
     connectorsData,
-  } = useConnectorData<AnyCredentialJson>(currentOrganization?.id || ""); 
+  } = useConnectorData<AnyCredentialJson>(currentOrganization?.id || "");
 
   const handleOpenDataChange = (index: number, newState: boolean) => {
     const newArr = [...isOpenDataArr];
@@ -72,16 +63,36 @@ export default function ConnectorMenuPage() {
         connectorsData={connectorsData}
         isConnectorCredentialLoading={isConnectorCredentialLoading}
       />
-       <NotionConnector
+      <NotionConnector
         currentOrganization={currentOrganization}
         connectorIndexingStatuses={connectorIndexingStatuses}
         credentialsData={credentialsData}
         connectorsData={connectorsData}
         isConnectorCredentialLoading={isConnectorCredentialLoading}
       />
-      
+      <SlackConnector
+        currentOrganization={currentOrganization}
+        connectorIndexingStatuses={connectorIndexingStatuses}
+        credentialsData={credentialsData}
+        connectorsData={connectorsData}
+        isConnectorCredentialLoading={isConnectorCredentialLoading}
+      />
+      <GithubConnector
+        currentOrganization={currentOrganization}
+        connectorIndexingStatuses={connectorIndexingStatuses}
+        credentialsData={credentialsData}
+        connectorsData={connectorsData}
+        isConnectorCredentialLoading={isConnectorCredentialLoading}
+      />
+      <ConfluenceConnector
+        currentOrganization={currentOrganization}
+        connectorIndexingStatuses={connectorIndexingStatuses}
+        credentialsData={credentialsData}
+        connectorsData={connectorsData}
+        isConnectorCredentialLoading={isConnectorCredentialLoading}
+      />
 
-      {/* Data Sources */}
+      {/* Data Sources
       <div className="mt-10">
         <h3 className="text-lg font-medium">Data Sources</h3>
         <p className="text-sm text-muted-foreground">
@@ -101,10 +112,10 @@ export default function ConnectorMenuPage() {
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center space-x-2">
                 <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="lg" className="p-1">
+                  <AuthButton className="p-1">
                     <ChevronsUpDown className="h-6 w-6" />
                     <span className="sr-only">Toggle</span>
-                  </Button>
+                  </AuthButton>
                 </CollapsibleTrigger>
                 <div className="flex items-center space-x-2">
                   {sourceDetails.icon}
@@ -124,6 +135,7 @@ export default function ConnectorMenuPage() {
           </Collapsible>
         );
       })}
+    */}
     </div>
   );
 }

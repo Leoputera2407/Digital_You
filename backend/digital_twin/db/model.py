@@ -142,7 +142,7 @@ class User(Base):
 class Invitation(Base):
     __tablename__ = "invitations"
 
-    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"))
     inviter_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     invitee_email: Mapped[str] = mapped_column(String, nullable=False)
