@@ -137,7 +137,7 @@ class ConfluenceConnector(LoadConnector, PollConnector):
                         semantic_identifier=page["title"],
                         metadata={
                             "wiki_space_name": self.space,
-                            "last_modified": page["version"]["friendlyWhen"],
+                            "updated_at": page["version"]["friendlyWhen"],
                         },
                     )
                 )

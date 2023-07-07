@@ -147,9 +147,9 @@ class NotionConnector(LoadConnector, PollConnector):
                         source=DocumentSource.NOTION,
                         semantic_identifier=object_id,
                         metadata={
-                            "last_modified": properties_metadata["last_edited_time"],
+                            "updated_at": properties_metadata["last_edited_time"],
                             "title": properties_metadata["title"],
-                            "created_time": properties_metadata["created_time"],
+                            "created_at": properties_metadata["created_time"],
                             "created_by": properties_metadata["created_by"],
                             "last_edited_by": properties_metadata["last_edited_by"],
                         },

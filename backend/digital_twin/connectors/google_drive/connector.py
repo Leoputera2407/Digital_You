@@ -158,7 +158,7 @@ class GoogleDriveConnector(LoadConnector, PollConnector):
                         source=DocumentSource.GOOGLE_DRIVE,
                         semantic_identifier=file["name"],
                         metadata={
-                            "last_modified": file["modifiedTime"] if file.get("modifiedTime", None) is not None else None,
+                            "updated_at": file["modifiedTime"] if file.get("modifiedTime", None) is not None else None,
                             "type": MAP_SUPPORTED_MIME_TYPE_TO_DOC_TYPE[file["mimeType"]],
                         },
                     )
