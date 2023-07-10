@@ -175,7 +175,7 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <AuthButton className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group">
+        <AuthButton className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow">
           Connect
         </AuthButton>
       </DialogTrigger>
@@ -332,7 +332,7 @@ const NewRepoForm: FC<NewRepoFormProps> = ({
     >
       <button
         onClick={onCloseForm}
-        className="absolute top-3 right-3 text-gray-300 hover:text-gray-500"
+        className="absolute top-3 left-3 text-gray-300 hover:text-gray-500"
       >
         <AiOutlineClose size={24} />
       </button>

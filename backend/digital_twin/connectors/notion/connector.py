@@ -104,12 +104,7 @@ class NotionConnector(LoadConnector, PollConnector):
         self.access_token: str | None = None
 
     def load_credentials(self, credentials: dict[str, Any]) -> dict[str, Any] | None:
-        access_token_json_str = credentials.get(DB_CREDENTIALS_DICT_KEY)
-        if not access_token_json_str:
-            raise ValueError("Access token not found in credentials")
-
-        access_token_json = json.loads(access_token_json_str)
-        self.access_token = access_token_json.get("access_token")
+        self.access_token = credentials.get(DB_CREDENTIALS_DICT_KEY)
         return None
     
     def _fetch_docs_from_notion(
@@ -145,7 +140,7 @@ class NotionConnector(LoadConnector, PollConnector):
                             )
                         ],
                         source=DocumentSource.NOTION,
-                        semantic_identifier=object_id,
+                        semantic_identifier=properties_metadata["title"],
                         metadata={
                             "updated_at": properties_metadata["last_edited_time"],
                             "title": properties_metadata["title"],

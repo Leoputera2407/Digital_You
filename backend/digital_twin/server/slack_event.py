@@ -42,7 +42,7 @@ from digital_twin.slack_bot.views import (
     SHUFFLE_BUTTON_ACTION_ID,
     EDIT_BLOCK_ID,
 )
-from digital_twin.slack_bot.events.command import handle_digital_twin_command
+from digital_twin.slack_bot.events.command import handle_prosona_command
 from digital_twin.slack_bot.events.home_tab import build_home_tab
 from digital_twin.slack_bot.config import get_oauth_settings
 from digital_twin.db.model import SlackUser
@@ -112,7 +112,7 @@ async def just_ack(ack: AsyncAck):
 def register_listeners(slack_app: AsyncApp):
     #slack_app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     #slack_app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
-    slack_app.command("/digital-twin")(ack=just_ack, lazy=[handle_digital_twin_command])
+    slack_app.command("/prosona")(ack=just_ack, lazy=[handle_prosona_command])
     #slack_app.action(SHUFFLE_BUTTON_ACTION_ID)(ack=just_ack, lazy=[])
     #slack_app.view(MODAL_RESPONSE_CALLBACK_ID)(lazy=[])
 

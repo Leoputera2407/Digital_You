@@ -111,7 +111,6 @@ class GithubGraphQLClient:
         pull_requests_data = []
         while True:
             response = self.execute_graphql_query(query, variables)
-            print(response)
             for edge in response['data']['repository']['pullRequests']['edges']:
                 pr = edge['node']
                 if pr['updatedAt'] is None:

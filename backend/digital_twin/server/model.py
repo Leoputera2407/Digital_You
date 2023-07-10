@@ -6,6 +6,7 @@ from pydantic.generics import GenericModel
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
+from digital_twin.connectors.linear.model import LinearTeam
 from digital_twin.indexdb.interface import IndexDBFilter
 from digital_twin.db.model import Connector, IndexingStatus, UserRole
 
@@ -54,6 +55,11 @@ class GDriveCallback(BaseModel):
     code: str
 
 class NotionCallback(BaseModel):
+    code: str
+    state: str
+
+class LinearCallback(BaseModel):
+    state: str
     code: str
 
 class SearchDoc(BaseModel):
@@ -131,7 +137,6 @@ class ConnectorSnapshot(ConnectorBase):
             disabled=connector.disabled,
         )
 
-
 class ConnectorIndexingStatus(BaseModel):
     """Represents the latest indexing status of a connector"""
 
@@ -179,3 +184,7 @@ class ConfluenceTestRequest(BaseModel):
     confluence_access_token: str
     confluence_username: str
     wiki_page_url: str
+
+class LinearOrganizationSnapshot(BaseModel):
+    name: str
+    teams: List[LinearTeam]

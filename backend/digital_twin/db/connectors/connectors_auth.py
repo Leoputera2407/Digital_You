@@ -43,6 +43,7 @@ def consume_csrf(credential_id: int, db_session: Session) -> Optional[CSRFToken]
             CSRFToken.csrf_token == csrf_token
         )
         result = db_session.execute(delete_stmt)
+        
         if result.rowcount == 0:
             raise Exception('Failed to consume CSRF token')
         db_session.commit()

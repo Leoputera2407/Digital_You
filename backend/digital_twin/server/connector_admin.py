@@ -4,10 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from digital_twin.config.app_config import IS_DEV
 from digital_twin.auth.users import current_admin_for_org
-
-
 from digital_twin.server.model import (
     AuthStatus,
     ConnectorBase,
@@ -19,6 +16,7 @@ from digital_twin.server.model import (
     StatusResponse,
     ConfluenceTestRequest,
     GithubTestRequest,
+    LinearOrganizationSnapshot,
 )
 from digital_twin.db.engine import get_session
 from digital_twin.db.model import (
@@ -40,6 +38,7 @@ from digital_twin.db.connectors.connectors import (
     update_connector,
     get_connector_credential_ids,
 )
+from digital_twin.connectors.linear.graphql import LinearGraphQLClient
 from digital_twin.db.connectors.credentials import fetch_credential_by_id_and_org
 from digital_twin.db.connectors.index_attempt import create_index_attempt
 from digital_twin.utils.logging import setup_logger
@@ -291,3 +290,46 @@ async def test_confluence_access_token(
         return StatusResponse(success=False, message="Invalid Confluence username or access token.", data=False)
     except Exception as e:
         return StatusResponse(success=False, message=f"Failed to validate Confluence access token: {str(e)}", data=False)
+
+@router.get("/{organization_id}/get-linear-org-and-team")
+def get_linear_org_and_teams(
+    organization_id: UUID,
+    linear_credential_id: int,
+    admin_user: User = Depends(current_admin_for_org),
+    db_session: Session = Depends(get_session),
+) -> LinearOrganizationSnapshot:
+    from digital_twin.utils.logging import setup_logger
+    logger = setup_logger(__name__)
+    logger.info("Getting Linear organization and teams")
+    linear_credential = fetch_credential_by_id_and_org(
+        linear_credential_id, 
+        admin_user, 
+        organization_id,
+        db_session
+    )
+    
+    if linear_credential is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Linear credential not found",
+        )
+    access_token = linear_credential.credential_json.get("linear_access_tokens")
+    if not access_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Linear credential, access_token not found",
+        )
+    
+    try:
+        linear_service = LinearGraphQLClient(access_token)
+        linear_org_and_teams = linear_service.get_user_organization_and_teams()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch Linear organization and teams: {str(e)}",
+        )
+    
+    return LinearOrganizationSnapshot(
+        name=linear_org_and_teams.name,
+        teams=linear_org_and_teams.teams,
+    )

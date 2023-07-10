@@ -80,7 +80,7 @@ def temp_solution_create_collection_if_not_exist(
         create_typesense_collection(collection_name=typesense_collection_name)
 
 @log_function_time()
-async def handle_digital_twin_command(
+async def handle_prosona_command(
     context: AsyncBoltContext,
     ack: AsyncAck,
     command: Union[str, Pattern],
@@ -99,7 +99,7 @@ async def handle_digital_twin_command(
         # Get the latest message from the channel
         past_messages = await retrieve_sorted_past_messages(client, context, thread_ts=None, limit_scanned_messages=1)
         query = past_messages[0]["text"]
-
+        logger.info(f"Retrieved query: {query}")
         async with get_async_session() as async_db_session:
             conversation_style, slack_chat_pairs, qdrant_collection_name, typesense_collection_name = await async_gather_preprocess_tasks(
                 async_db_session,
@@ -123,7 +123,7 @@ async def handle_digital_twin_command(
             vectordb = QdrantVectorDB(collection=qdrant_collection_name),
             keywordb = TypesenseIndex(collection=typesense_collection_name),
         )  
-        logger.info(f"Retrieved ranked chunks {ranked_chunks}")
+        #logger.info(f"Retrieved ranked chunks {ranked_chunks}")
 
         search_docs = chunks_to_search_docs(ranked_chunks)
         display_doc_view = get_view(
@@ -140,28 +140,29 @@ async def handle_digital_twin_command(
             query, 
             context_docs=ranked_chunks if ranked_chunks else [],
         )
-        if qa_response is not  None:
-            response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
-            processed_response = format_openai_to_slack(response)
-            private_metadata_str = json.dumps(
-                {"response": processed_response, "channel_id": channel_id,
-                    "query": query, "conversation_style": conversation_style}
-            )
-            response_view = get_view(
-                "response_command_modal", 
-                private_metadata_str=private_metadata_str, 
-                response=processed_response,
-                is_using_default_conversation_style=is_using_default_conversation_style,
-                is_hide_button=False,
-                search_docs=search_docs,
-            )
-            await client.views_update(view_id=view_id, view=response_view)
-            
+        
+        #response = await async_rephrase_response(slack_chat_pairs, conversation_style, query, slack_user_id, qa_response)
+        processed_response = format_openai_to_slack(qa_response if qa_response else "")
+        private_metadata_str = json.dumps(
+            {"response": processed_response, "channel_id": channel_id,
+                "query": query, "conversation_style": conversation_style}
+        )
+        response_view = get_view(
+            "response_command_modal", 
+            private_metadata_str=private_metadata_str, 
+            response=processed_response,
+            is_using_default_conversation_style=is_using_default_conversation_style,
+            is_hide_button=False,
+            search_docs=search_docs,
+        )
+        await client.views_update(view_id=view_id, view=response_view)
+        """    
         else:
             error_view = get_view("text_command_modal",
                                   text="Sorry, none of your documents are relevant to this question. ")
             await client.views_update(view_id=view_id, view=error_view)
-            return    
+            return  
+        """  
         return
     except Exception as e:
         logger.error(f"Error handling Prosona for {slack_user_id}: {e}")

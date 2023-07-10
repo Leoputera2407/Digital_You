@@ -75,7 +75,7 @@ def get_default_embedding_model(
 def perform_reciprocal_rank_fusion(
         semantic_top_chunks: Optional[List[InferenceChunk]], 
         keyword_top_chunks: Optional[List[InferenceChunk]],
-        lambda_weight: float
+        keyword_weight: float
 ) -> List[InferenceChunk]:
     """
     Perform Reciprocal Rank Fusion on search results.
@@ -89,7 +89,7 @@ def perform_reciprocal_rank_fusion(
     Args:
     semantic_top_chunks (List[InferenceChunk]): List of search results from the semantic search.
     keyword_top_chunks (List[InferenceChunk]): List of search results from the keyword search.
-    lambda_weight (float): Weight given to the keyword search in the RRF calculation.
+    keyword_weight (float): Weight given to the keyword search in the RRF calculation.
 
     Returns:
     List[InferenceChunk]: List of top reranked search results.
@@ -115,13 +115,13 @@ def perform_reciprocal_rank_fusion(
     for item in semantic_search_data:
         chunk = item['id']
         rank = item['rank']
-        combined_ranks[chunk] += lambda_weight / (rank + 1)
+        combined_ranks[chunk] += keyword_weight / (rank + 1)
     
     # Update the RRF scores for documents in semantic_search_data
     for item in keyword_search_data:
         chunk = item['id']
         rank = item['rank']
-        combined_ranks[chunk] += (1 - lambda_weight) / (rank + 1)
+        combined_ranks[chunk] += (1 - keyword_weight) / (rank + 1)
     
     # Sort the combined ranks in descending order
     combined_ranks_sorted = sorted(combined_ranks.items(), key=lambda item: item[1], reverse=True)

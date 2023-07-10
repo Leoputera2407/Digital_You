@@ -29,7 +29,7 @@ slack-bolt = "^1.18.0"
 qdrant-client = "^1.2.0"
 grpcio-tools = "^1.54.2"
 python-dotenv = "^1.0.0"
-langchain = "^0.0.219"
+langchain = "0.0.227"
 pydantic = {extras = ["email"], version = "^1.10.8"}
 google-api-python-client = "2.86.0"
 google-auth-httplib2 = "0.1.0"
@@ -48,6 +48,8 @@ asyncpg = "^0.27.0"
 psycopg2 = "^2.9.6"
 cohere = "^4.11.2"
 mailchimp-transactional = {git = "https://github.com/mailchimp/mailchimp-transactional-python.git"}
+promptlayer = "^0.1.91"
+jira = "^3.5.2"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

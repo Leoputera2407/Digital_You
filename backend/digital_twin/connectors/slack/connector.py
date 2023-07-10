@@ -1,12 +1,11 @@
 import json
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import cast, Any
 
 from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 from slack_sdk.web import SlackResponse
 
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
@@ -17,6 +16,12 @@ from digital_twin.connectors.interfaces import (
     PollConnector,
     SecondsSinceUnixEpoch,
 )
+from digital_twin.connectors.slack.utils import (
+    UserIdReplacer,
+    make_slack_api_call_paginated,
+    make_slack_api_rate_limited,
+)
+
 from digital_twin.connectors.model import Document, Section
 
 from digital_twin.connectors.slack.utils import get_message_link
@@ -26,8 +31,6 @@ from digital_twin.utils.slack import format_slack_to_openai
 
 logger = setup_logger()
 
-SLACK_LIMIT = 900
-
 
 ChannelType = dict[str, Any]
 MessageType = dict[str, Any]
@@ -35,61 +38,10 @@ MessageType = dict[str, Any]
 ThreadType = list[MessageType]
 
 
-def _make_slack_api_call_paginated(
-    call: Callable[..., SlackResponse],
-) -> Callable[..., list[dict[str, Any]]]:
-    """Wraps calls to slack API so that they automatically handle pagination"""
-
-    def paginated_call(**kwargs: Any) -> list[dict[str, Any]]:
-        results: list[dict[str, Any]] = []
-        cursor: str | None = None
-        has_more = True
-        while has_more:
-            for result in call(cursor=cursor, limit=SLACK_LIMIT, **kwargs):
-                has_more = result.get("has_more", False)
-                cursor = result.get("response_metadata", {}).get("next_cursor", "")
-                results.append(cast(dict[str, Any], result))
-        return results
-
-    return paginated_call
-
-
-def _make_slack_api_rate_limited(
-    call: Callable[..., SlackResponse], max_retries: int = 3
-) -> Callable[..., SlackResponse]:
-    """Wraps calls to slack API so that they automatically handle rate limiting"""
-
-    def rate_limited_call(**kwargs: Any) -> SlackResponse:
-        for _ in range(max_retries):
-            try:
-                # Make the API call
-                response = call(**kwargs)
-
-                # Check for errors in the response
-                if response.get("ok"):
-                    return response
-                else:
-                    raise SlackApiError("", response)
-
-            except SlackApiError as e:
-                if e.response["error"] == "ratelimited":
-                    # Handle rate limiting: get the 'Retry-After' header value and sleep for that duration
-                    retry_after = int(e.response.headers.get("Retry-After", 1))
-                    time.sleep(retry_after)
-                else:
-                    # Raise the error for non-transient errors
-                    raise
-
-        # If the code reaches this point, all retries have been exhausted
-        raise Exception(f"Max retries ({max_retries}) exceeded")
-
-    return rate_limited_call
-
-
 def _make_slack_api_call(
     call: Callable[..., SlackResponse], **kwargs: Any
 ) -> list[dict[str, Any]]:
-    return _make_slack_api_call_paginated(_make_slack_api_rate_limited(call))(**kwargs)
+    return make_slack_api_call_paginated(make_slack_api_rate_limited(call))(**kwargs)
 
 
 def get_channel_info(client: WebClient, channel_id: str) -> ChannelType:
@@ -112,7 +64,7 @@ def get_channel_messages(
     channel: dict[str, Any],
     oldest: str | None = None,
     latest: str | None = None,
-) -> list[MessageType]:
+) -> Generator[list[MessageType], None, None]:
     """Get all messages in a channel"""
     # join so that the bot can access messages
     if not channel["is_member"]:
@@ -120,15 +72,13 @@ def get_channel_messages(
             channel=channel["id"], is_private=channel["is_private"]
         )
 
-    messages: list[MessageType] = []
     for result in _make_slack_api_call(
         client.conversations_history,
         channel=channel["id"],
         oldest=oldest,
         latest=latest,
     ):
-        messages.extend(result["messages"])
-    return messages
+        yield cast(list[MessageType], result["messages"])
 
 
 def get_thread(client: WebClient, channel_id: str, thread_id: str) -> ThreadType:
@@ -141,7 +91,12 @@ def get_thread(client: WebClient, channel_id: str, thread_id: str) -> ThreadType
     return threads
 
 
-def thread_to_doc(workspace: str, channel: ChannelType, thread: ThreadType) -> Document:
+def thread_to_doc(
+    workspace: str,
+    channel: ChannelType,
+    thread: ThreadType,
+    user_id_replacer: UserIdReplacer,
+) -> Document:
     channel_id = channel["id"]
     return Document(
         id=f"{channel_id}__{thread[0]['ts']}",
@@ -150,7 +105,8 @@ def thread_to_doc(workspace: str, channel: ChannelType, thread: ThreadType) -> D
                 link=get_message_link(
                     event=m, workspace=workspace, channel_id=channel_id
                 ),
-                text=cast(str, format_slack_to_openai(m["text"])),
+                text=format_slack_to_openai(
+        user_id_replacer.replace_user_ids_with_names(cast(str, m["text"]))),
             )
             for m in thread
         ],
@@ -160,6 +116,7 @@ def thread_to_doc(workspace: str, channel: ChannelType, thread: ThreadType) -> D
     )
 
 
+# list of subtypes can be found here: https://api.slack.com/events/message
 _DISALLOWED_MSG_SUBTYPES = {
     "channel_join",
     "channel_leave",
@@ -175,6 +132,7 @@ _DISALLOWED_MSG_SUBTYPES = {
     "group_unarchive",
 }
 
+
 def _default_msg_filter(message: MessageType) -> bool:
     return message.get("subtype", "") in _DISALLOWED_MSG_SUBTYPES
 
@@ -185,47 +143,44 @@ def get_all_docs(
     oldest: str | None = None,
     latest: str | None = None,
     msg_filter_func: Callable[[MessageType], bool] = _default_msg_filter,
-) -> list[Document]:
-    """Get all documents in the workspace"""
-    channels = get_channels(client)
-    channel_id_to_channel_info = {channel["id"]: channel for channel in channels}
+) -> Generator[Document, None, None]:
+    """Get all documents in the workspace, channel by channel"""
+    user_id_replacer = UserIdReplacer(client=client)
 
-    channel_id_to_messages: dict[str, list[dict[str, Any]]] = {}
+    channels = get_channels(client)
+
     for channel in channels:
-        channel_id_to_messages[channel["id"]] = get_channel_messages(
+        channel_docs = 0
+        channel_message_batches = get_channel_messages(
             client=client, channel=channel, oldest=oldest, latest=latest
         )
 
-    channel_id_to_threads: dict[str, list[ThreadType]] = {}
-    for channel_id, messages in channel_id_to_messages.items():
-        final_threads: list[ThreadType] = []
-        for message in messages:
-            thread_ts = message.get("thread_ts")
-            if thread_ts:
-                thread = get_thread(
-                    client=client, channel_id=channel_id, thread_id=thread_ts
-                )
-                filtered_thread = [
-                    message for message in thread if not msg_filter_func(message)
-                ]
-                if filtered_thread:
-                    final_threads.append(filtered_thread)
-            elif not msg_filter_func(message):
-                final_threads.append([message])
-        channel_id_to_threads[channel_id] = final_threads
+        for message_batch in channel_message_batches:
+            for message in message_batch:
+                filtered_thread: ThreadType | None = None
+                thread_ts = message.get("thread_ts")
+                if thread_ts:
+                    thread = get_thread(
+                        client=client, channel_id=channel["id"], thread_id=thread_ts
+                    )
+                    filtered_thread = [
+                        message for message in thread if not msg_filter_func(message)
+                    ]
+                elif not msg_filter_func(message):
+                    filtered_thread = [message]
 
-    docs: list[Document] = []
-    for channel_id, threads in channel_id_to_threads.items():
-        docs.extend(
-            thread_to_doc(
-                workspace=workspace,
-                channel=channel_id_to_channel_info[channel_id],
-                thread=thread,
-            )
-            for thread in threads
+                if filtered_thread:
+                    channel_docs += 1
+                    yield thread_to_doc(
+                        workspace=workspace,
+                        channel=channel,
+                        thread=filtered_thread,
+                        user_id_replacer=user_id_replacer,
+                    )
+
+        logger.info(
+            f"Pulled {channel_docs} documents from slack channel {channel['name']}"
         )
-    logger.info(f"Pulled {len(docs)} documents from slack")
-    return docs
 
 
 class SlackLoadConnector(LoadConnector):
@@ -263,7 +218,7 @@ class SlackLoadConnector(LoadConnector):
                                 workspace=workspace,
                                 channel_id=channel["id"],
                             ),
-                            text=cast(str, format_slack_to_openai(slack_event["text"])),
+                            text=format_slack_to_openai(["text"]),
                         )
                     ],
                     source=matching_doc.source,
@@ -280,7 +235,7 @@ class SlackLoadConnector(LoadConnector):
                             workspace=workspace,
                             channel_id=channel["id"],
                         ),
-                        text=cast(str, format_slack_to_openai(slack_event["text"])),
+                        text=format_slack_to_openai(slack_event["text"]),
                     )
                 ],
                 source=DocumentSource.SLACK,
@@ -341,7 +296,9 @@ class SlackPollConnector(PollConnector):
             raise PermissionError(
                 "Slack Client is not set up, was load_credentials called?"
             )
-        all_docs = get_all_docs(
+
+        documents: list[Document] = []
+        for document in get_all_docs(
             client=self.client,
             workspace=self.workspace,
             # NOTE: need to impute to `None` instead of using 0.0, since Slack will
@@ -349,6 +306,11 @@ class SlackPollConnector(PollConnector):
             # retention
             oldest=str(start) if start else None,
             latest=str(end),
-        )
-        for i in range(0, len(all_docs), self.batch_size):
-            yield all_docs[i : i + self.batch_size]
+        ):
+            documents.append(document)
+            if len(documents) >= self.batch_size:
+                yield documents
+                documents = []
+
+        if documents:
+            yield documents

@@ -1,7 +1,6 @@
 import json
 import requests
 import secrets
-import base64
 import urllib.parse
 from uuid import UUID
 from typing import Dict
@@ -9,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from digital_twin.config.app_config import (
     WEB_DOMAIN,
-    NOTION_CLIENT_ID, 
-    NOTION_CLIENT_SECRET,
+    LINEAR_CLIENT_ID, 
+    LINEAR_CLIENT_SECRET,
 )
 from digital_twin.db.connectors.connectors_auth import (
     consume_csrf,
@@ -22,30 +21,30 @@ from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 
-DB_CREDENTIALS_DICT_KEY = "notion_access_tokens"
-BASE_URL = "https://api.notion.com"
+DB_CREDENTIALS_DICT_KEY = "linear_access_tokens"
+BASE_URL = "https://linear.app"
+API_BASE_URL = "https://api.linear.app"
+
+def _build_frontend_linear_redirect() -> str:
+    return f"{WEB_DOMAIN}/settings/connectors/linear/auth/callback"
 
 
-def _build_frontend_notion_redirect() -> str:
-    #return f"{WEB_DOMAIN}/connectors/notion/auth/callback"
-    # TODO: Remove once done testing
-    return f"{WEB_DOMAIN}/settings/connectors/notion/auth/callback"
-
-
-def get_auth_url(credential_id: int, db_session: Session) -> str:     
+def get_auth_url(credential_id: int, db_session: Session) -> str:
     csrf_token = secrets.token_urlsafe(32)  # Generates a URL-safe text string, containing 32 random bytes 
     db_csrf_token = store_csrf(credential_id, csrf_token, db_session)
     if not db_csrf_token:
         raise Exception("Failed to store linear state in db")
+
     params = {
-        "client_id": NOTION_CLIENT_ID,
-        "redirect_uri": _build_frontend_notion_redirect(),
+        "client_id": LINEAR_CLIENT_ID,
+        "redirect_uri": _build_frontend_linear_redirect(),
         "response_type": "code",
-        "state": db_csrf_token.csrf_token,
+        "scope": "read", 
+        "prompt": "consent",
+        "state": db_csrf_token.csrf_token, 
     }
 
-    auth_url = f"{BASE_URL}/v1/oauth/authorize?{urllib.parse.urlencode(params)}"
-
+    auth_url = f"{BASE_URL}/oauth/authorize?{urllib.parse.urlencode(params)}"
     
     return auth_url
 
@@ -60,7 +59,6 @@ def verify_csrf(
             "State from Linear callback does not match expected"
         )
 
-
 def update_credential_access_tokens(
     auth_code: str,
     credential_id: int,
@@ -69,24 +67,24 @@ def update_credential_access_tokens(
     db_session: Session,
 ) -> Dict[str, str] | None:
 
-    # encode in base 64
-    encoded = base64.b64encode(f"{NOTION_CLIENT_ID}:{NOTION_CLIENT_SECRET}".encode("utf-8")).decode("utf-8")
     headers = {
-        "Authorization": f"Basic {encoded}", 
-        "Content-Type": "application/json", 
-        "Notion-Version": "2022-06-28"
+        "Content-Type": "application/x-www-form-urlencoded", 
     }
 
     data = {
         'code': auth_code,
         'grant_type': 'authorization_code',
-        'redirect_uri': _build_frontend_notion_redirect()
+        'redirect_uri': _build_frontend_linear_redirect(),
+        'prompt': 'consent',
+        'client_id': LINEAR_CLIENT_ID,
+        'client_secret': LINEAR_CLIENT_SECRET,
     }
 
-    response = requests.post(f"{BASE_URL}/v1/oauth/token", headers=headers, json=data)
+    response = requests.post(f"{API_BASE_URL}/oauth/token", headers=headers, data=data)
 
     if response.status_code == 200:
         creds = response.json()
+
         new_creds_dict = {DB_CREDENTIALS_DICT_KEY: creds["access_token"]}
 
         if not update_credential_json(
@@ -99,5 +97,5 @@ def update_credential_access_tokens(
             return None
         return creds
     else:
-        logger.exception(f"Failed to update notion access token due to: {response.text}")
+        logger.exception(f"Failed to update Linear access token due to: {response.text}")
         return None

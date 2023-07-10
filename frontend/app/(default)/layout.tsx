@@ -26,11 +26,10 @@ export default function DefaultLayout({
   return (
     <>
       <Header />
-      
-      <main className="grow">
-
+      <main 
+        className="grow app-page-bg"
+      >
         {children}
-
       </main>
 
       <Footer />

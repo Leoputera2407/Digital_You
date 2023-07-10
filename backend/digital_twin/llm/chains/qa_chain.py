@@ -99,20 +99,27 @@ class StuffQA(BaseQA):
             template=prompt, input_variables=["context", "question"]
         )
 
-   
-    def format_documents(self, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
+    def format_documents(self, documents: List[InferenceChunk], add_metadata:bool = False) -> str:
         """Format the documents for the prompt."""
-        formatted_docs = ""
-        for ranked_document in documents:
-            formatted_docs += f"{DOC_SEP_PAT}\n"
-            if add_metadata:
-                formatted_docs = self.add_metadata_section(formatted_docs, ranked_document)
-            formatted_docs += f"{ranked_document.content}\n"
-        return formatted_docs.strip()
+        return "".join(
+            f"{DOC_SEP_PAT}\n{ranked_document.content}\n"
+            for ranked_document in documents
+        ).strip()
+    
+    # def format_documents(self, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
+    #     """Format the documents for the prompt."""
+    #     formatted_docs = ""
+    #     for ranked_document in documents:
+    #         formatted_docs += f"{DOC_SEP_PAT}\n"
+    #         if add_metadata:
+    #             formatted_docs = add_metadata_section(formatted_docs, ranked_document)
+    #         formatted_docs += f"{ranked_document.content}\n"
+    #     return formatted_docs.strip()
+    
 
-    def create_prompt(self, question: str, documents: List[InferenceChunk]) -> str:
+    def create_prompt(self, question: str, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
         """Create a formatted prompt with the given question and documents."""
-        context = self.format_documents(documents)
+        context = self.format_documents(documents, add_metadata=add_metadata)
         return self.prompt.format_prompt(
             question=question, context=context
         ).to_string()

@@ -44,6 +44,16 @@ class QAModel:
     ]:
         raise NotImplementedError
     
+    @abc.abstractmethod
+    async def async_answer_question_and_verify(
+        self,
+        query: str,
+        context_docs: List[InferenceChunk],
+        prompt: PromptTemplate = None,
+    ) -> Tuple[
+        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
+    ]:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def answer_question_stream(

@@ -1,5 +1,12 @@
 import type { Axios } from "axios";
-import { ConfluenceTestBase, Connector, ConnectorBase, Credential, GithubTestBase } from "./types";
+import {
+  ConfluenceTestBase,
+  Connector,
+  ConnectorBase,
+  Credential,
+  GithubTestBase,
+  LinearOrganizationSnapshot,
+} from "./types";
 
 export async function createConnector<T>(
   axiosInstance: Axios,
@@ -192,4 +199,26 @@ export async function testConfluenceAccessToken(
       return { data: null, error: error.message };
     }
   }
+}
+
+
+export async function fetchLinearOrgAndTeam(
+  axiosInstance: Axios,
+  organizationId: string,
+  linearCredentialId: number,
+): Promise<LinearOrganizationSnapshot> {
+  const response = await axiosInstance.get<LinearOrganizationSnapshot>(
+    `/api/connector/admin/${organizationId}/get-linear-org-and-team`,
+    {
+      params: {
+        linear_credential_id: linearCredentialId
+      }
+    }
+  );
+  
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Failed to fetch Linear organization and team - ${response.status}`);
+  }
+
+  return response.data;
 }

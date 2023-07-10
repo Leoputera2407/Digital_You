@@ -1,11 +1,16 @@
 import inspect
 import json
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, cast
 
 from digital_twin.config.constants import METADATA, SOURCE_LINKS
 from digital_twin.connectors.model import Document
 
+
+class IndexType(Enum):
+    QDRANT = "qdrant"
+    TYPESENSE = "typesense"
 
 @dataclass
 class BaseChunk:
@@ -35,9 +40,11 @@ class InferenceChunk(BaseChunk):
     source_type: str
     semantic_identifier: str
     metadata: dict[str, Any]
+    score_info: dict[str, Any] 
+    index_type: IndexType 
 
     @classmethod
-    def from_dict(cls, init_dict: dict[str, Any]) -> "InferenceChunk":
+    def from_dict(cls, init_dict: dict[str, Any], score_info: dict[str, Any], index_type: IndexType) -> "InferenceChunk":
         init_kwargs = {
             k: v
             for k, v in init_dict.items()
@@ -55,4 +62,8 @@ class InferenceChunk(BaseChunk):
 
         if METADATA in init_kwargs:
             init_kwargs[METADATA] = json.loads(init_kwargs[METADATA])
+        
+        init_kwargs["score_info"] = score_info
+        init_kwargs["index_type"] = index_type
         return cls(**init_kwargs)
+    

@@ -8,7 +8,7 @@ import {
   GiOpenBook
 } from "react-icons/gi";
 
-import Card from "../lib/Card";
+import Card from "./ui/Card";
 
 const Features_new = (): JSX.Element => {
   return (

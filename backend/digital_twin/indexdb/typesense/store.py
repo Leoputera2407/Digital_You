@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 
-from digital_twin.config.app_config import TYPESENSE_DEFAULT_COLLECTION
+from digital_twin.config.app_config import TYPESENSE_DEFAULT_COLLECTION, NUM_RETURNED_HITS
 from digital_twin.config.constants import (
     ALLOWED_USERS,
     ALLOWED_GROUPS,
@@ -28,11 +28,15 @@ from digital_twin.indexdb.utils import (
     update_doc_user_map,
 )
 from digital_twin.indexdb.chunking.models import (
+    IndexType,
     EmbeddedIndexChunk,
     IndexChunk,
     InferenceChunk,
 )
-from digital_twin.indexdb.interface import IndexDBFilter, KeywordIndex
+from digital_twin.indexdb.interface import (
+    IndexDBFilter, 
+    KeywordIndex,
+)
 from digital_twin.utils.clients import get_typesense_client
 from digital_twin.utils.logging import setup_logger
 
@@ -55,7 +59,7 @@ def check_typesense_collection_exist(
 def create_typesense_collection(
     collection_name: str = TYPESENSE_DEFAULT_COLLECTION,
 ) -> None:
-    client = get_typesense_client()
+    ts_client = get_typesense_client()
     collection_schema = {
         "name": collection_name,
         "fields": [
@@ -71,19 +75,18 @@ def create_typesense_collection(
             {"name": SECTION_CONTINUATION, "type": "bool"},
             {"name": ALLOWED_USERS, "type": "string[]"},
             {"name": ALLOWED_GROUPS, "type": "string[]"},
-            {"name": METADATA, "type": "string"},
         ],
     }
-    client.collections.create(collection_schema)
+    ts_client.collections.create(collection_schema)
 
 
 def get_typesense_document_whitelists(
-    doc_chunk_id: str, collection_name: str, client: typesense.Client
+    doc_chunk_id: str, collection_name: str, ts_client: typesense.Client
 ) -> tuple[bool, list[str], list[str]]:
     """Returns whether the document already exists and the users/group whitelists"""
     try:
         document = (
-            client.collections[collection_name].documents[doc_chunk_id].retrieve()
+            ts_client.collections[collection_name].documents[doc_chunk_id].retrieve()
         )
     except ObjectNotFound:
         return False, [], []
@@ -113,7 +116,7 @@ def index_typesense_chunks(
     batch_upsert: bool = True,
 ) -> int:
     user_str = PUBLIC_DOC_PAT if user_id is None else str(user_id)
-    client: typesense.Client = client if client else get_typesense_client()
+    ts_client: typesense.Client = client if client else get_typesense_client()
 
     new_documents: list[dict[str, Any]] = []
     doc_user_map: dict[str, dict[str, list[str]]] = {}
@@ -126,7 +129,7 @@ def index_typesense_chunks(
             partial(
                 get_typesense_document_whitelists,
                 collection_name=collection,
-                ts_client=client,
+                ts_client=ts_client,
             ),
             user_str,
         )
@@ -134,7 +137,7 @@ def index_typesense_chunks(
         if delete_doc:
             # Processing the first chunk of the doc and the doc exists
             docs_deleted += 1
-            delete_typesense_doc_chunks(document.id, collection, client)
+            delete_typesense_doc_chunks(document.id, collection, ts_client)
 
         new_documents.append(
             {
@@ -149,7 +152,6 @@ def index_typesense_chunks(
                 SECTION_CONTINUATION: chunk.section_continuation,
                 ALLOWED_USERS: doc_user_map[document.id][ALLOWED_USERS],
                 ALLOWED_GROUPS: doc_user_map[document.id][ALLOWED_GROUPS],
-                METADATA: json.dumps(document.metadata),
             }
         )
 
@@ -159,7 +161,7 @@ def index_typesense_chunks(
             for x in range(0, len(new_documents), DEFAULT_BATCH_SIZE)
         ]
         for doc_batch in doc_batches:
-            results = client.collections[collection].documents.import_(
+            results = ts_client.collections[collection].documents.import_(
                 doc_batch, {"action": "upsert"}
             )
             failures = [
@@ -173,7 +175,7 @@ def index_typesense_chunks(
             )
     else:
         [
-            client.collections[collection].documents.upsert(document)
+            ts_client.collections[collection].documents.upsert(document)
             for document in new_documents
         ]
 
@@ -228,13 +230,15 @@ class TypesenseIndex(KeywordIndex):
         query: str,
         user_id: UUID | None,
         filters: list[IndexDBFilter] | None,
-        num_to_retrieve: int,
+        num_to_retrieve: int = NUM_RETURNED_HITS,
     ) -> list[InferenceChunk]:
         filters_str = _build_typesense_filters(user_id, filters)
 
         search_query = {
             "q": query,
-            "query_by": CONTENT,
+            # Often, data_source semantic identifiers are file names or title or summaries
+            "query_by": f"{CONTENT}, {SEMANTIC_IDENTIFIER}",
+            "query_by_weight": "1,3",
             "filter_by": filters_str,
             "per_page": num_to_retrieve,
             "limit_hits": num_to_retrieve,
@@ -251,6 +255,11 @@ class TypesenseIndex(KeywordIndex):
         )
 
         hits = search_results["hits"]
-        inference_chunks = [InferenceChunk.from_dict(hit["document"]) for hit in hits]
+        inference_chunks = [
+            InferenceChunk.from_dict(
+                hit["document"],
+                hit.get("text_match_info", None),
+                IndexType.TYPESENSE.value,
+            ) for hit in hits]
 
         return inference_chunks

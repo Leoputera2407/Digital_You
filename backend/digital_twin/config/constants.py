@@ -47,6 +47,8 @@ class DocumentSource(str, Enum):
     CONFLUENCE = "confluence"
     ADHOC_UPLOAD = "file_upload"
     NOTION = "notion"
+    JIRA = "jira"
+    LINEAR = "linear"
 
 class UserRole(str, Enum):
     BASIC = "basic"

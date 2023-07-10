@@ -10,6 +10,8 @@ from digital_twin.connectors.web.connector import WebConnector
 from digital_twin.connectors.confluence.connector import ConfluenceConnector
 from digital_twin.connectors.adhoc_upload.connector import AdhocUploadConnector
 from digital_twin.connectors.notion.connector import NotionConnector
+from digital_twin.connectors.jira.connector import JiraConnector
+from digital_twin.connectors.linear.connector import LinearConnector
 
 
 from digital_twin.connectors.interfaces import (
@@ -27,21 +29,24 @@ class ConnectorMissingException(Exception):
     pass
 
 
+CONNECTOR_MAP = {
+    DocumentSource.GITHUB: GithubConnector,
+    DocumentSource.GOOGLE_DRIVE: GoogleDriveConnector,
+    DocumentSource.CONFLUENCE: ConfluenceConnector,
+    DocumentSource.NOTION: NotionConnector,
+    DocumentSource.SLACK: {
+        InputType.LOAD_STATE: SlackLoadConnector,
+        InputType.POLL: SlackPollConnector,
+    },
+    DocumentSource.JIRA: JiraConnector,
+    DocumentSource.LINEAR: LinearConnector,
+}
+
 def identify_connector_class(
     source: DocumentSource,
     input_type: InputType,
 ) -> Type[BaseConnector]:
-    connector_map = {
-        DocumentSource.GITHUB: GithubConnector,
-        DocumentSource.GOOGLE_DRIVE: GoogleDriveConnector,
-        DocumentSource.CONFLUENCE: ConfluenceConnector,
-        DocumentSource.NOTION: NotionConnector,
-        DocumentSource.SLACK: {
-            InputType.LOAD_STATE: SlackLoadConnector,
-            InputType.POLL: SlackPollConnector,
-        },    
-    }
-    connector_by_source = connector_map.get(source, {})
+    connector_by_source = CONNECTOR_MAP.get(source, {})
 
     if isinstance(connector_by_source, dict):
         if input_type is None:

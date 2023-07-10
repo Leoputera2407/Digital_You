@@ -10,6 +10,7 @@ import { AnyCredentialJson, ValidDataSourceTypesArray } from "@/lib/types";
 import ConfluenceConnector from "./confluence/connector";
 import GithubConnector from "./github/connector";
 import GoogleDriveConnector from "./google-drive/connector";
+import LinearConnector from "./linear/connector";
 import NotionConnector from "./notion/connector";
 import SlackConnector from "./slack/connector";
 
@@ -85,6 +86,13 @@ export default function ConnectorMenuPage() {
         isConnectorCredentialLoading={isConnectorCredentialLoading}
       />
       <ConfluenceConnector
+        currentOrganization={currentOrganization}
+        connectorIndexingStatuses={connectorIndexingStatuses}
+        credentialsData={credentialsData}
+        connectorsData={connectorsData}
+        isConnectorCredentialLoading={isConnectorCredentialLoading}
+      />
+      <LinearConnector
         currentOrganization={currentOrganization}
         connectorIndexingStatuses={connectorIndexingStatuses}
         credentialsData={credentialsData}

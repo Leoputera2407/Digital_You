@@ -1,17 +1,16 @@
 "use client";
 import {
   Info,
-  Key,
   Lightning,
   LightningSlash,
-  Notebook,
   Plug,
   Trash,
-  XSquare,
+  XSquare
 } from "@phosphor-icons/react";
+import { BsPeopleFill } from "react-icons/bs";
 import { FaGlobe } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
-import { SiConfluence, SiGithub, SiGoogledrive, SiNotion, SiSlack } from "react-icons/si";
+import { SiConfluence, SiGithub, SiGoogledrive, SiJira, SiLinear, SiNotion, SiSlack } from "react-icons/si";
 
 interface IconProps {
   size?: string;
@@ -27,18 +26,11 @@ export const PlugIcon = ({
   return <Plug size={size} className={className} />;
 };
 
-export const NotebookIcon = ({
+export const WorkspaceIcon = ({
   size = "16",
   className = defaultTailwindCSS,
 }: IconProps) => {
-  return <Notebook size={size} className={className} />;
-};
-
-export const KeyIcon = ({
-  size = "16",
-  className = defaultTailwindCSS,
-}: IconProps) => {
-  return <Key size={size} className={className} />;
+  return <BsPeopleFill size={size} className={className} />;
 };
 
 export const TrashIcon = ({
@@ -110,6 +102,20 @@ export const NotionIcon = ({
 }: IconProps) => {
   return <SiNotion size={size} className={className} />;
 };
+
+export const LinearIcon = ({
+  size = "16",
+  className = defaultTailwindCSS,
+}: IconProps) => {
+  return <SiLinear size={size} className={className} />;
+}
+
+export const JiraIcon = ({
+  size = "16",
+  className = defaultTailwindCSS,
+}: IconProps) => {
+  return <SiJira size={size} className={className} />;
+}
 
 export const InfoIcon = ({
   size = "16",

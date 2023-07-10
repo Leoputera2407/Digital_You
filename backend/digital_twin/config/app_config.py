@@ -42,11 +42,11 @@ QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
 QDRANT_PORT = 6333
 
 # The first few sentences for each Section in a Chunk
-BLURB_LENGTH = 500 
+BLURB_LENGTH = 200 
 # Chunking docs to this number of characters not including finishing the last word and the overlap words below
 # Calculated by ~4000 to 8192 tokens max * average 4 chars per token
 # I'll be consersative and pick 2000 tokens
-CHUNK_SIZE = 8000
+CHUNK_SIZE = 2000
 BATCH_SIZE_ENCODE_CHUNKS = 8
 # Each chunk includes an additional 5 `words` from previous chunk
 # in extreme cases, may cause some words at the end to be truncated by embedding model
@@ -54,7 +54,7 @@ CHUNK_OVERLAP = 5
 # Number of documents in a batch during indexing (further batching done by chunks before passing to bi-encoder)
 INDEX_BATCH_SIZE = 16
 
-NUM_RETURNED_HITS = 100
+NUM_RETURNED_HITS = 50
 NUM_RERANKED_RESULTS = 15
 # Better to keep it loose, surfacing more results better than missing results
 SEARCH_DISTANCE_CUTOFF = 0.1  # Cosine similarity (currently), range of -1 to 1 with -1 being completely opposite
@@ -99,6 +99,11 @@ SLACK_DAYS_TO_RESCRAPE=30
 NOTION_CLIENT_ID=os.environ.get("NOTION_CLIENT_ID", "")
 NOTION_CLIENT_SECRET=os.environ.get("NOTION_CLIENT_SECRET", "")
 
+#########################
+# Linear Configurations #
+#########################
+LINEAR_CLIENT_ID=os.environ.get("LINEAR_CLIENT_ID", "")
+LINEAR_CLIENT_SECRET=os.environ.get("LINEAR_CLIENT_SECRET", "")
 
 #####################
 # QA Config         #
@@ -136,7 +141,7 @@ COHERE_KEY=os.environ.get("COHERE_KEY", "")
 #####################
 # Connector Configs #
 #####################
-GOOGLE_DRIVE_INCLUDE_SHARED = False
+GOOGLE_DRIVE_INCLUDE_SHARED = True
 
 #####################
 # PromptLayer      #

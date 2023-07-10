@@ -1,12 +1,15 @@
 import time
-from dateutil import parser
 from sqlalchemy.orm import Session
 
-from digital_twin.connectors.factory import instantiate_connector
+from digital_twin.connectors.factory import instantiate_connector, CONNECTOR_MAP
 from digital_twin.connectors.interfaces import LoadConnector, PollConnector
 from digital_twin.connectors.model import InputType
 
-from digital_twin.db.connectors.connectors import fetch_connectors, backend_disable_connector
+from digital_twin.db.connectors.connectors import (
+    fetch_connectors, 
+    backend_disable_connector,
+    update_connector,
+)
 from digital_twin.db.connectors.credentials import backend_update_credential_json
 from digital_twin.db.engine import get_db_current_time, get_sqlalchemy_engine
 from digital_twin.db.connectors.connector_credential_pair import (
@@ -71,6 +74,14 @@ def should_create_new_indexing(
     time_since_index = current_db_time - last_index.updated_at
     return time_since_index.total_seconds() >= connector.refresh_freq
 
+def should_change_to_polling_connector(
+    connector: Connector
+) -> bool:
+    connector_class = CONNECTOR_MAP[connector.source]
+    if issubclass(connector_class, PollConnector):
+        return True
+    else:
+        return False
 
 def create_indexing_jobs(db_session: Session) -> None:
     connectors = fetch_connectors(db_session, disabled_status=False)
@@ -107,6 +118,33 @@ def create_indexing_jobs(db_session: Session) -> None:
                 connector, last_successful_attempt, db_session
             ):
                 continue
+
+            # If Polling exists, we should change to polling connector
+            if should_change_to_polling_connector(
+                connector
+            ):
+                new_connector = Connector(
+                    name=connector.name,
+                    source=connector.source,
+                    connector_specific_config=connector.connector_specific_config,
+                    input_type=InputType.POLL,
+                    refresh_freq=connector.refresh_freq,
+                    disabled=connector.disabled,
+                    organization_id=connector.organization_id
+                )
+                updated_connector = update_connector(
+                    connector_id=connector.id,
+                    connector_data=new_connector,
+                    organization_id=connector.organization_id,
+                    db_session=db_session,
+                )
+                if updated_connector is None:
+                    logger.error(
+                        f"Failed to update connector: {connector.id} to polling connector, continuing "
+                        "as load all connector"
+                    )
+                    continue
+                
             create_index_attempt(connector.id, credential.id, db_session)
 
             backend_update_connector_credential_pair(
@@ -119,8 +157,6 @@ def create_indexing_jobs(db_session: Session) -> None:
 
 
 def run_indexing_jobs(db_session: Session) -> None:
-    
-
     new_indexing_attempts = get_not_started_index_attempts(db_session)
     logger.info(f"Found {len(new_indexing_attempts)} new indexing tasks.")
     for attempt in new_indexing_attempts:

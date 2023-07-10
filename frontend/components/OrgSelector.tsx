@@ -22,13 +22,16 @@ const OrganizationSelect: React.FC = () => {
       onValueChange={handleOrganizationChange}
       disabled={isDisabled}
     >
-      <SelectTrigger className="w-[250px]">
+      <SelectTrigger className="w-full flex justify-between items-center">
         <span className="text-gray-500 mr-2">Organization: </span>
-        <SelectValue placeholder="Select an organization" className="font-bold"/>
+        <SelectValue 
+         placeholder="Select an organization" 
+         className="font-bold overflow-hidden overflow-ellipsis whitespace-nowrap flex-1 text-right"
+        />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="relative z-10  bg-white">
         {organizations && organizations.map(org => (
-          <SelectItem key={org.id} value={org.id}>
+          <SelectItem key={org.id} value={org.id}  className="text-gray-900">
             {org.name}
           </SelectItem>
         ))}

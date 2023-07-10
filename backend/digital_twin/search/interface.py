@@ -1,14 +1,13 @@
 import json
 import asyncio
-import math
 import numpy as np
+import cohere
+
 from uuid import UUID
-
 from typing import List, Optional
-
 from langchain.embeddings.base import Embeddings
 from sentence_transformers import SentenceTransformer
-import cohere
+from cohere.responses.rerank import RerankResult
 
 from digital_twin.config.app_config import (
     NUM_RETURNED_HITS,
@@ -50,17 +49,15 @@ def semantic_reranking(
     Rerank the chunks based on the semantic similarity between the query and the chunks 
     """
     co = cohere.Client(COHERE_KEY)
-    chunks_sorted = []
-    content = []
-    for chunk in chunks:
-        content.append(chunk['content'])
-    results = co.rerank(query=query, documents=content, top_n=num_rerank, model='rerank-english-v2.0')
-    zipped_results = [{'chunk': inp, 'score': score.relevance_score} for inp, score in zip(chunks, results)]
-    results_sorted = sorted(zipped_results, key=lambda x: x['score'], reverse=True)
-    for result in results_sorted:
-        chunks_sorted.append(result['chunk'])
-    return chunks_sorted
-
+    _documents = [chunk.content for chunk in chunks]
+   
+    results: List[RerankResult] = co.rerank(query=query, documents=_documents, top_n=num_rerank, model='rerank-english-v2.0')
+    reranked_chunks = []
+    for r in results:
+        doc = chunks[r.index]
+        doc.score_info["rerank_score"] = r.relevance_score        
+        reranked_chunks.append(doc)
+    return reranked_chunks
 
 @log_function_time()
 def retrieve_semantic_documents(
@@ -182,13 +179,16 @@ async def async_retrieve_hybrid_reranked_documents(
         semantic_top_chunks_future,
         keyword_top_chunks_future,
     )
+    logger.info(f"semantic_top_chunks: {[{'semantic_identifier': chunk.semantic_identifier} for chunk in semantic_top_chunks]}")
+    logger.info(f"keyword_top_chunks: {[{'semantic_identifier': chunk.semantic_identifier} for chunk in keyword_top_chunks]}")  
     if not semantic_top_chunks and not keyword_top_chunks:
         logger.warning("Both semantic_top_chunks and keyword_top_chunks are empty.")
         return None, None
     
     rrf_combined_chunks = perform_reciprocal_rank_fusion(
-        semantic_top_chunks, keyword_top_chunks, lambda_weight = 0.5
+        semantic_top_chunks, keyword_top_chunks, keyword_weight = 0.3
     )
+    logger.info(f"rrf_combined_chunks: {[{'semantic_identifier': chunk.semantic_identifier} for chunk in rrf_combined_chunks]}")
         
     ranked_chunks = semantic_reranking(
         query, 
@@ -234,9 +234,10 @@ def encode_chunks(
         chunk_texts[i: i + batch_size] for i in range(0, len(chunk_texts), batch_size)
     ]
     if isinstance(embedding_model, Embeddings):
-        embeddings: list[list[float]] = embedding_model.embed_documents(
-            text_batches[0]
-        )
+        if len(text_batches) > 0:
+            embeddings: list[list[float]] = embedding_model.embed_documents(
+                text_batches[0]
+            )
     elif isinstance(embedding_model, SentenceTransformer):
         embeddings_np: list[np.ndarray] = []
         for text_batch in text_batches:

@@ -50,7 +50,6 @@ function getStatusDisplay<ConnectorConfigType>(
 }
 
 
-
 function getFormattedTimeDifference(lastSuccess: string): string {
   const now = dayjs();
   const lastSuccessDate = dayjs(lastSuccess);

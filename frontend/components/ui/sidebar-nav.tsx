@@ -1,19 +1,19 @@
-"use client"
-
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-
-import { cn } from "@/lib/utils"
+"use client";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
   items: {
-    href: string
-    title: string
-  }[]
+    href: string;
+    title: string;
+    icon: JSX.Element;
+  }[];
 }
 
 export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
-  const pathname = usePathname()
+  const pathname = usePathname();
+
 
   return (
     <nav
@@ -24,20 +24,21 @@ export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
       {...props}
     >
       {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            "hover:bg-accent hover:text-accent-foreground",
-            pathname === item.href
-              ? "bg-muted hover:bg-muted"
-              : "hover:bg-transparent hover:underline",
-            "justify-start"
-          )}
-        >
-          {item.title}
+        <Link key={item.href} href={item.href}>
+           <div
+            className={cn(
+              "flex items-center space-x-2 px-2 py-1 rounded-lg mr-2",
+              pathname === item.href
+                ? "bg-gray-300 bg-opacity-20 hover:bg-gray-300 hover:bg-opacity-20"
+                : "hover:bg-transparent hover:underline",
+              "justify-start cursor-pointer"
+            )}
+          >
+            {item.icon}
+            <span>{item.title}</span>
+          </div>
         </Link>
       ))}
     </nav>
-  )
+  );
 }

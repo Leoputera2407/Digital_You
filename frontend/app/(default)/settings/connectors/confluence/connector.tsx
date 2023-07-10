@@ -50,7 +50,7 @@ interface FormValues {
 }
 interface InitialConnectFormProps {
   onSubmitUpsert: (data: any) => void;
-  orgnizationId: string | undefined;
+  organizationId: string | undefined;
 }
 
 const confluenceConnectorNameBuilder = (wiki_page_url: string): string => {
@@ -108,7 +108,7 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <AuthButton className="btn text-sm text-white bg-purple-500 hover:bg-purple-600 shadow-sm group">
+        <AuthButton className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow">
           Connect
         </AuthButton>
       </DialogTrigger>
@@ -290,7 +290,7 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
             confluenceConnector === undefined ? (
             <InitialConnectForm
               onSubmitUpsert={handleConnect}
-              orgnizationId={currentOrganization?.id}
+              organizationId={currentOrganization?.id}
             />
           ) : (
             <AuthButton

@@ -48,11 +48,6 @@ export interface UserOrgResponse {
   organizations: OrganizationBase[];
 }
 
-export type SupportedModels = "GPT3_5" | "GPT4" | "ANTROPHIC";
-export const SupportedModelsArray: [SupportedModels, SupportedModels, SupportedModels] = ["GPT3_5", "GPT4", "ANTROPHIC"];
-
-export type APIKeyType = "anthrophic_api_key" | "openai_api_key" | "slack_bot_key";
-export const ModelAPIKeyTypesArray: [APIKeyType, APIKeyType] = ["anthrophic_api_key", "openai_api_key"];
 
 export type ValidSources =
   | "web"
@@ -60,15 +55,25 @@ export type ValidSources =
   | "slack"
   | "google_drive"
   | "confluence"
-  | "notion";
+  | "notion"
+  | "linear"
+  | "jira";
 
-export const ValidConnectorSourceTypesArray: [ValidSources, ValidSources, ValidSources, ValidSources, ValidSources] = 
-  ["google_drive", "notion", "github", "slack", "confluence"]
+export const ValidConnectorSourceTypesArray: [ValidSources, ValidSources, ValidSources, ValidSources, ValidSources, ValidSources, ValidSources] = 
+  ["google_drive", "notion", "github", "slack", "confluence", "linear", "jira"]
 
 export const ValidDataSourceTypesArray: [ValidSources] 
   = ["web"]
 
 export type ValidInputTypes = "load_state" | "poll" | "event";
+
+export interface LinearOrganizationSnapshot {
+  name: string;
+  teams: {
+    id: string;
+    name: string;
+  }[];
+}
 
 // CONNECTORS
 export interface ConnectorBase<T> {
@@ -100,7 +105,14 @@ export interface ConfluenceConfig {
 export interface SlackConfig {
   workspace: string;
 }
-
+export interface JiraConfig {
+  jira_project_url: string;
+}
+export interface LinearConfig {
+  workspace: string;
+  team_name: string;
+  team_id: string;
+}
 
 export interface ConnectorIndexingStatus<T> {
   connector: Connector<T>;
@@ -145,21 +157,21 @@ export interface NotionCredentialJson {
   notion_access_tokens: string;
 }
 
+export interface LinearCredentialJson {
+  linear_access_tokens: string;
+}
+
+export interface JiraCredentialJson {
+  jira_user_email: string;
+  jira_api_token: string;
+}
+
 export type AnyCredentialJson = 
   | GithubCredentialJson 
   | ConfluenceCredentialJson 
   | SlackCredentialJson 
   | GoogleDriveCredentialJson
-  | NotionCredentialJson;
-
-
-export interface APIKeyJson {
-  key_type: APIKeyType;
-  key_value: string;
-}
-
-export interface BaseModelJson {
-  supported_model_enum: SupportedModels;
-  temperature: number;
-}
+  | NotionCredentialJson 
+  | LinearCredentialJson
+  | JiraCredentialJson;
 

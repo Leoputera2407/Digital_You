@@ -20,8 +20,12 @@ from digital_twin.indexdb.utils import get_uuid_from_chunk
 from digital_twin.indexdb.chunking.models import (
     EmbeddedIndexChunk,
     InferenceChunk,
+    IndexType,
 )
-from digital_twin.indexdb.interface import VectorIndexDB, IndexDBFilter
+from digital_twin.indexdb.interface import (
+    VectorIndexDB, 
+    IndexDBFilter,
+)
 from digital_twin.indexdb.qdrant.indexing import index_qdrant_chunks
 from digital_twin.utils.clients import get_qdrant_client
 from digital_twin.utils.timing import log_function_time
@@ -144,7 +148,13 @@ class QdrantVectorDB(VectorIndexDB):
                 break
 
             inference_chunks_from_hits = [
-                InferenceChunk.from_dict(hit.payload)
+                InferenceChunk.from_dict(
+                    hit.payload,
+                    score_info={
+                        "score": hit.score, 
+                    },
+                    index_type=IndexType.QDRANT.value,
+                )
                 for hit in hits
                 if hit.payload is not None
             ]
@@ -174,4 +184,9 @@ class QdrantVectorDB(VectorIndexDB):
         if not match.payload:
             return None
 
-        return InferenceChunk.from_dict(match.payload)
+        return InferenceChunk.from_dict(
+            match.payload,
+            # Not applicable here
+            score_info={},
+            index_type=IndexType.QDRANT.value,
+        )

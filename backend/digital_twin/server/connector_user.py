@@ -14,18 +14,24 @@ from digital_twin.server.model import (
     CredentialSnapshot,
     GDriveCallback,
     NotionCallback,
+    LinearCallback,
     # GoogleAppWebCredentials,
     ObjectCreationIdResponse,
     StatusResponse,
 )
-from digital_twin.db.model import (
-    Credential,
-    User,
-)
+from digital_twin.db.model import User
+
 
 from digital_twin.connectors.notion.connector_auth import (
     get_auth_url as get_notion_auth_url,
     update_credential_access_tokens as update_notion_credential_access_tokens,
+    verify_csrf as verify_notion_csrf,
+)
+
+from digital_twin.connectors.linear.connector_auth import (
+    get_auth_url as get_linear_auth_url,
+    update_credential_access_tokens as update_linear_credential_access_tokens,
+    verify_csrf as verify_linear_csrf,
 )
 
 from digital_twin.connectors.google_drive.connector_auth import (
@@ -105,7 +111,7 @@ def google_drive_callback(
     organization_id_cookie = request.cookies.get(_GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME)
     if credential_id_cookie is None or not credential_id_cookie.isdigit():
         raise HTTPException(
-            status_code=401, detail="Request did not pass CSRF verification."
+            status_code=401, detail="Credential ID did not pass verification."
         )
     if organization_id_cookie is None:
         raise HTTPException(
@@ -140,6 +146,7 @@ def notion_auth(
     organization_id: UUID,
     credential_id: str,
     _: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
 ) -> AuthUrl:
     # set a cookie that we can read in the callback (used for `verify_csrf`)
     response.set_cookie(
@@ -164,7 +171,10 @@ def notion_auth(
         secure=True,
         max_age=600,
     )
-    return AuthUrl(auth_url=get_notion_auth_url())
+    return AuthUrl(auth_url=get_notion_auth_url(
+        credential_id,
+        db_session,
+    ))
 
 @router.get("/notion/callback")
 def notion_callback(
@@ -178,7 +188,7 @@ def notion_callback(
 
     if credential_id_cookie is None or not credential_id_cookie.isdigit():
         raise HTTPException(
-            status_code=401, detail="Request did not pass CSRF verification."
+            status_code=401, detail="Credential ID did not pass verification."
         )
     if organization_id_cookie is None:
         raise HTTPException(
@@ -186,6 +196,7 @@ def notion_callback(
         )
     credential_id = int(credential_id_cookie)
     organization_id = UUID(organization_id_cookie)
+    verify_notion_csrf(credential_id, callback.state, db_session)
     if (
         update_notion_credential_access_tokens(
             callback.code, 
@@ -201,6 +212,84 @@ def notion_callback(
         )
 
     return StatusResponse(success=True, message="Updated Notion access tokens")
+
+LINEAR_CREDENTIAL_ID_COOKIE_NAME = "linear_credential_id"
+LINEAR_ORGANIZATION_ID_COOKIE_NAME = "linear_organization_id"
+
+@router.get("/{organization_id}/linear/authorize/{credential_id}", response_model=AuthUrl)
+def linear_auth(
+    response: Response, 
+    organization_id: UUID,
+    credential_id: str,
+    _: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> AuthUrl:
+    # set a cookie that we can read in the callback (used for `verify_csrf`)
+    response.set_cookie(
+        key=LINEAR_CREDENTIAL_ID_COOKIE_NAME,
+        value=credential_id,
+        # TODO: this is sketch, but the only way 
+        # I can think of doing cross-site cookies,
+        # without sub-domains/reverse proxy
+        #httponly=True,
+        samesite='None',
+        secure=True,
+        max_age=600,
+    )
+    response.set_cookie(
+        key=LINEAR_ORGANIZATION_ID_COOKIE_NAME,
+        value=str(organization_id),
+        # TODO: this is sketch, but the only way 
+        # I can think of doing cross-site cookies,
+        # without sub-domains/reverse proxy
+        #httponly=True,
+        samesite='None',
+        secure=True,
+        max_age=600,
+    )
+    return AuthUrl(auth_url=get_linear_auth_url(
+        credential_id,
+        db_session,
+    ))
+
+
+@router.get("/linear/callback")
+def linear_callback(
+    request: Request,
+    callback: LinearCallback = Depends(),
+    user: User = Depends(current_user),
+    db_session: Session = Depends(get_session),
+) -> StatusResponse:
+    credential_id_cookie = request.cookies.get(LINEAR_CREDENTIAL_ID_COOKIE_NAME)
+    organization_id_cookie = request.cookies.get(LINEAR_ORGANIZATION_ID_COOKIE_NAME)
+
+    if credential_id_cookie is None or not credential_id_cookie.isdigit():
+        raise HTTPException(
+            status_code=401, detail="Request did not pass CSRF verification."
+        )
+    if organization_id_cookie is None:
+        raise HTTPException(
+            status_code=401, detail="Organization ID did not pass verification."
+        )
+    credential_id = int(credential_id_cookie)
+    organization_id = UUID(organization_id_cookie)
+    verify_linear_csrf(credential_id, callback.state, db_session)
+    if (
+        update_linear_credential_access_tokens(
+            callback.code, 
+            credential_id, 
+            organization_id,
+            user,
+            db_session,
+        )
+        is None
+    ):
+        raise HTTPException(
+            status_code=500, detail="Unable to fetch Linear access tokens"
+        )
+
+    return StatusResponse(success=True, message="Updated Linear access tokens")
+
 
 @router.get("/{organization_id}/list", response_model=list[ConnectorSnapshot], )
 def get_connectors(

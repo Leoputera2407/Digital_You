@@ -82,7 +82,10 @@ def create_response_command_view(
         }
         blocks.insert(1, warning_message)
     
-    top_3_docs = "\n".join([f"{doc.source_type}{f'<{doc.link}|Link>' if doc.link else ''}\n{doc.blurb}" for doc in search_docs[:3]])
+    top_3_docs = "\n".join([
+    f"<{doc.link}|{doc.source_type.capitalize()}>\n{doc.blurb}" if doc.link else '' 
+    for doc in search_docs[:3]])    
+    
     blocks.extend([
         {"type": "divider"},
         {
@@ -97,7 +100,7 @@ def create_response_command_view(
     return {
         "type": "modal",
         "callback_id": MODAL_RESPONSE_CALLBACK_ID,
-        "title": {"type": "plain_text", "text": "Prosona :gemini:"},
+        "title": {"type": "plain_text", "text": "Prosona"},
         "submit": {"type": "plain_text", "text": "Share", "emoji": True},
         "private_metadata": private_metadata_str,
         "blocks": blocks

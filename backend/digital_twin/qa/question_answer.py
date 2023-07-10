@@ -22,12 +22,13 @@ from digital_twin.config.constants import (
     SOURCE_TYPE,
 )
 from digital_twin.llm.interface import get_llm
+from digital_twin.llm.chains.base import (
+    ANSWER_PAT,
+    QUOTE_PAT,
+)
 from digital_twin.llm.chains.qa_chain import (
     BaseQA,
     QA_MODEL_SETTINGS,
-    ANSWER_PAT,
-    QUOTE_PAT,
-    #UNCERTAIN_PAT,
 )
 from digital_twin.qa.interface import QAModel
 from digital_twin.llm.chains.verify_chain import StuffVerify, VERIFY_MODEL_SETTINGS
@@ -282,9 +283,9 @@ class QA(QAModel):
         qa_response, is_docs_relevant = await execute_tasks()
         answer, quotes_dict = qa_response
         
-        processed_answer = answer if is_docs_relevant else None
+        # processed_answer = answer if is_docs_relevant else None
 
-        return processed_answer, quotes_dict
+        return answer, quotes_dict
 
     @log_function_time()
     async def answer_question_stream(

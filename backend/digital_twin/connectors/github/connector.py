@@ -1,5 +1,4 @@
-import datetime
-import pytz
+from datetime import datetime
 from typing import Any
 from collections.abc import Generator
 
