@@ -17,19 +17,21 @@ interface FeatureBoxProps {
 }
 
 const FeatureBox: React.FC<FeatureBoxProps> = ({ title, description, imageSrc, imageAlt }) => (
-  <div className="md:col-span-1 h-full flex flex-col" data-aos="fade-down">
+  <div className="md:col-span-1" data-aos="fade-down">
     <HighlighterItem>
       <div className="relative h-full bg-slate-900 rounded-[inherit] z-20 overflow-hidden">
-        <div className="flex flex-col h-full justify-between items-center p-4 md:p-8">
+        <div className="flex flex-col h-full">
           { /* Radial gradient */}
           <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 pointer-events-none -z-10 w-1/2 aspect-square" aria-hidden="true">
             <div className="absolute inset-0 translate-z-0 bg-slate-800 rounded-full blur-[80px]" />
           </div>
           { /* Text */}
-          <div className="md:max-w-[480px] shrink-0 order-1 md:order-none pt-4">
+          <div className="md:max-w-[480px] shrink-0 order-1 md:order-none p-6 pt-0 md:p-8 md:pr-0 flex-grow">
             <div>
-              <h3 className="inline-flex text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-1">{title}</h3>
-              <p className="text-slate-400 mt-2">{description}</p>
+              <h3 className="inline-flex text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-1 overflow-hidden">{title}</h3>
+              <p className="text-slate-400 overflow-hidden h-24 leading-6 flex items-end">
+                <span className="block overflow-hidden">{description}</span>
+              </p>
             </div>
           </div>
           { /* Image */}
@@ -41,7 +43,6 @@ const FeatureBox: React.FC<FeatureBoxProps> = ({ title, description, imageSrc, i
     </HighlighterItem>
   </div>
 )
-
 
 
 export default function Features02() {
@@ -86,7 +87,7 @@ export default function Features02() {
         />
         <FeatureBox 
           title="Wildly Smart"
-          description="Prosona blend the best of Vector and Keyword search to provide the most relevant results in seconds."            
+          description="Prosona blend the best of Vector and Keyword search to with sophisticated re-ranking to provide the most relevant results in seconds."            
           imageSrc={FeatureImg02}
           imageAlt="Wildly Smart"
         />
@@ -97,10 +98,10 @@ export default function Features02() {
           imageAlt="Scalability and Efficiency"
         />
         <FeatureBox 
-          title="Preserving Organizational Knowledge"
+          title="Promotes Documentation"
           description="The tool promotes documentation, ensuring vital knowledge is preserved even when an employee leaves the company."
           imageSrc={FeatureImg04}
-          imageAlt="Preserving Organizational Knowledge"
+          imageAlt="Promotes Documentation"
         />          
         <FeatureBox 
         title="Enhanced Accountability"
