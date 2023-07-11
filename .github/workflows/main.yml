@@ -13,9 +13,13 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
 
+    - name: Install Flyctl
+      run: |
+        curl -L https://fly.io/install.sh | sh
+        echo "/home/runner/.fly/bin" >> $GITHUB_PATH
+      
     - name: Login to Fly
       run: flyctl auth login --token ${{ secrets.FLY_API_TOKEN }}
 
     - name: Deploy to Fly.io
-      working-directory: ./backend
       run: flyctl deploy
