@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue
-} from "@/components/ui/Select";
+} from "@/components/ui/select";
 import { useOrganization } from "@/lib/context/orgProvider";
 import React from 'react';
 

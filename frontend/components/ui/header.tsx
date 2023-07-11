@@ -2,10 +2,10 @@
 import { useSupabase } from '@/lib/context/authProvider'
 import { useToast } from "@/lib/hooks/useToast"
 import { useState } from 'react'
-import AuthButton from './AuthButton'
-import { GoogleFCIcon } from './Icon'
-import Logo from './Logo'
-import SignedInUser from './SignedInUser'
+import AuthButton from './authButton'
+import { GoogleFCIcon } from './icon'
+import Logo from './logo'
+import SignedInUser from './signedInUser'
 
 
 export default function Header() {

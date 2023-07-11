@@ -1,7 +1,7 @@
-import AuthButton from "@/components/ui/AuthButton";
-import { Collapsible } from "@/components/ui/Collapsible";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
-import { SlackIcon } from "@/components/ui/Icon";
+import AuthButton from "@/components/ui/authButton";
+import { Collapsible } from "@/components/ui/collapsible";
+import { SlackIcon } from "@/components/ui/icon";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
 import {

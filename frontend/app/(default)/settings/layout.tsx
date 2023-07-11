@@ -1,6 +1,6 @@
-import OrganizationSelect from "@/components/OrgSelector"
-import { PlugIcon, WorkspaceIcon } from "@/components/ui/Icon"
-import { SidebarNav } from "@/components/ui/Sidebar-nav"
+import OrganizationSelect from "@/components/orgSelector"
+import { PlugIcon, WorkspaceIcon } from "@/components/ui/icon"
+import { SidebarNav } from "@/components/ui/sidebar-nav"
 
 const sidebarNavItems = [
   {

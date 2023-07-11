@@ -1,5 +1,5 @@
 "use client";
-import { Avatar, AvatarFallback } from "@/components/ui/Avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useSupabase } from "@/lib/context/authProvider";
 import { useToast } from "@/lib/hooks/useToast";
 import { useEffect, useState } from "react";

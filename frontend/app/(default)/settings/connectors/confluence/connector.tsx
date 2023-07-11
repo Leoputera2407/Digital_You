@@ -1,7 +1,7 @@
 "use client";
-import AuthButton from "@/components/ui/AuthButton";
-import { Collapsible } from "@/components/ui/Collapsible";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
+import AuthButton from "@/components/ui/authButton";
+import { Collapsible } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/Dialog";
-import { ConfluenceIcon } from "@/components/ui/Icon";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+} from "@/components/ui/dialog";
+import { ConfluenceIcon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createCredential, testConfluenceAccessToken } from "@/lib/connectors";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";

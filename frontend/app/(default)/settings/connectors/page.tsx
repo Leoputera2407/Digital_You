@@ -1,9 +1,9 @@
 "use client";
 
-import { InfoIcon } from "@/components/ui/Icon";
+import { InfoIcon } from "@/components/ui/icon";
 import * as React from "react";
 
-import { Separator } from "@/components/ui/Separator";
+import { Separator } from "@/components/ui/separator";
 import { useOrganization } from "@/lib/context/orgProvider";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { AnyCredentialJson, ValidDataSourceTypesArray } from "@/lib/types";

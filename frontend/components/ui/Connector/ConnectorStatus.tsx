@@ -1,9 +1,9 @@
-import { LinkBreakIcon, LinkIcon } from "@/components/ui/Icon";
+import { LinkBreakIcon, LinkIcon } from "@/components/ui/icon";
 import { Connector, ConnectorIndexingStatus } from "@/lib/types";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { ReactElement } from "react";
-import { Badge } from "../Badge";
+import { Badge } from "../badge";
 
 dayjs.extend(duration);  
 

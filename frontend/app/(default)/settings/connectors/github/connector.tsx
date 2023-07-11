@@ -1,11 +1,11 @@
 "use client";
-import AuthButton from "@/components/ui/AuthButton";
+import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
+import AuthButton from "@/components/ui/authButton";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/Collapsible";
-import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/Dialog";
-import { GithubIcon } from "@/components/ui/Icon";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+} from "@/components/ui/dialog";
+import { GithubIcon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createCredential, testGithubAccessToken } from "@/lib/connectors";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";

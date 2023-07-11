@@ -8,9 +8,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/react-hook-form/form";
-import Authbutton from "@/components/ui/AuthButton";
-import { Input } from "@/components/ui/Input";
-import { Separator } from "@/components/ui/Separator";
+import Authbutton from "@/components/ui/authButton";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { useOrganization } from "@/lib/context/orgProvider";
 import { useOrgAdminOps } from "@/lib/hooks/useOrgAdminOps";
 import { OrganizationAdminInfo } from "@/lib/types";

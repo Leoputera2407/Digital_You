@@ -1,9 +1,9 @@
 "use client";
-import AuthButton from "@/components/ui/AuthButton";
-import { Badge } from "@/components/ui/Badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/Collapsible";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
-import { LinearIcon } from "@/components/ui/Icon";
+import AuthButton from "@/components/ui/authButton";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { LinearIcon } from "@/components/ui/icon";
 import { fetchLinearOrgAndTeam } from "@/lib/connectors";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
