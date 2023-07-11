@@ -29,7 +29,7 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
     const redirectUrl = new URL('/settings', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000');
     redirectUrl.search = req.nextUrl.search;
     return NextResponse.redirect(redirectUrl);
-  } else if (!session) {
+  } else if (!session && (req.nextUrl.pathname !== "/" && req.nextUrl.pathname !== "")) {
     const redirectUrl = new URL('/', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000');
     return NextResponse.redirect(redirectUrl);
   }

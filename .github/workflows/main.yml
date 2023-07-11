@@ -11,6 +11,6 @@ jobs:
       # This step checks out a copy of your repository.
       - uses: actions/checkout@v2
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only -a prosona-backend --config backend/fly.toml --dockerfile backend/Dockerfile.githubaction
+      - run: flyctl deploy --remote-only -a prosona-backend --config backend/fly.toml --dockerfile backend/Dockerfile.githubaction --wait-timeout=1800
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
