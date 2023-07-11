@@ -1,11 +1,12 @@
 from typing import List
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 
 from digital_twin.config.app_config import IS_DEV
 from digital_twin.auth.users import current_user
-from digital_twin.db.engine import get_session
+from digital_twin.db.engine import get_async_session_generator
 
 from digital_twin.server.model import (
     AuthUrl,
@@ -23,38 +24,38 @@ from digital_twin.db.model import User
 
 
 from digital_twin.connectors.notion.connector_auth import (
-    get_auth_url as get_notion_auth_url,
-    update_credential_access_tokens as update_notion_credential_access_tokens,
-    verify_csrf as verify_notion_csrf,
+    async_get_auth_url as async_get_notion_auth_url,
+    async_update_credential_access_tokens as async_update_notion_credential_access_tokens,
+    async_verify_csrf as async_verify_notion_csrf,
 )
 
 from digital_twin.connectors.linear.connector_auth import (
-    get_auth_url as get_linear_auth_url,
-    update_credential_access_tokens as update_linear_credential_access_tokens,
-    verify_csrf as verify_linear_csrf,
+    async_get_auth_url as async_get_linear_auth_url,
+    async_update_credential_access_tokens as async_update_linear_credential_access_tokens,
+    async_verify_csrf as async_verify_linear_csrf,
 )
 
 from digital_twin.connectors.google_drive.connector_auth import (
     DB_CREDENTIALS_DICT_KEY,
-    get_auth_url as get_gdrive_auth_url,
-    update_credential_access_tokens as update_gdrive_credential_access_tokens,
+    async_get_auth_url as async_get_gdrive_auth_url,
+    async_update_credential_access_tokens as async_update_gdrive_credential_access_tokens,
     # upsert_google_app_cred,
-    verify_csrf as verify_gdrive_csrf,
+    async_verify_csrf as async_verify_gdrive_csrf,
 )
 from digital_twin.db.connectors.connector_credential_pair import (
-    add_credential_to_connector,
-    remove_credential_from_connector,
+    async_add_credential_to_connector,
+    async_remove_credential_from_connector,
 )
 from digital_twin.db.connectors.connectors import (
-    fetch_connector_by_id_and_org,
-    fetch_connectors,
+    async_fetch_connector_by_id_and_org,
+    async_fetch_connectors,
 )
 from digital_twin.db.connectors.credentials import (
-    fetch_credentials,
-    create_credential,
-    delete_credential,
-    update_credential,
-    fetch_credential_by_id_and_org,
+    async_fetch_credentials,
+    async_create_credential,
+    async_delete_credential,
+    async_update_credential,
+    async_fetch_credential_by_id_and_org,
     mask_credential_dict,
 )
 
@@ -65,12 +66,12 @@ _GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME = "google_drive_credential_id"
 _GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME = "google_drive_organization_id"
 
 @router.get("/{organization_id}/google-drive/authorize/{credential_id}", response_model=AuthUrl)
-def google_drive_auth(
+async def google_drive_auth(
     response: Response, 
     organization_id: UUID,
-    credential_id: str,
+    credential_id: int,
     _: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> AuthUrl:
     # set a cookie that we can read in the callback (used for `verify_csrf`)
     response.set_cookie(
@@ -97,15 +98,15 @@ def google_drive_auth(
         secure=True,
         max_age=600,
     )
-    
-    return AuthUrl(auth_url=get_gdrive_auth_url(db_session, int(credential_id)))
+    auth_url = await async_get_gdrive_auth_url(db_session, int(credential_id))
+    return AuthUrl(auth_url=auth_url)
 
 @router.get("/google-drive/callback")
-def google_drive_callback(
+async def google_drive_callback(
     request: Request,
     callback: GDriveCallback = Depends(),
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse:
     credential_id_cookie = request.cookies.get(_GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME)
     organization_id_cookie = request.cookies.get(_GOOGLE_DRIVE_ORGANIZATION_ID_COOKIE_NAME)
@@ -119,9 +120,9 @@ def google_drive_callback(
         )
     credential_id = int(credential_id_cookie)
     organization_id = UUID(organization_id_cookie)
-    verify_gdrive_csrf(db_session, credential_id, callback.state)
+    await async_verify_gdrive_csrf(db_session, credential_id, callback.state)
     if (
-        update_gdrive_credential_access_tokens(
+        await async_update_gdrive_credential_access_tokens(
             callback.code, 
             credential_id,
             organization_id,
@@ -141,12 +142,12 @@ _NOTION_CREDENTIAL_ID_COOKIE_NAME = "notion_credential_id"
 _NOTION_ORGANIZATION_ID_COOKIE_NAME = "notion_organization_id"
 
 @router.get("/{organization_id}/notion/authorize/{credential_id}", response_model=AuthUrl)
-def notion_auth(
+async def notion_auth(
     response: Response, 
     organization_id: UUID,
-    credential_id: str,
+    credential_id: int,
     _: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> AuthUrl:
     # set a cookie that we can read in the callback (used for `verify_csrf`)
     response.set_cookie(
@@ -171,17 +172,18 @@ def notion_auth(
         secure=True,
         max_age=600,
     )
-    return AuthUrl(auth_url=get_notion_auth_url(
+    auth_url = await async_get_notion_auth_url(
         credential_id,
         db_session,
-    ))
+    )
+    return AuthUrl(auth_url=auth_url)
 
 @router.get("/notion/callback")
-def notion_callback(
+async def notion_callback(
     request: Request,
     callback: NotionCallback = Depends(),
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse:
     credential_id_cookie = request.cookies.get(_NOTION_CREDENTIAL_ID_COOKIE_NAME)
     organization_id_cookie = request.cookies.get(_NOTION_ORGANIZATION_ID_COOKIE_NAME)
@@ -196,9 +198,9 @@ def notion_callback(
         )
     credential_id = int(credential_id_cookie)
     organization_id = UUID(organization_id_cookie)
-    verify_notion_csrf(credential_id, callback.state, db_session)
+    await async_verify_notion_csrf(credential_id, callback.state, db_session)
     if (
-        update_notion_credential_access_tokens(
+        await async_update_notion_credential_access_tokens(
             callback.code, 
             credential_id, 
             organization_id,
@@ -217,12 +219,12 @@ LINEAR_CREDENTIAL_ID_COOKIE_NAME = "linear_credential_id"
 LINEAR_ORGANIZATION_ID_COOKIE_NAME = "linear_organization_id"
 
 @router.get("/{organization_id}/linear/authorize/{credential_id}", response_model=AuthUrl)
-def linear_auth(
+async def linear_auth(
     response: Response, 
     organization_id: UUID,
-    credential_id: str,
+    credential_id: int,
     _: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> AuthUrl:
     # set a cookie that we can read in the callback (used for `verify_csrf`)
     response.set_cookie(
@@ -247,18 +249,19 @@ def linear_auth(
         secure=True,
         max_age=600,
     )
-    return AuthUrl(auth_url=get_linear_auth_url(
+    auth_url = await async_get_linear_auth_url(
         credential_id,
         db_session,
-    ))
+    )
+    return AuthUrl(auth_url=auth_url)
 
 
 @router.get("/linear/callback")
-def linear_callback(
+async def linear_callback(
     request: Request,
     callback: LinearCallback = Depends(),
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse:
     credential_id_cookie = request.cookies.get(LINEAR_CREDENTIAL_ID_COOKIE_NAME)
     organization_id_cookie = request.cookies.get(LINEAR_ORGANIZATION_ID_COOKIE_NAME)
@@ -273,9 +276,9 @@ def linear_callback(
         )
     credential_id = int(credential_id_cookie)
     organization_id = UUID(organization_id_cookie)
-    verify_linear_csrf(credential_id, callback.state, db_session)
+    await async_verify_linear_csrf(credential_id, callback.state, db_session)
     if (
-        update_linear_credential_access_tokens(
+        await async_update_linear_credential_access_tokens(
             callback.code, 
             credential_id, 
             organization_id,
@@ -291,13 +294,13 @@ def linear_callback(
     return StatusResponse(success=True, message="Updated Linear access tokens")
 
 
-@router.get("/{organization_id}/list", response_model=list[ConnectorSnapshot], )
-def get_connectors(
+@router.get("/{organization_id}/list", response_model=list[ConnectorSnapshot])
+async def get_connectors(
     organization_id: UUID,
-     _: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    _: User = Depends(current_user),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> list[ConnectorSnapshot]:
-    connectors = fetch_connectors(
+    connectors = await async_fetch_connectors(
         db_session,
         organization_id=organization_id,
     )
@@ -306,12 +309,12 @@ def get_connectors(
     ]
 
 @router.get("/{organization_id}/credential")
-def get_credentials(
+async def get_credentials(
     organization_id: UUID,
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> list[CredentialSnapshot]:
-    credentials = fetch_credentials(
+    credentials = await async_fetch_credentials(
         user, 
         organization_id,
         db_session,
@@ -329,13 +332,13 @@ def get_credentials(
     ]
 
 @router.get("/{organization_id}/credential/{credential_id}")
-def get_credential_by_id(
+async def get_credential_by_id(
     credential_id: int,
     organization_id: UUID,
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> CredentialSnapshot | StatusResponse[int]:
-    credential = fetch_credential_by_id_and_org(
+    credential = await async_fetch_credential_by_id_and_org(
         credential_id, 
         user, 
         organization_id,
@@ -356,15 +359,14 @@ def get_credential_by_id(
         updated_at=credential.updated_at,
     )
 
-
 @router.post("/{organization_id}/credential")
-def create_credential_from_model(
+async def create_credential_from_model(
     organization_id: UUID,
     connector_info: CredentialBase,
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> ObjectCreationIdResponse:
-    return create_credential(
+    return await async_create_credential(
         connector_info, 
         user,
         organization_id,
@@ -372,14 +374,14 @@ def create_credential_from_model(
     )
 
 @router.patch("/{organization_id}/credential/{credential_id}")
-def update_credential_from_model(
+async def update_credential_from_model(
     credential_id: int,
     organization_id: UUID,
     credential_data: CredentialBase,
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> CredentialSnapshot | StatusResponse[int]:
-    updated_credential = update_credential(
+    updated_credential = await async_update_credential(
         credential_id,
         credential_data,
         user,
@@ -401,15 +403,14 @@ def update_credential_from_model(
         updated_at=updated_credential.updated_at,
     )
 
-
 @router.delete("/{organization_id}/credential/{credential_id}", response_model=StatusResponse[int])
-def delete_credential_by_id(
+async def delete_credential_by_id(
     credential_id: int,
     organization_id: UUID,
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse:
-    delete_credential(
+    await async_delete_credential(
         credential_id,
         user,
         organization_id,
@@ -419,15 +420,14 @@ def delete_credential_by_id(
         success=True, message="Credential deleted successfully", data=credential_id
     )
 
-
 @router.get("/{organization_id}/{connector_id}")
-def get_connector_by_id(
+async def get_connector_by_id(
     connector_id: int,
     organization_id: UUID,
     _: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> ConnectorSnapshot | StatusResponse[int]:
-    connector = fetch_connector_by_id_and_org(
+    connector = await async_fetch_connector_by_id_and_org(
         connector_id, 
         organization_id,
         db_session
@@ -453,14 +453,14 @@ def get_connector_by_id(
     )
 
 @router.put("/{organization_id}/{connector_id}/credential/{credential_id}")
-def associate_credential_to_connector(
+async def associate_credential_to_connector(
     organization_id: UUID,
     connector_id: int,
     credential_id: int,
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse[int]:
-    return add_credential_to_connector(
+    return await async_add_credential_to_connector(
         connector_id, 
         credential_id, 
         organization_id,
@@ -468,21 +468,18 @@ def associate_credential_to_connector(
         db_session,
     )
 
-
-
 @router.delete("/{organization_id}/{connector_id}/credential/{credential_id}")
-def dissociate_credential_from_connector(
+async def dissociate_credential_from_connector(
     organization_id: UUID,
     connector_id: int,
     credential_id: int,
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse[int]:
-    return remove_credential_from_connector(
+    return await async_remove_credential_from_connector(
         connector_id, 
         credential_id, 
         organization_id,
         user, 
         db_session
     )
-

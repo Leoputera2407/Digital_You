@@ -1,14 +1,7 @@
 import json
 from typing import Optional
-from postgrest import APIResponse
-
-
-import json
-from typing import Optional
-from datetime import datetime
-
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.db.model import GoogleAppCredential
 from digital_twin.utils.logging import setup_logger, log_sqlalchemy_error
@@ -17,21 +10,21 @@ from digital_twin.utils.logging import setup_logger, log_sqlalchemy_error
 logger = setup_logger()
 
 @log_sqlalchemy_error(logger)
-def fetch_db_google_app_creds(
-    db_session: Session
+async def async_fetch_db_google_app_creds(
+    db_session: AsyncSession
 ) -> Optional[GoogleAppCredential]:
     stmt = select(GoogleAppCredential)
-    result = db_session.execute(stmt)
+    result = await db_session.execute(stmt)
     credential = result.scalars().first()
     return credential
 
 @log_sqlalchemy_error(logger)
-def upsert_db_google_app_cred(
+async def async_upsert_db_google_app_cred(
     app_credential: GoogleAppCredential, 
-    db_session: Session
+    db_session: AsyncSession
 ) -> Optional[GoogleAppCredential]:
     stmt = select(GoogleAppCredential).order_by(GoogleAppCredential.updated_at.desc())
-    result = db_session.execute(stmt)
+    result = await db_session.execute(stmt)
     credentials = result.scalars().all()
 
     if len(credentials) >= 1:
@@ -42,13 +35,13 @@ def upsert_db_google_app_cred(
         # If more than one row, delete all but the most recent
         if len(credentials) > 1:
             for extra_credential in credentials[1:]:
-                db_session.delete(extra_credential)
+                await db_session.delete(extra_credential)
     else:
         # If no credentials found, create new
         credential = GoogleAppCredential(credentials_json=json.dumps(app_credential))
         db_session.add(credential)
 
-    db_session.commit()
+    await db_session.commit()
     return credential
 
 

@@ -2,7 +2,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.auth.users import current_admin_for_org
 from digital_twin.server.model import (
@@ -18,7 +18,6 @@ from digital_twin.server.model import (
     GithubTestRequest,
     LinearOrganizationSnapshot,
 )
-from digital_twin.db.engine import get_session
 from digital_twin.db.model import (
     Credential,
     User,
@@ -26,20 +25,21 @@ from digital_twin.db.model import (
 from digital_twin.connectors.google_drive.connector_auth import (
     DB_CREDENTIALS_DICT_KEY,
     get_drive_tokens,
-    get_google_app_cred,
-    # upsert_google_app_cred,
+    async_get_google_app_cred,
+    # async_upsert_google_app_cred,
 )
 from digital_twin.db.connectors.connector_credential_pair import (
-    get_connector_credential_pairs,
+    async_get_connector_credential_pairs
 )
 from digital_twin.db.connectors.connectors import (
-    create_connector,
-    delete_connector,
-    update_connector,
-    get_connector_credential_ids,
+    async_create_connector,
+    async_delete_connector,
+    async_update_connector,
+    async_get_connector_credential_ids,
 )
 from digital_twin.connectors.linear.graphql import LinearGraphQLClient
-from digital_twin.db.connectors.credentials import fetch_credential_by_id_and_org
+from digital_twin.db.connectors.credentials import async_fetch_credential_by_id_and_org
+from digital_twin.db.engine import get_async_session_generator
 from digital_twin.db.connectors.index_attempt import create_index_attempt
 from digital_twin.utils.logging import setup_logger
 
@@ -48,15 +48,17 @@ router = APIRouter(prefix="/connector/admin")
 logger = setup_logger()
 
 @router.get("/{organization_id}/google-drive/app-credential")
-def check_google_app_credentials_exist(
+async def async_check_google_app_credentials_exist(
     organization_id: UUID,
     _: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> dict[str, str]:
     try:
-        return {"client_id": get_google_app_cred(db_session).client_id}
+        google_app_cred = await async_get_google_app_cred(db_session)
+        return {"client_id": google_app_cred.client_id}
     except Exception as e:
         raise HTTPException(status_code=404, detail="Google App Credentials not found")
+
 
 # TODO: Don't expose this methods below as we don't want people over-writing our app creds
 # Maybe admin level makes sense later
@@ -67,7 +69,7 @@ def update_google_app_credentials(
     app_credentials: GoogleAppWebCredentials,
 ) -> StatusResponse:
     try:
-        upsert_google_app_cred(app_credentials.web)
+        await async_upsert_google_app_cred(app_credentials.web)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -77,13 +79,13 @@ def update_google_app_credentials(
 """
 
 @router.get("/{organization_id}/google-drive/check-auth/{credential_id}")
-def check_drive_tokens(
+async def check_drive_tokens(
     organization_id: UUID,
     credential_id: int,
     admin_user: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> AuthStatus:
-    db_credentials: Optional[Credential] = fetch_credential_by_id_and_org(
+    db_credentials: Optional[Credential] = await async_fetch_credential_by_id_and_org(
         credential_id,
         admin_user,
         organization_id,
@@ -102,14 +104,14 @@ def check_drive_tokens(
 
 
 @router.get("/{organization_id}/indexing-status")
-def get_connector_indexing_status(
+async def get_connector_indexing_status(
     organization_id: UUID,
     _: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> list[ConnectorIndexingStatus]:
     indexing_statuses: list[ConnectorIndexingStatus] = []
 
-    cc_pairs = get_connector_credential_pairs(db_session, organization_id)
+    cc_pairs = await async_get_connector_credential_pairs(db_session, organization_id)
     for cc_pair in cc_pairs:
         connector = cc_pair.connector
         credential = cc_pair.credential
@@ -127,14 +129,14 @@ def get_connector_indexing_status(
     return indexing_statuses
 
 @router.post("/{organization_id}/create", response_model=ObjectCreationIdResponse)
-def create_connector_from_model(
+async def create_connector_from_model(
     connector_info: ConnectorBase,
     organization_id: UUID,
     _: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> ObjectCreationIdResponse:
     try:
-        return create_connector(
+        return await async_create_connector(
             connector_info, 
             organization_id,
             db_session,
@@ -144,14 +146,14 @@ def create_connector_from_model(
 
 
 @router.patch("/{organization_id}/{connector_id}")
-def update_connector_from_model(
+async def update_connector_from_model(
     connector_id: int,
     organization_id: UUID,
     connector_data: ConnectorBase,
     _: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> ConnectorSnapshot | StatusResponse[int]:
-    updated_connector = update_connector(
+    updated_connector = await async_update_connector(
         connector_id, 
         connector_data, 
         organization_id,
@@ -178,29 +180,29 @@ def update_connector_from_model(
     )
 
 @router.delete("/{organization_id}/{connector_id}", response_model=StatusResponse[int])
-def delete_connector_by_id(
+async def delete_connector_by_id(
     connector_id: int,
     organization_id: UUID,
     _: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse[int]:
-    return delete_connector(
+    return await async_delete_connector(
         connector_id,
         organization_id,
         db_session,
     )
 
 @router.post("/{organization_id}/run-once")
-def connector_run_once(
+async def connector_run_once(
     organization_id: UUID,
     run_info: RunConnectorRequest,
     _: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse[list[int]]:
     connector_id = run_info.connector_id
     specified_credential_ids = run_info.credential_ids
     try:
-        possible_credential_ids = get_connector_credential_ids(
+        possible_credential_ids = await async_get_connector_credential_ids(
             run_info.connector_id,
             organization_id,
             db_session,
@@ -292,16 +294,16 @@ async def test_confluence_access_token(
         return StatusResponse(success=False, message=f"Failed to validate Confluence access token: {str(e)}", data=False)
 
 @router.get("/{organization_id}/get-linear-org-and-team")
-def get_linear_org_and_teams(
+async def get_linear_org_and_teams(
     organization_id: UUID,
     linear_credential_id: int,
     admin_user: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> LinearOrganizationSnapshot:
     from digital_twin.utils.logging import setup_logger
     logger = setup_logger(__name__)
     logger.info("Getting Linear organization and teams")
-    linear_credential = fetch_credential_by_id_and_org(
+    linear_credential = await async_fetch_credential_by_id_and_org(
         linear_credential_id, 
         admin_user, 
         organization_id,

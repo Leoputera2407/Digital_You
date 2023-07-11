@@ -8,7 +8,6 @@ const nextConfig = {
   output: "standalone",
   rewrites: async () => {
     //if (process.env.NODE_ENV === "production") return [];
-    
     return {
       beforeFiles: [
         {

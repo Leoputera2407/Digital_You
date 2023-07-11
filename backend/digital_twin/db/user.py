@@ -136,19 +136,19 @@ def get_user_org_assocations(
 async def async_get_user_org_assocations(
     user: User,
     db_session: AsyncSession,
-) -> List[Organization]:
+) -> List[UserOrganizationAssociation]:
     result = await db_session.execute(
         select(UserOrganizationAssociation)
+        .options(joinedload(UserOrganizationAssociation.organization))
         .where(UserOrganizationAssociation.user_id == user.id)
     )
     
-    associations = result.scalars().all()
+    associations = result.scalars().unique().all()
 
     if not associations:
         return []    
     
     return associations
-
 
 
 @log_sqlalchemy_error(logger)
@@ -170,18 +170,21 @@ def is_user_in_organization(
 
     return user_org_association is not None
 
-def get_invitation_by_user_and_org(
-    db_session: Session, 
-    user_email: str,
+@async_log_sqlalchemy_error(logger)
+async def async_get_invitation_by_user_and_org(
+    session: AsyncSession, 
+    user_email: str, 
     organization_id: UUID
 ) -> Optional[Invitation]:
-    
-    invitation = db_session.query(Invitation).filter(
-        Invitation.invitee_email == user_email,
-        Invitation.organization_id == organization_id
-    ).first()
 
-    return invitation
+    result = await session.execute(
+        select(Invitation)
+        .where(
+            Invitation.invitee_email == user_email,
+            Invitation.organization_id == organization_id
+        )
+    )
+    return result.scalars().first()
 
 @async_log_sqlalchemy_error(logger)
 async def async_get_slack_user(

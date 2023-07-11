@@ -1,6 +1,6 @@
 export const metadata = {
-  title: 'Home - Stellar',
-  description: 'Page description',
+  title: 'Prosona - Empowering Knowledge Workers',
+  description: 'Prosona Landing Page',
 }
 
 import Cta from '@/components/cta'

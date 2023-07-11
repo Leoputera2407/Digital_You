@@ -79,6 +79,7 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
   };
 
   const handleCreateLinkConnector = async (credentialId: number) => {
+    console.log(" went to handleCreateLinkConnector")
     if (!currentOrganization) {
       throw new Error("No current organization!");
     }
@@ -92,6 +93,7 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
       currentOrganization?.id,
       linearPublicCredential?.id
     );
+    console.log("Successfully fetched linearOrgAndTeams")
 
     let currentTeam: {
       id: string;

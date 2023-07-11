@@ -51,7 +51,7 @@ async def async_fetch_connectors(
     organization_id: UUID | None = None,
     disabled_status: bool | None = None,
 ) -> list[Connector]:
-    stmt = select(Connector)
+    stmt = select(Connector).options(joinedload(Connector.credentials))
     if sources is not None:
         stmt = stmt.where(Connector.source.in_(sources))
     if input_types is not None:
@@ -61,7 +61,7 @@ async def async_fetch_connectors(
     if organization_id is not None:
         stmt = stmt.where(Connector.organization_id == organization_id)
     results = await db_session.scalars(stmt)
-    return list(results.all())
+    return list(results.unique().all())
 
 @log_sqlalchemy_error(logger)
 def connector_by_name_exists_in_org(
@@ -73,6 +73,18 @@ def connector_by_name_exists_in_org(
     result = db_session.execute(stmt)
     connector = result.scalar_one_or_none()
     return connector is not None
+
+@async_log_sqlalchemy_error(logger)
+async def async_connector_by_name_exists_in_org(
+    connector_name: str, 
+    organization_id: UUID,
+    db_session: AsyncSession,
+) -> bool:
+    stmt = select(Connector).where((Connector.name == connector_name) & (Connector.organization_id == organization_id))
+    result = await db_session.execute(stmt)
+    connector = result.scalar_one_or_none()
+    return connector is not None
+
 
 @log_sqlalchemy_error(logger)
 def fetch_connector_by_id_and_org(
@@ -141,6 +153,39 @@ def create_connector(
 
     return ObjectCreationIdResponse(id=connector.id)
 
+@async_log_sqlalchemy_error(logger)
+async def async_create_connector(
+    connector_data: ConnectorBase,
+    organization_id: UUID,
+    db_session: AsyncSession,
+) -> ObjectCreationIdResponse:
+    if organization_id is None:
+        raise ValueError("Organization ID must be provided.")
+    
+    if await async_connector_by_name_exists_in_org(
+        connector_data.name, 
+        organization_id,
+        db_session
+    ):
+        raise ValueError(
+            "Connector by this name already exists for this org, duplicate naming not allowed."
+        )
+
+    connector = Connector(
+        name=connector_data.name,
+        source=connector_data.source,
+        input_type=connector_data.input_type,
+        connector_specific_config=connector_data.connector_specific_config,
+        refresh_freq=connector_data.refresh_freq,
+        disabled=connector_data.disabled,
+        organization_id=organization_id,
+    )
+    db_session.add(connector)
+    await db_session.commit()
+
+    return ObjectCreationIdResponse(id=connector.id)
+
+
 @log_sqlalchemy_error(logger)
 def update_connector(
     connector_id: int,
@@ -177,6 +222,44 @@ def update_connector(
 
     db_session.commit()
     return connector
+
+@async_log_sqlalchemy_error(logger)
+async def async_update_connector(
+    connector_id: int,
+    connector_data: ConnectorBase,
+    organization_id: UUID,
+    db_session: AsyncSession,
+) -> Connector | None:
+    if organization_id is None:
+        raise ValueError("Organization ID must be provided.")
+    connector = await async_fetch_connector_by_id_and_org(
+        connector_id, 
+        organization_id,
+        db_session
+    )
+    if connector is None:
+        return None
+
+    if connector_data.name != connector.name and await async_connector_by_name_exists_in_org(
+        connector_data.name, 
+        organization_id,
+        db_session,
+    ):
+        raise ValueError(
+            "Connector by this name already exists for this org, duplicate naming not allowed."
+        )
+
+    connector.name = connector_data.name
+    connector.source = connector_data.source
+    connector.input_type = connector_data.input_type
+    connector.connector_specific_config = connector_data.connector_specific_config
+    connector.refresh_freq = connector_data.refresh_freq
+    connector.disabled = connector_data.disabled
+    connector.organization_id = organization_id
+
+    await db_session.commit()
+    return connector
+
 
 @log_sqlalchemy_error(logger)
 def disable_connector(
@@ -248,6 +331,30 @@ def delete_connector(
         success=True, message="Connector deleted successfully", data=connector_id
     )
 
+@async_log_sqlalchemy_error(logger)
+async def async_delete_connector(
+    connector_id: int,
+    organization_id: UUID,
+    db_session: AsyncSession,
+) -> StatusResponse[int]:
+    """Currently unused due to foreign key restriction from IndexAttempt
+    Use disable_connector instead"""
+    connector = await async_fetch_connector_by_id_and_org(
+        connector_id, 
+        organization_id,
+        db_session
+    )
+    if connector is None:
+        return StatusResponse(
+            success=True, message="Connector was already deleted", data=connector_id
+        )
+
+    db_session.delete(connector)
+    await db_session.commit()
+    return StatusResponse(
+        success=True, message="Connector deleted successfully", data=connector_id
+    )
+
 @log_sqlalchemy_error(logger)
 def get_connector_credential_ids(
     connector_id: int,
@@ -255,6 +362,22 @@ def get_connector_credential_ids(
     db_session: Session,
 ) -> list[int]:
     connector = fetch_connector_by_id_and_org(
+        connector_id, 
+        organization_id,
+        db_session
+    )
+    if connector is None:
+        raise ValueError(f"Connector by id {connector_id} does not exist")
+
+    return [association.credential.id for association in connector.credentials]
+
+@async_log_sqlalchemy_error(logger)
+async def async_get_connector_credential_ids(
+    connector_id: int,
+    organization_id: UUID,
+    db_session: AsyncSession,
+) -> list[int]:
+    connector = await async_fetch_connector_by_id_and_org(
         connector_id, 
         organization_id,
         db_session

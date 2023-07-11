@@ -26,12 +26,13 @@ from digital_twin.db.user import (
     get_user_org_by_user_and_org_id,
     async_get_user_org_by_user_and_org_id,
     get_organization_by_id,
-    get_invitation_by_user_and_org,
-    get_user_org_assocations,
+    async_get_invitation_by_user_and_org,
+    async_get_user_org_assocations,
     async_get_organization_admin_info,
 )
 from digital_twin.db.engine import (
     get_session,
+    get_async_session,
     get_async_session_generator,
 )
 
@@ -57,12 +58,12 @@ router = APIRouter(prefix="/organization")
 @router.get("/get-user-org-and-roles", response_model=UserOrgResponse)
 async def get_user_org_and_roles(
     user: User = Depends(current_user),
-    db_session: Session = Depends(get_session),
+    db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> UserOrgResponse:
     if user is None:
         raise HTTPException(status_code=404, detail="Invalid or missing user.")
     
-    user_org_assocations = get_user_org_assocations(user, db_session)
+    user_org_assocations = await async_get_user_org_assocations(user, db_session)
     if not user_org_assocations:
         raise HTTPException(status_code=404, detail="User not found in any organization.")
     
@@ -80,12 +81,12 @@ async def get_user_org_and_roles(
 @router.post("/autojoin-if-whitelisted", response_model=StatusResponse[List[OrganizationName]])
 async def autojoin_if_whitelisted(
     current_user: User = Depends(current_user),
-    db_session: Session = Depends(get_session)
+    db_session: AsyncSession = Depends(get_async_session_generator)
 ) -> StatusResponse[List[OrganizationName]]:
     # Extract the domain from the current user's email
     domain = current_user.email.split('@')[-1]
 
-    result = db_session.execute(select(Organization))
+    result = await db_session.execute(select(Organization))
     organizations = result.scalars().all()
 
     joined_orgs = []
@@ -103,7 +104,7 @@ async def autojoin_if_whitelisted(
                     role=UserRole.BASIC
                 )
                 db_session.add(user_org_association)
-                db_session.commit()
+                await db_session.commit()
                 
                 joined_orgs.append(OrganizationName(name=organization.name))
 
@@ -115,12 +116,12 @@ async def autojoin_if_whitelisted(
 
 
 @router.get("/{organization_id}/handle-accept-invitation", response_model=StatusResponse)
-def handle_accept_invitation(
+async def handle_accept_invitation(
     organization_id: UUID,
     current_user: User = Depends(current_user),
-    db_session: Session = Depends(get_session)
+    db_session: AsyncSession = Depends(get_async_session_generator)
 ) -> StatusResponse:
-    invitation = get_invitation_by_user_and_org(
+    invitation = await async_get_invitation_by_user_and_org(
         db_session, 
         current_user.email, 
         organization_id
@@ -143,14 +144,12 @@ def handle_accept_invitation(
     # Add the new association to the session and commit
     db_session.add(user_org_association)
     db_session.add(invitation)
-    db_session.commit()
-
+    await db_session.commit()
 
     return StatusResponse(
         success=True, 
         message="Invitation accepted. User is now part of the organization."
     )
-
 
 
 ###################

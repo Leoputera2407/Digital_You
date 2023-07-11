@@ -1,16 +1,15 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select
-from datetime import datetime
 from typing import Optional
-from digital_twin.utils.logging import setup_logger, log_sqlalchemy_error
+from digital_twin.utils.logging import setup_logger, async_log_sqlalchemy_error
 from digital_twin.db.model import CSRFToken
 
 logger = setup_logger()
 
-@log_sqlalchemy_error(logger)
-def store_csrf(credential_id: int, csrf: str, db_session: Session) -> Optional[CSRFToken]:
+@async_log_sqlalchemy_error(logger)
+async def async_store_csrf(credential_id: int, csrf: str, db_session: AsyncSession) -> Optional[CSRFToken]:
     stmt = select(CSRFToken).where(CSRFToken.credential_id == credential_id)
-    result = db_session.execute(stmt)
+    result = await db_session.execute(stmt)
     token = result.scalars().first()
 
     if token:
@@ -21,18 +20,17 @@ def store_csrf(credential_id: int, csrf: str, db_session: Session) -> Optional[C
         token = CSRFToken(credential_id=credential_id, csrf_token=csrf)
         db_session.add(token)
 
-    db_session.commit()
+    await db_session.commit()
     return token
 
-
-@log_sqlalchemy_error(logger)
-def consume_csrf(credential_id: int, db_session: Session) -> Optional[CSRFToken]:
+@async_log_sqlalchemy_error(logger)
+async def async_consume_csrf(credential_id: int, db_session: AsyncSession) -> Optional[CSRFToken]:
     stmt = (
         select(CSRFToken)
         .where(CSRFToken.credential_id == credential_id)
         .order_by(CSRFToken.created_at.desc()) 
     )
-    result = db_session.execute(stmt)
+    result = await db_session.execute(stmt)
     token = result.scalars().first()
 
     if token:
@@ -42,11 +40,11 @@ def consume_csrf(credential_id: int, db_session: Session) -> Optional[CSRFToken]
             CSRFToken.credential_id == credential_id,
             CSRFToken.csrf_token == csrf_token
         )
-        result = db_session.execute(delete_stmt)
+        result = await db_session.execute(delete_stmt)
         
         if result.rowcount == 0:
             raise Exception('Failed to consume CSRF token')
-        db_session.commit()
+        await db_session.commit()
         return token
 
     else:

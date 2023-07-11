@@ -1,11 +1,10 @@
-import json
 import requests
 import secrets
 import base64
 import urllib.parse
 from uuid import UUID
 from typing import Dict
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.config.app_config import (
     WEB_DOMAIN,
@@ -13,11 +12,11 @@ from digital_twin.config.app_config import (
     NOTION_CLIENT_SECRET,
 )
 from digital_twin.db.connectors.connectors_auth import (
-    consume_csrf,
-    store_csrf,
+    async_consume_csrf,
+    async_store_csrf,
 )
 from digital_twin.db.model import User
-from digital_twin.db.connectors.credentials import update_credential_json
+from digital_twin.db.connectors.credentials import async_update_credential_json
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
@@ -32,9 +31,16 @@ def _build_frontend_notion_redirect() -> str:
     return f"{WEB_DOMAIN}/settings/connectors/notion/auth/callback"
 
 
-def get_auth_url(credential_id: int, db_session: Session) -> str:     
+async def async_get_auth_url(
+        credential_id: int,
+        db_session: AsyncSession
+) -> str:     
     csrf_token = secrets.token_urlsafe(32)  # Generates a URL-safe text string, containing 32 random bytes 
-    db_csrf_token = store_csrf(credential_id, csrf_token, db_session)
+    db_csrf_token = await async_store_csrf(
+        credential_id, 
+        csrf_token, 
+        db_session
+    )
     if not db_csrf_token:
         raise Exception("Failed to store linear state in db")
     params = {
@@ -49,24 +55,24 @@ def get_auth_url(credential_id: int, db_session: Session) -> str:
     
     return auth_url
 
-def verify_csrf(
+async def async_verify_csrf(
     credential_id: int,
     state: str,
-    db_session: Session,
+    db_session: AsyncSession,
 ) -> None:
-    csrf_token_obj = consume_csrf(credential_id, db_session)
+    csrf_token_obj = await async_consume_csrf(credential_id, db_session)
     if csrf_token_obj.csrf_token != state:
         raise PermissionError(
             "State from Linear callback does not match expected"
         )
 
 
-def update_credential_access_tokens(
+async def async_update_credential_access_tokens(
     auth_code: str,
     credential_id: int,
     organization_id: UUID,
     user: User,
-    db_session: Session,
+    db_session: AsyncSession,
 ) -> Dict[str, str] | None:
 
     # encode in base 64
@@ -89,7 +95,7 @@ def update_credential_access_tokens(
         creds = response.json()
         new_creds_dict = {DB_CREDENTIALS_DICT_KEY: creds["access_token"]}
 
-        if not update_credential_json(
+        if not await async_update_credential_json(
             credential_id, 
             new_creds_dict,
             organization_id,
