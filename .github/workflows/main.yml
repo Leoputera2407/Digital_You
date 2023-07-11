@@ -1,25 +1,16 @@
-name: Deploy to Fly.io
-
+name: Deploy to Fly
 on:
   push:
     branches:
       - main
-
 jobs:
   deploy:
+    name: Deploy proxy
     runs-on: ubuntu-latest
-
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-
-    - name: Install Flyctl
-      run: |
-        curl -L https://fly.io/install.sh | sh
-        echo "/home/runner/.fly/bin" >> $GITHUB_PATH
-      
-    - name: Login to Fly
-      run: flyctl auth login --t ${{ secrets.FLY_API_TOKEN }}
-
-    - name: Deploy to Fly.io
-      run: flyctl deploy
+      # This step checks out a copy of your repository.
+      - uses: actions/checkout@v2
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
