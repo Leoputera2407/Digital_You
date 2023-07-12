@@ -24,7 +24,7 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
   const supabase = createMiddlewareClient({ req, res })
 
   // Check if we have a session
-  const { data: session } = await supabase.auth.getSession()
+  const { data: {session} } = await supabase.auth.getSession()
 
   // If user is in the accept invitation, don't redirect
   if (req.nextUrl.pathname === '/accept-invitation') {
@@ -43,8 +43,6 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
     const redirectUrl = new URL('/', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000')
     return NextResponse.redirect(redirectUrl)
   }
-
-
 
   return res
 }

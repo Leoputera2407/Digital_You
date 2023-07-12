@@ -15,4 +15,4 @@ WORKDIR /app
 COPY ./backend/digital_twin /app/digital_twin
 
 ENV PYTHONPATH /app
-CMD ["/bin/sh", "-c", "python digital_twin.background.scheduled.py"]
+CMD ["/bin/sh", "-c", "python digital_twin/background/scheduled.py"]
