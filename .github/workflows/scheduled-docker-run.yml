@@ -19,7 +19,7 @@ jobs:
       uses: docker/build-push-action@v2
       with:
         context: .
-        file: ./Dockerfile.scheduled
+        file: ./backend/Dockerfile.scheduled
         load: true
         tags: my_image:latest
 
