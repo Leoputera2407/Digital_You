@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import AuthButton from "@/components/ui/authButton";
 import { Collapsible } from "@/components/ui/collapsible";
@@ -53,12 +53,11 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
     currentOrganization?.id
   );
 
-  const { 
-    isLoading: isLoadingConnectorOps, 
+  const {
+    isLoading: isLoadingConnectorOps,
     handleToggleConnector,
     handleDeleteConnector,
-  } =
-    useConnectorsOps(currentOrganization?.id);
+  } = useConnectorsOps(currentOrganization?.id);
 
   const handleToggleOpen = () => {
     setIsOpen((prevIsOpen) => !prevIsOpen);
@@ -69,21 +68,26 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
   useEffect(() => {
     let url = new URL(window.location.href);
     let searchParams = new URLSearchParams(url.search);
-    let connectorType = searchParams.get('connector_type');
-    let status = searchParams.get('status');
-    let errorMessage = searchParams.get('error_message');
+    let connectorType = searchParams.get("connector_type");
+    let status = searchParams.get("status");
+    let errorMessage = searchParams.get("error_message");
 
     async function deleteAndRefresh(slackConnector: Connector<any>) {
       // delete connector
       await handleDeleteConnector(slackConnector.id, true);
-      
+
       // remove query parameters from URL
       const location = window.location;
       const cleanUrl = `${location.protocol}//${location.host}${location.pathname}`;
-      window.history.pushState({}, '', cleanUrl);
+      window.history.pushState({}, "", cleanUrl);
     }
 
-    if (connectorType === 'slack' && status && errorMessage && slackConnector !== undefined ) {
+    if (
+      connectorType === "slack" &&
+      status &&
+      errorMessage &&
+      slackConnector !== undefined
+    ) {
       slackErrorPublishedRef.current = true;
       publish({
         variant: "danger",
@@ -92,7 +96,6 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
       deleteAndRefresh(slackConnector);
     }
   }, [slackConnector]);
-  
 
   return (
     <Collapsible
@@ -124,7 +127,7 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
               <FaSpinner className="h-5 w-5 text-white" />
             </div>
           ) : (slackPublicCredential === undefined &&
-            slackConnectorIndexingStatus === undefined) ||
+              slackConnectorIndexingStatus === undefined) ||
             slackConnector === undefined ? (
             <AuthButton
               className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
@@ -148,15 +151,9 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
               }}
               isLoading={isLoadingConnectorOps}
             >
-              {isLoadingConnectorOps ? (
-                <div className="animate-spin mr-2">
-                  <FaSpinner className="h-5 w-5 text-white" />
-                </div>
-              ) : slackConnector?.disabled ? (
-                "Enable"
-              ) : (
-                "Disable"
-              )}
+              <div className="inline-flex items-center justify-center">
+                {slackConnector!.disabled ? "Enable" : "Disable"}
+              </div>
             </AuthButton>
           )}
         </div>

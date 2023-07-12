@@ -285,8 +285,8 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
             <div className="animate-spin mr-2">
               <FaSpinner className="h-5 w-5 text-white" />
             </div>
-          ) : confluencePublicCredential === undefined &&
-            confluenceConnectorIndexingStatus === undefined &&
+          ) : (confluencePublicCredential === undefined &&
+            confluenceConnectorIndexingStatus === undefined) ||
             confluenceConnector === undefined ? (
             <InitialConnectForm
               onSubmitUpsert={handleConnect}
@@ -307,15 +307,9 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
               }}
               isLoading={isLoadingConnectorOps}
             >
-              {isLoadingConnectorOps ? (
-                <div className="animate-spin mr-2">
-                  <FaSpinner className="h-5 w-5 text-white" />
+              <div className="inline-flex items-center justify-center">
+                  {confluenceConnector!.disabled ? "Enable" : "Disable"}
                 </div>
-              ) : confluenceConnector?.disabled ? (
-                "Enable"
-              ) : (
-                "Disable"
-              )}
             </AuthButton>
           )}
         </div>

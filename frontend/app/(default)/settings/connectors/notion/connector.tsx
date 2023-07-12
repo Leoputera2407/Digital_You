@@ -73,7 +73,11 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
     if (!currentOrganization?.id || !notionPublicCredential?.id) {
       throw new Error("Organization ID or Notion Credential ID is undefined!");
     }
-    const notionWorkspace = await fetchNotionWorkspace(axiosInstance, currentOrganization.id, notionPublicCredential!.id);
+    const notionWorkspace = await fetchNotionWorkspace(
+      axiosInstance,
+      currentOrganization.id,
+      notionPublicCredential!.id
+    );
 
     const connectorBase: ConnectorBase<NotionConfig> = {
       name: "NotionConnector",
@@ -97,7 +101,6 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
     }
   };
 
-
   return (
     <Collapsible
       open={isOpen}
@@ -108,15 +111,16 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
         <div className="flex items-center space-x-2">
           <NotionIcon />
           <span>Notion</span>
-          {
-           !isConnectorCredentialLoading &&
-           notionConnectorIndexingStatus &&
-           notionPublicCredential &&
-           notionConnector &&
-            (
-                <Badge className="bg-orange-200 text-orange-800">
-                    <span>Workspace: {notionConnector.connector_specific_config.workspace}</span>
-                </Badge>
+          {!isConnectorCredentialLoading &&
+            notionConnectorIndexingStatus &&
+            notionPublicCredential &&
+            notionConnector && (
+              <Badge className="bg-orange-200 text-orange-800">
+                <span>
+                  Workspace:{" "}
+                  {notionConnector.connector_specific_config.workspace}
+                </span>
+              </Badge>
             )}
         </div>
         <div className="flex items-center space-x-4">
@@ -169,15 +173,9 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
               }}
               isLoading={isLoadingConnectorOps}
             >
-              {isLoadingConnectorOps ? (
-                <div className="animate-spin mr-2">
-                  <FaSpinner className="h-5 w-5 text-white" />
-                </div>
-              ) : notionConnector?.disabled ? (
-                "Enable"
-              ) : (
-                "Disable"
-              )}
+              <div className="inline-flex items-center justify-center">
+                {notionConnector!.disabled ? "Enable" : "Disable"}
+              </div>
             </AuthButton>
           )}
         </div>

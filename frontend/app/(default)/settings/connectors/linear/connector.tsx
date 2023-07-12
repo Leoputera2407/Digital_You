@@ -2,7 +2,11 @@
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import AuthButton from "@/components/ui/authButton";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { LinearIcon } from "@/components/ui/icon";
 import { fetchLinearOrgAndTeam } from "@/lib/connectors";
 import { useAxios } from "@/lib/hooks/useAxios";
@@ -36,7 +40,6 @@ const linearConnectorNameBuilder = (
 ): string => {
   return `LinearConnector-${workspace}/${teamName}`;
 };
-
 
 const LinearConnector: React.FC<LinearConnectorProps> = ({
   currentOrganization,
@@ -79,7 +82,7 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
   };
 
   const handleCreateLinkConnector = async (credentialId: number) => {
-    console.log(" went to handleCreateLinkConnector")
+    console.log(" went to handleCreateLinkConnector");
     if (!currentOrganization) {
       throw new Error("No current organization!");
     }
@@ -93,7 +96,7 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
       currentOrganization?.id,
       linearPublicCredential?.id
     );
-    console.log("Successfully fetched linearOrgAndTeams")
+    console.log("Successfully fetched linearOrgAndTeams");
 
     let currentTeam: {
       id: string;
@@ -139,33 +142,39 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
     >
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center space-x-2">
-        {linearConnectorIndexingStatuses &&
-         linearConnectorIndexingStatuses.length > 0 &&
-         !isConnectorCredentialLoading &&
-         linearPublicCredential && (
-                <CollapsibleTrigger asChild>
-                  <AuthButton className="hover:bg-accent hover:text-accent-foreground p-1">
-                    <ChevronsUpDown className="h-6 w-6" />
-                    <span className="sr-only">Toggle</span>
-                  </AuthButton>
-                </CollapsibleTrigger>
-              )}
-          
+          {linearConnectorIndexingStatuses &&
+            linearConnectorIndexingStatuses.length > 0 &&
+            !isConnectorCredentialLoading &&
+            linearPublicCredential && (
+              <CollapsibleTrigger asChild>
+                <AuthButton className="hover:bg-accent hover:text-accent-foreground p-1">
+                  <ChevronsUpDown className="h-6 w-6" />
+                  <span className="sr-only">Toggle</span>
+                </AuthButton>
+              </CollapsibleTrigger>
+            )}
+
           <LinearIcon />
           <span>Linear</span>
-          {
-            linearConnectorsInfo &&
+          {linearConnectorsInfo &&
             linearConnectorsInfo.length > 0 &&
-            linearConnectorIndexingStatuses && 
-            linearConnectorIndexingStatuses.length > 0 && 
-            (
-                <Badge className="bg-orange-200 text-orange-800">
-                    <span>Organization: {linearConnectorsInfo[0].connector.connector_specific_config.workspace}</span>
-                </Badge>
+            linearConnectorIndexingStatuses &&
+            linearConnectorIndexingStatuses.length > 0 && (
+              <Badge className="bg-orange-200 text-orange-800">
+                <span>
+                  Organization:{" "}
+                  {
+                    linearConnectorsInfo[0].connector.connector_specific_config
+                      .workspace
+                  }
+                </span>
+              </Badge>
             )}
         </div>
         {isConnectorCredentialLoading ? (
-          <FaSpinner className="animate-spin" />
+          <div className="animate-spin mr-2">
+            <FaSpinner className="h-5 w-5 text-white" />
+          </div>
         ) : linearPublicCredential === undefined ? (
           <AuthButton
             className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
@@ -177,7 +186,9 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
           linearConnectorIndexingStatuses.length === 0 ? (
           <AuthButton
             className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
-            onClick={()=>handleCreateLinkConnector(linearPublicCredential!.id)}
+            onClick={() =>
+              handleCreateLinkConnector(linearPublicCredential!.id)
+            }
           >
             Enable?
           </AuthButton>
@@ -201,8 +212,7 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
           linearConnectorsInfo.map((connectorInfo, i) => {
             const { connector, indexingStatus, credentialIsLinked } =
               connectorInfo;
-            const {team_name } =
-              connector.connector_specific_config;
+            const { team_name } = connector.connector_specific_config;
 
             return (
               <div
@@ -210,9 +220,7 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
                 key={i}
               >
                 <div className="flex items-center justify-between space-x-4">
-                  <span>
-                    {team_name}
-                  </span>
+                  <span>{team_name}</span>
 
                   {!isConnectorCredentialLoading &&
                     indexingStatus &&
@@ -238,15 +246,9 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
                           }}
                           disabled={isLoadingConnectorOps}
                         >
-                          {isLoadingConnectorOps ? (
-                            <div className="animate-spin mr-2">
-                              <FaSpinner className="h-5 w-5 text-white" />
-                            </div>
-                          ) : connector.disabled ? (
-                            "Enable"
-                          ) : (
-                            "Disable"
-                          )}
+                          <div className="inline-flex items-center justify-center">
+                            {connector!.disabled ? "Enable" : "Disable"}
+                          </div>
                         </AuthButton>
                       </div>
                     )}
@@ -254,7 +256,6 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
               </div>
             );
           })}
-        
       </CollapsibleContent>
     </Collapsible>
   );

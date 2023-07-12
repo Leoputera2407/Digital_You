@@ -390,5 +390,5 @@ async def get_notion_workspace(
         )
     
     return NotionWorkspaceSnapshot(
-        workspace_name=workspace_data['bot']['workspace_name'],
+        name=workspace_data['bot']['workspace_name'],
     )

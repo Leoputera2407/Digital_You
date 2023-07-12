@@ -155,15 +155,9 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
               }}
               isLoading={isLoadingConnectorOps}
             >
-              {isLoadingConnectorOps ? (
-                <div className="animate-spin mr-2">
-                  <FaSpinner className="h-5 w-5 text-white" />
+                <div className="inline-flex items-center justify-center w-full">
+                  {googleDriveConnector!.disabled ? "Enable" : "Disable"}
                 </div>
-              ) : googleDriveConnector?.disabled ? (
-                "Enable"
-              ) : (
-                "Disable"
-              )}
             </AuthButton>
           )}
         </div>
