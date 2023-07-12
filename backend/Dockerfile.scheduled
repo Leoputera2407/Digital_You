@@ -6,7 +6,7 @@ RUN apt-get update \
        supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ./requirements.txt /tmp/requirements.txt
+COPY ./backend/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /tmp/requirements.txt
 RUN playwright install
 RUN playwright install-deps
