@@ -76,7 +76,7 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
     try {
       const connector = await handleCreateConnector(connectorBase);
 
-      await handleLinkCredential(connector.id, notionPublicCredential?.id);
+      await handleLinkCredential(connector.id, notionPublicCredential!.id);
       revalidateIndexingStatus();
       revalidateCredentials();
       revalidateConnectors();

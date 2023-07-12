@@ -79,7 +79,7 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
     try {
       const connector = await handleCreateConnector(connectorBase);
 
-      await handleLinkCredential(connector.id, googleDrivePublicCredential?.id);
+      await handleLinkCredential(connector.id, googleDrivePublicCredential!.id);
       revalidateIndexingStatus();
       revalidateCredentials();
       revalidateConnectors();

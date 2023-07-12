@@ -15,14 +15,14 @@ import { useState } from "react";
 interface UseConnectorsOpsReturn {
   isLoading: boolean;
   handleUnlinkCredential: (
-    connectorId?: number,
-    credentialId?: number
+    connectorId: number,
+    credentialId: number
   ) => Promise<void>;
   handleLinkCredential: (
-    connectorId?: number,
-    credentialId?: number
+    connectorId: number,
+    credentialId: number
   ) => Promise<void>;
-  handleDeleteConnector: (connectorId?: number) => Promise<void>;
+  handleDeleteConnector: (connectorId: number, isSilent: boolean) => Promise<void>;
   handleCreateConnector: (connectorBase: ConnectorBase<{}>) => Promise<Connector<{}>>;
   handleToggleConnector: (oldConnector: Connector<{}>) =>  Promise<Connector<{}>>;
 }
@@ -33,7 +33,7 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
   const { publish } = useToast();
 
   const handleDeleteConnector = async (
-    connectorId?: number,
+    connectorId: number,
     isSilent: boolean = false,
   ) => {
     setIsLoading(true);
@@ -98,8 +98,8 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
   };
   
   const handleLinkCredential = async (
-    connectorId?: number,
-    credentialId?: number,
+    connectorId: number,
+    credentialId: number,
   ) => {
     setIsLoading(true);
     try {
@@ -137,8 +137,8 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
 
 
   const handleUnlinkCredential = async (
-    connectorId?: number,
-    credentialId?: number,
+    connectorId: number,
+    credentialId: number,
   ) => {
     setIsLoading(true);
 

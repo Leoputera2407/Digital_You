@@ -346,7 +346,6 @@ async def async_delete_connector(
         organization_id,
         db_session
     )
-    logger.info(f"connector: {connector}")
     if connector is None:
         return StatusResponse(
             success=True, message="Connector was already deleted", data=connector_id
