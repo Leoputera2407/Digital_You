@@ -45,6 +45,10 @@ jobs:
         file: ./backend/Dockerfile.scheduled
         load: true
         tags: my_image:latest
+    
+    - name: Debug environment variables
+      run: |
+        echo POSTGRES_HOST=${{ env.POSTGRES_HOST }}
 
     - name: Run Docker image
       run: docker run my_image:latest
