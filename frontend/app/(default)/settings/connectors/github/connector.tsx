@@ -483,9 +483,9 @@ const GithubConnector: React.FC<GithubConnectorProps> = ({
           </div>
         </div>
         {isConnectorCredentialLoading ? (
-            <div className="animate-spin mr-2">
-               <FaSpinner className="h-5 w-5 text-white" />
-            </div>
+          <div className="animate-spin mr-2">
+            <FaSpinner className="h-5 w-5 text-white" />
+          </div>
         ) : githubPublicCredential === undefined &&
           (githubConnectorIndexingStatuses === undefined ||
             githubConnectorIndexingStatuses.length === 0) ? (
@@ -550,15 +550,9 @@ const GithubConnector: React.FC<GithubConnectorProps> = ({
                           }}
                           disabled={isLoadingConnectorOps}
                         >
-                          {isLoadingConnectorOps ? (
-                            <div className="animate-spin mr-2">
-                              <FaSpinner className="h-5 w-5 text-white" />
-                            </div>
-                          ) : (
-                            <div className="h-5 w-5 inline-flex items-center justify-center">
-                              {connector.disabled ? "Enable" : "Disable"}
-                            </div>
-                          )}
+                          <div className="inline-flex items-center justify-center">
+                            {connector.disabled ? "Enable" : "Disable"}
+                          </div>
                         </AuthButton>
                       </div>
                     )}
