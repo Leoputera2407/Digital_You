@@ -1,9 +1,11 @@
+'use client';
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import AuthButton from "@/components/ui/authButton";
 import { Collapsible } from "@/components/ui/collapsible";
 import { SlackIcon } from "@/components/ui/icon";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
+import { useToast } from "@/lib/hooks/useToast";
 import {
   AnyCredentialJson,
   Connector,
@@ -11,7 +13,7 @@ import {
   Credential,
   OrganizationBase,
 } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaSpinner } from "react-icons/fa";
 import { useSlackConnectors } from "./hook";
 
@@ -31,6 +33,7 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
   isConnectorCredentialLoading,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { publish } = useToast();
 
   const {
     isLoading: isSlackAuthenticating,
@@ -50,12 +53,46 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
     currentOrganization?.id
   );
 
-  const { isLoading: isLoadingConnectorOps, handleToggleConnector } =
+  const { 
+    isLoading: isLoadingConnectorOps, 
+    handleToggleConnector,
+    handleDeleteConnector,
+  } =
     useConnectorsOps(currentOrganization?.id);
 
   const handleToggleOpen = () => {
     setIsOpen((prevIsOpen) => !prevIsOpen);
   };
+
+  const slackErrorPublishedRef = useRef(false);
+
+  useEffect(() => {
+    let url = new URL(window.location.href);
+    let searchParams = new URLSearchParams(url.search);
+    let connectorType = searchParams.get('connector_type');
+    let status = searchParams.get('status');
+    let errorMessage = searchParams.get('error_message');
+
+    async function deleteAndRefresh(slackConnector: Connector<any>) {
+      // delete connector
+      await handleDeleteConnector(slackConnector.id, true);
+      
+      // remove query parameters from URL
+      const location = window.location;
+      const cleanUrl = `${location.protocol}//${location.host}${location.pathname}`;
+      window.history.pushState({}, '', cleanUrl);
+    }
+
+    if (connectorType === 'slack' && status && errorMessage && slackConnector !== undefined ) {
+      slackErrorPublishedRef.current = true;
+      publish({
+        variant: "danger",
+        text: "Failed to connect to Slack: " + errorMessage,
+      });
+      deleteAndRefresh(slackConnector);
+    }
+  }, [slackConnector]);
+  
 
   return (
     <Collapsible
@@ -86,8 +123,8 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
             <div className="animate-spin mr-2">
               <FaSpinner className="h-5 w-5 text-white" />
             </div>
-          ) : slackPublicCredential === undefined &&
-            slackConnectorIndexingStatus === undefined &&
+          ) : (slackPublicCredential === undefined &&
+            slackConnectorIndexingStatus === undefined) ||
             slackConnector === undefined ? (
             <AuthButton
               className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"

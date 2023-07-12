@@ -103,6 +103,7 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
 
     async def async_issue(
             self,
+            prosona_user_id: UUID,
             prosona_org_id: UUID,
             db_session: AsyncSession,
     ) -> str:
@@ -110,7 +111,8 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
         try:
             await async_issue_slack_state(
                 db_session, 
-                state, 
+                state,
+                prosona_user_id=prosona_user_id,
                 prosona_org_id=prosona_org_id,
                 expiration_seconds=120,
             )
@@ -124,12 +126,12 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
             self, 
             state: str,
             db_session: AsyncSession
-        ) -> Tuple[str, Optional[UUID]]:
+        ) -> Tuple[str, Optional[UUID], Optional[UUID]]:
         try:
-            state, prosona_org_id = await async_consume_slack_state(
+            state, prosona_org_id, prosona_user_id = await async_consume_slack_state(
                 db_session, state,
             )
-            return state, prosona_org_id
+            return state, prosona_org_id, prosona_user_id
         except Exception as e:
             message = f"Failed to find any persistent data for state: {state} - {e}"
             self.logger.warning(message)

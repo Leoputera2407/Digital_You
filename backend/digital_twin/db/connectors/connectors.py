@@ -108,19 +108,19 @@ async def async_fetch_connector_by_id_and_org(
     db_session: AsyncSession,
 ) -> Connector | None:
     try:
-        stmt = select(Connector).where(Connector.id == connector_id)
+        stmt = select(Connector).options(joinedload(Connector.credentials)).where(Connector.id == connector_id)
 
         if organization_id is not None:
             stmt = stmt.where(Connector.organization_id == organization_id)
 
         result = await db_session.execute(stmt)
-        connector = result.scalars().first()
+        connector = result.unique().scalars().first()
         return connector
 
     except Exception as e:
         logger.error(f"Error executing SQL query: {e}")
         return None
-
+    
 @log_sqlalchemy_error(logger)
 def create_connector(
     connector_data: ConnectorBase,
@@ -258,6 +258,8 @@ async def async_update_connector(
     connector.organization_id = organization_id
 
     await db_session.commit()
+    await db_session.refresh(connector)
+
     return connector
 
 
@@ -344,12 +346,13 @@ async def async_delete_connector(
         organization_id,
         db_session
     )
+    logger.info(f"connector: {connector}")
     if connector is None:
         return StatusResponse(
             success=True, message="Connector was already deleted", data=connector_id
         )
 
-    db_session.delete(connector)
+    await db_session.delete(connector)
     await db_session.commit()
     return StatusResponse(
         success=True, message="Connector deleted successfully", data=connector_id

@@ -2,14 +2,14 @@ import json
 
 from uuid import UUID
 from logging import Logger
-from typing import Dict, Any, Callable, Awaitable
+from urllib.parse import urlencode
+from typing import Dict, Any, Callable, Awaitable, Union
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import Response as StarletteResponse
-
+from starlette.responses import Response as StarletteResponse, RedirectResponse
 
 from slack_sdk.http_retry.builtin_async_handlers import AsyncRateLimitErrorRetryHandler
 from slack_bolt import BoltResponse
@@ -45,6 +45,7 @@ from digital_twin.slack_bot.views import (
 from digital_twin.slack_bot.events.command import handle_prosona_command
 from digital_twin.slack_bot.events.home_tab import build_home_tab
 from digital_twin.slack_bot.config import get_oauth_settings
+from digital_twin.server.model import AuthUrl
 from digital_twin.db.model import SlackUser
 from digital_twin.db.engine import get_async_session_generator
 from digital_twin.db.user import (
@@ -53,6 +54,7 @@ from digital_twin.db.user import (
 )
 
 from digital_twin.utils.slack import (
+    SlackResponseStatus,
     to_starlette_response,
     custom_handle_slack_oauth_redirect,
     custom_handle_installation,
@@ -160,27 +162,51 @@ async def handle_slack_event(req: Request):
 
 @router.get("/slack/install/{organization_id}")
 async def install(
+    response: StarletteResponse, 
     organization_id: UUID,
     request: Request,
-    _: User = Depends(current_admin_for_org),
+    user: User = Depends(current_admin_for_org),
     db_session: AsyncSession = Depends(get_async_session_generator),
-):
+) -> AuthUrl:
     oauth_flow: AsyncOAuthFlow = app_handler.app.oauth_flow
     if oauth_flow is not None and \
             request.method == "GET":
         logger.info(f"Handling slack install {organization_id}")
 
         bolt_resp = await custom_handle_installation(
+            user=user,
             oauth_flow=oauth_flow,
             organization_id=organization_id,
             db_session=db_session,
             request=request,
         ) 
-        return to_starlette_response(bolt_resp)
+        # Convert bolt response to starlette response
+        res = to_starlette_response(bolt_resp)
+        
+        # Extract state from the cookie
+        cookie_header = res.headers.get('set-cookie', '')
+        if "=" in cookie_header and ";" in cookie_header:
+            state = cookie_header.split('=')[1].split(';')[0]
+        else:
+            logger.error("Invalid or missing 'set-cookie' header in response")
+            raise HTTPException(status_code=500, detail="Internal server error")
+            
+        # Prepare the auth URL
+        auth_url = res.body.decode()
+        
+        # Set cookies
+        response.set_cookie(
+            key='slack-app-oauth-state',
+            value=state,
+            samesite='None',
+            secure=True,
+            max_age=600,
+        )
+        return AuthUrl(auth_url=auth_url)
  
-    return StarletteResponse(
+    return HTTPException(
             status_code=404,
-            content="Not found",
+            content="Slack Installation Request is malformed",
     )
 
 @router.get("/slack/oauth_redirect")
@@ -204,17 +230,27 @@ async def slack_oauth_redirect(
     if oauth_flow is not None and \
         request.url.path == oauth_flow.redirect_uri_path and \
             request.method == "GET":
-        response = await custom_handle_slack_oauth_redirect(
+        res = await custom_handle_slack_oauth_redirect(
             oauth_flow=oauth_flow,
             db_session=db_session,
             request=request,
         )
-        if isinstance(response, BoltResponse):
-            return to_starlette_response(response)
-        elif isinstance(response, StarletteResponse):
-            return response
-        else:
-            raise ValueError("Unexpected response type")
+        if isinstance(res, SlackResponseStatus):
+            # If status code indicates success, redirect to the settings page
+            if res.success: 
+                return RedirectResponse(url=f"{WEB_DOMAIN}/settings/connectors")
+            else:  # On failure, redirect to the WEB_DOMAIN with the status and body as query parameters
+                error_data = {
+                    'status': res.status_code,
+                    'error_message': res.error_message,
+                    'connector_type': 'slack'
+                }
+                return RedirectResponse(url=f"{WEB_DOMAIN}/settings/connectors?{urlencode(error_data)}")
+            
+        raise HTTPException(
+            status_code=500, 
+            detail="Unexpected response type from custom_handle_slack_oauth_redirect"
+        )
     return StarletteResponse(
             status_code=404,
             content="Not found",

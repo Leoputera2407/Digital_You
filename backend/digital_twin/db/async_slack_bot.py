@@ -94,6 +94,7 @@ async def async_save_slack_bot(
 async def async_issue_slack_state(
     session: AsyncSession, 
     state: str, 
+    prosona_user_id: UUID,
     prosona_org_id: UUID,
     expiration_seconds: int
 ) -> bool:    
@@ -101,6 +102,7 @@ async def async_issue_slack_state(
     session.add(SlackOAuthStates(
         state=state, 
         expire_at=now,
+        prosona_user_id=prosona_user_id,
         prosona_organization_id=prosona_org_id
         )
     )
@@ -112,7 +114,7 @@ async def async_issue_slack_state(
 async def async_consume_slack_state(
     session: AsyncSession, 
     state: str
-) -> Tuple[str, UUID]:
+) -> Tuple[str, UUID, UUID]:
     """
     It returns the whether the state is valid and 
     the prosona_organization_id associated with the state.
@@ -126,7 +128,7 @@ async def async_consume_slack_state(
     if slack_state_instance:
         await session.delete(slack_state_instance)
         await session.commit()
-        return slack_state_instance.state, slack_state_instance.prosona_organization_id
+        return slack_state_instance.state, slack_state_instance.prosona_organization_id, slack_state_instance.prosona_user_id
     else:
         logger.warning(f"No state found to consume: {state}")
         raise Exception(f"No state found to consume: {state}")

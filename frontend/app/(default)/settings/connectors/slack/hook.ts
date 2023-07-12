@@ -40,7 +40,7 @@ interface SetupSlackArgs {
 function isSlackCredentialJson(
   credential: Credential<AnyCredentialJson>
 ): credential is Credential<SlackCredentialJson> {
-  return credential.credential_json.hasOwnProperty("notion_access_tokens");
+  return credential.credential_json.hasOwnProperty("slack_bot_token");
 }
 
 const setupSlackOAuth = async ({
@@ -48,35 +48,55 @@ const setupSlackOAuth = async ({
   isPublic,
   organizationId,
 }: SetupSlackArgs): Promise<[boolean, string?]> => {
-   /*
+  try {
+     /*
       // TODO: For now, all creds made are public in the server-side, make that configurable
-      All creds creation + linking are done server-side 
+      
+      NOTE: All creds creation + linking are done server-side 
       Server-side, however, assumes that a Connector is already made. 
       So, we need to make connector before calling the server.
     */
-  try {
-    const connectorBase: ConnectorBase<{}> = {
-      name: "SlackConnector",
-      input_type: "load_state",
-      source: "slack",
-      connector_specific_config: {},
-      refresh_freq: 60 * 30, // 30 minutes
-      disabled: false,
-    };
-    const connector = await createConnector(
-      axiosInstance,
-      connectorBase,
-      organizationId
-    );
-
-    await axiosInstance.get(`/api/slack/install/${organizationId}`);
-    return [true];
+   
+    // Get the auth url
+    const response = await axiosInstance.get(`/api/slack/install/${organizationId}`);
+    
+    // Check if we got a successful response
+    if (response.status === 200) {
+      const authUrl = response.data.auth_url;
+      
+      // Prepare the connector
+      const connectorBase: ConnectorBase<{}> = {
+        name: "SlackConnector",
+        input_type: "load_state",
+        source: "slack",
+        connector_specific_config: {},
+        refresh_freq: 60 * 30, // 30 minutes
+        disabled: false,
+      };
+      
+      // Create the connector
+      const connector = await createConnector(
+        axiosInstance,
+        connectorBase,
+        organizationId
+      );
+      
+      // Now that the connector is created, redirect to the auth url
+      window.location.href = authUrl;
+      
+      return [true];
+    } else {
+      const errorMsg = `Failed to setup OAuth for Slack - ${response.status}`;
+      console.error(errorMsg);
+      return [false, errorMsg];
+    }
   } catch (error: any) {
-    const status = error.response?.status || 500;
-    console.log(`Failed to oauth for Slack - ${status}`);
-    return [false, `Failed to oauth for Slack - ${status}`];
+    const errorMsg = `Failed to setup OAuth for Slack - ${error.message}`;
+    console.error(errorMsg);
+    return [false, errorMsg];
   }
 };
+
 
 export function useSlackConnectors({
   connectorIndexingStatuses,
@@ -88,7 +108,6 @@ export function useSlackConnectors({
   const { axiosInstance } = useAxios();
   const { publish } = useToast();
   const router = useRouter();
-
   // This returns the first cred that matches the criteria
   const slackPublicCredential = credentialsData?.find(
     (credential): credential is Credential<SlackCredentialJson> =>

@@ -34,6 +34,7 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
 
   const handleDeleteConnector = async (
     connectorId?: number,
+    isSilent: boolean = false,
   ) => {
     setIsLoading(true);
 
@@ -52,15 +53,19 @@ export function useConnectorsOps(organizationId: string| undefined | null): UseC
         validConnectorId,
         validOrganizationId,
       );
-      publish({
-        variant: "success",
-        text: "Successfully deleted connector!",
-      });
+      if (!isSilent) {
+        publish({
+          variant: "success",
+          text: "Successfully deleted connector!",
+        });
+      }
     } catch (error: any) {
-      publish({
-        variant: "danger",
-        text: "Failed to deleted connector!",
-      });
+      if (!isSilent) {
+        publish({
+          variant: "danger",
+          text: "Failed to deleted connector!",
+        });
+      }
     } finally {
       setIsLoading(false);
     }

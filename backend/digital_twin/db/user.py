@@ -114,6 +114,15 @@ async def async_get_user_by_email(
     user = result.scalars().first()
     return user
 
+@async_log_sqlalchemy_error(logger)
+async def async_get_user_by_id(
+    session: AsyncSession, 
+    user_id:  UUID
+) -> Optional[User]:
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    return user
+
 @log_sqlalchemy_error(logger)
 def get_user_org_assocations(
     user: User,

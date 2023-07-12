@@ -1,9 +1,10 @@
 import re 
 import time 
 from uuid import UUID
+from pydantic import BaseModel
 from typing import Dict, Any, Optional, List, Tuple, Union
 from starlette.requests import Request
-from starlette.responses import Response, RedirectResponse
+from starlette.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from slack_bolt import BoltResponse
@@ -23,7 +24,7 @@ from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
 from digital_twin.db.model import User
 from digital_twin.db.user import (
-     async_get_user_by_email,
+     async_get_user_by_id,
      async_insert_slack_user,    
 )
 from digital_twin.db.connectors.credentials import (
@@ -39,6 +40,13 @@ from digital_twin.server.model import StatusResponse
 from digital_twin.server.model import CredentialBase
 from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
+
+
+class SlackResponseStatus(BaseModel):
+    success: bool
+    status_code: int
+    error_message: Optional[str] = None
+
 
 def to_async_bolt_request(
     req: Request,
@@ -77,6 +85,7 @@ def to_starlette_response(bolt_resp: BoltResponse) -> Response:
     return resp
 
 async def custom_handle_installation(
+    user: User, 
     oauth_flow: AsyncOAuthFlow,
     organization_id: UUID,
     db_session: AsyncSession,
@@ -91,53 +100,38 @@ async def custom_handle_installation(
     url = await oauth_flow.build_authorize_url("", bolt_request)
     if oauth_flow.settings.state_validation_enabled is True:
         state = await oauth_flow.settings.state_store.async_issue(
+            prosona_user_id=user.id,
             prosona_org_id=organization_id,
             db_session=db_session,
         )
         url = await oauth_flow.build_authorize_url(state, bolt_request)
         set_cookie_value = oauth_flow.settings.state_utils.build_set_cookie_for_new_state(state)
-    if oauth_flow.settings.install_page_rendering_enabled:
-        html = await oauth_flow.build_install_page_html(url, bolt_request)
-        return BoltResponse(
-            status=200,
-            body=html,
-            headers=await oauth_flow.append_set_cookie_headers(
+    
+    return BoltResponse(
+        status=200,
+        body=url,
+        headers=await oauth_flow.append_set_cookie_headers(
                 {"Content-Type": "text/html; charset=utf-8"},
                 set_cookie_value,
             ),
-        )
-    else:
-        return BoltResponse(
-            status=302,
-            body="",
-            headers=await oauth_flow.append_set_cookie_headers(
-                {"Content-Type": "text/html; charset=utf-8", "Location": url},
-                set_cookie_value,
-            ),
-        )
+    )
 
 async def associate_slack_user_with_db_user(
         installation: Installation,
         prosona_org_id: UUID,
-        oauth_flow: AsyncOAuthFlow,
-        request: AsyncBoltRequest,
+        prosona_user: User,
         db_session: AsyncSession
-) -> Union[Dict[str, Tuple[User, str]], BoltResponse]:
+) -> Union[Dict[str, Tuple[User, str]], SlackResponseStatus]:
     admin_slack_user_id = installation.user_id
     admin_slack_team_id = installation.team_id
     slack_token = installation.bot_token
     slack_user_info = await async_get_user_info(admin_slack_user_id, slack_token)
     slack_user_email = slack_user_info.get('profile', {}).get('email', None)
-    user = await async_get_user_by_email(db_session, slack_user_email)
-    if user is None or slack_user_email is None:
-        return await oauth_flow.failure_handler(
-            AsyncFailureArgs(
-                request=request,
-                reason="associated_slack_user_not_found",
-                suggested_status_code=500,
-                settings=oauth_flow.settings,
-                default=oauth_flow.default_callback_options,
-            )
+    if prosona_user is None or slack_user_email is None or slack_user_email != prosona_user.email:
+        return SlackResponseStatus(
+            success=False,
+            status_code=400,
+            error_message="slack_user_email_not_found. Please ensure that your prosona email is the same as your slack account's email",
         )
 
     res = await async_insert_slack_user(
@@ -145,21 +139,17 @@ async def associate_slack_user_with_db_user(
             admin_slack_user_id, 
             admin_slack_team_id,
             organization_id=prosona_org_id,
-            db_user_id=user.id,
+            db_user_id=prosona_user.id,
     )
 
     if res is None:
-        return await oauth_flow.failure_handler(
-            AsyncFailureArgs(
-                request=request,
-                reason="insert_slack_user_failed",
-                suggested_status_code=500,
-                settings=oauth_flow.settings,
-                default=oauth_flow.default_callback_options,
-            )
+        return SlackResponseStatus(
+            success=False,
+            status_code=400,
+            error_message="failed_to_insert_slack_user. Please contact admin",
         )
 
-    return {"user": user, "slack_token": slack_token}
+    return {"user": prosona_user, "slack_token": slack_token}
 
 async def handle_credential_and_connector(
         user: User,
@@ -196,15 +186,11 @@ async def handle_credential_and_connector(
                 default=oauth_flow.default_callback_options,
             )
         )
-
     org_slack_connector = await async_fetch_connectors(
         db_session,
         organization_id=prosona_org_id,
         sources=[DocumentSource.SLACK],
-        input_types=[InputType.POLL],
     )
-
-    logger.info(f"org_slack_connector: {org_slack_connector}")
 
     if not org_slack_connector:
         return await oauth_flow.failure_handler(
@@ -232,7 +218,7 @@ async def custom_handle_slack_oauth_redirect(
     oauth_flow: AsyncOAuthFlow,
     db_session: AsyncSession,
     request: Request,
-) -> Union[BoltResponse, RedirectResponse]:
+) -> SlackResponseStatus:
     """
     Handles the installation flow's callback request from Slack.
     This function associate the admin user to slack user using the email address.
@@ -252,73 +238,43 @@ async def custom_handle_slack_oauth_redirect(
     # failure due to end-user's cancellation or invalid redirection to slack.com
     error = bolt_request.query.get("error", [None])[0]
     if error is not None:
-        return await oauth_flow.failure_handler(
-            AsyncFailureArgs(
-                request=bolt_request,
-                reason=error,  # type: ignore
-                suggested_status_code=200,
-                settings=oauth_flow.settings,
-                default=oauth_flow.default_callback_options,
-            )
-        )
+        return SlackResponseStatus(success=False, status_code=400, error_message=f"error: {error}")
 
     # state parameter verification
     if oauth_flow.settings.state_validation_enabled is True:
         state: Optional[str] = bolt_request.query.get("state", [None])[0]
-        db_state, prosona_org_id = \
+        db_state, prosona_org_id, prosona_user_id = \
             await oauth_flow.settings.state_store.async_consume(
                 state,
                 db_session,
             )  # type: ignore
     
         if not db_state or db_state != state:
-            return await oauth_flow.failure_handler(
-                AsyncFailureArgs(
-                    request=bolt_request,
-                    reason="invalid_state",
-                    suggested_status_code=401,
-                    settings=oauth_flow.settings,
-                    default=oauth_flow.default_callback_options,
-                )
-            )
+            return SlackResponseStatus(success=False, status_code=400, error_message="invalid_state")
 
     # run installation
     code = bolt_request.query.get("code", [None])[0]
     if code is None:
-        return await oauth_flow.failure_handler(
-            AsyncFailureArgs(
-                request=bolt_request,
-                reason="missing_code",
-                suggested_status_code=401,
-                settings=oauth_flow.settings,
-                default=oauth_flow.default_callback_options,
-            )
-        )
+        return SlackResponseStatus(success=False, status_code=400, error_message="invalid_code")
 
     installation: Installation = await oauth_flow.run_installation(code)
     if installation is None:
         # failed to run installation with the code
-        return await oauth_flow.failure_handler(
-            AsyncFailureArgs(
-                request=bolt_request,
-                reason="invalid_code",
-                suggested_status_code=401,
-                settings=oauth_flow.settings,
-                default=oauth_flow.default_callback_options,
-            )
-        )
-    
+        return SlackResponseStatus(success=False, status_code=500, error_message="invalid_code")
+
+    prosona_user = await async_get_user_by_id(
+        db_session,
+        prosona_user_id,
+    )
     # We need to associate admin_slack_user installer 
     # with our DB user, and we do so by looking up the email
     associate_result = await associate_slack_user_with_db_user(
         installation=installation,
+        prosona_user=prosona_user,
         prosona_org_id=prosona_org_id,
-        oauth_flow=oauth_flow,
-        request=bolt_request,
         db_session=db_session,
     )
-    if isinstance(associate_result, BoltResponse):
-        # if BoltResponse returned, this means an error occurred, so we return it
+    if isinstance(associate_result, SlackResponseStatus):
         return associate_result
 
     user = associate_result["user"]
@@ -337,18 +293,11 @@ async def custom_handle_slack_oauth_redirect(
 
     if isinstance(handle_link_res, BoltResponse):
         # if BoltResponse returned, this means an error occurred, so we return it
-        return handle_link_res
+        return SlackResponseStatus(success=False, status_code=500, error_message="link_credential_to_connector_failed")
 
     if not handle_link_res.success:
-        return await oauth_flow.failure_handler(
-            AsyncFailureArgs(
-                request=bolt_request,
-                reason="link_credential_to_connector_failed",
-                suggested_status_code=500,
-                settings=oauth_flow.settings,
-                default=oauth_flow.default_callback_options,
-            )
-        )
+        return SlackResponseStatus(success=False, status_code=500, error_message="link_credential_to_connector_failed")
+
     # persist the installation
     try:
         await oauth_flow.settings.installation_store.async_save(
@@ -357,31 +306,10 @@ async def custom_handle_slack_oauth_redirect(
             db_session=db_session,
         )
     except BoltError as err:
-        return await oauth_flow.failure_handler(
-            AsyncFailureArgs(
-                request=bolt_request,
-                reason="storage_error",
-                error=err,
-                suggested_status_code=500,
-                settings=oauth_flow.settings,
-                default=oauth_flow.default_callback_options,
-            )
-        )
-
-    # On success, we'll redirect back to our frontend
-    """
-    # TODO: Use the propoer success handler
-    return await oauth_flow.success_handler(
-        AsyncSuccessArgs(
-            request=bolt_request,
-            installation=installation,
-            settings=oauth_flow.settings,
-            default=oauth_flow.default_callback_options,
-        )
-    )
-    """
-    # We set the redirect on frontend on our settings
-    return RedirectResponse(url=oauth_flow.settings.success_url)
+        return SlackResponseStatus(success=False, status_code=500, error_message="storage_error")
+   
+    return SlackResponseStatus(success=True, status_code=200)
+  
 
 async def async_get_user_info(slack_user_id: str, slack_token: str) -> dict:
     client = AsyncWebClient(token=slack_token)

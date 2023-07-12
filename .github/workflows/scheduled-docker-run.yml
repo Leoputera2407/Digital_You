@@ -1,0 +1,27 @@
+name: Scheduled Docker Run
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # This schedule is set to run every 30 minutes
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: ./Dockerfile.scheduled
+        load: true
+        tags: my_image:latest
+
+    - name: Run Docker image
+      run: docker run my_image:latest

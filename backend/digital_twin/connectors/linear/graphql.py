@@ -36,6 +36,19 @@ class LinearGraphQLClient:
             print(f"Request failed: {e}")
             raise e
 
+    def _raise_if_error_response(self, response: dict):
+        if response.get('errors'):
+            error_messages = []
+            for error in response.get('errors', []):
+                extensions = error.get('extensions', {})
+                user_presentable_message = extensions.get('userPresentableMessage')
+                if user_presentable_message:
+                    error_messages.append(user_presentable_message)
+                else:
+                    error_messages.append(error.get('message', 'Unknown error'))
+
+            raise Exception('; '.join(error_messages))
+    
     def get_issues_data(
             self, 
             team_id: str, 
@@ -82,51 +95,64 @@ class LinearGraphQLClient:
                 "after": after
             }
             response = self.execute_graphql_query(query, variables)
-
-            for node in response['data']['team']['issues']['nodes']:
+            self._raise_if_error_response(response)
+            for node in response.get('data', {}).get('team', {}).get('issues', {}).get('nodes', []):
                 issue = node
-                if issue['updatedAt'] is None:
+                if issue.get('updatedAt') is None:
                     continue
-                last_modified = datetime.fromisoformat(issue['updatedAt']).timestamp()
+                try:
+                    last_modified = datetime.fromisoformat(issue['updatedAt']).timestamp()
+                except Exception:
+                    last_modified = None
 
                 if time_range_start is not None and last_modified < time_range_start:
                     break
+
                 if time_range_end is not None and last_modified > time_range_end:
                     continue
 
+                assignee_data = issue.get('assignee', {})
+                assignee = None
+                if assignee_data:
+                    assignee = Person(
+                        id=assignee_data.get('id', ''), 
+                        name=assignee_data.get('name', ''),
+                        email=assignee_data.get('email', '')
+                    )
+
                 issue_data = Issue(
-                    id=issue["id"],
-                    title=issue["title"],
-                    description=issue["description"] if issue["description"] else "",
-                    url=issue["url"],
-                    created_at=datetime.fromisoformat(issue["createdAt"]).timestamp() if issue["createdAt"] else None,
-                    updated_at=datetime.fromisoformat(issue["updatedAt"]).timestamp() if issue["updatedAt"] else None,
-                    archived_at=datetime.fromisoformat(issue["archivedAt"]).timestamp() if issue["archivedAt"] else None,
-                    assignee=Person(id=issue["assignee"]["id"], name=issue["assignee"]["name"], email=issue["assignee"]["email"]) if issue["assignee"] else None,
-                    labels=[Label(name=l["name"]) for l in issue["labels"]["nodes"]],
+                    id=issue.get('id', ''),
+                    title=issue.get('title', ''),
+                    description=issue.get('description') or '',
+                    url=issue.get('url', ''),
+                    created_at=datetime.fromisoformat(issue.get('createdAt', '')).timestamp() if issue.get('createdAt') else None,
+                    updated_at=datetime.fromisoformat(issue.get('updatedAt', '')).timestamp() if issue.get('updatedAt') else None,
+                    archived_at=datetime.fromisoformat(issue.get('archivedAt', '')).timestamp() if issue.get('archivedAt') else None,
+                    assignee=assignee,
+                    labels=[Label(name=l.get('name', '')) for l in issue.get('labels', {}).get('nodes', [])] if issue.get('labels') else [],
                 )
                 issues_data.append(issue_data)
 
-            if not response['data']['team']['issues']['pageInfo']['hasNextPage'] or (time_range_start is not None and last_modified < time_range_start):
+            if not response.get('data', {}).get('team', {}).get('issues', {}).get('pageInfo', {}).get('hasNextPage', False) or \
+                (time_range_start is not None and last_modified is not None and last_modified < time_range_start):
                 break
 
-            after = response['data']['team']['issues']['pageInfo']['endCursor']
+            after = response.get('data', {}).get('team', {}).get('issues', {}).get('pageInfo', {}).get('endCursor', None)
 
         return issues_data
 
     def get_user_organization_and_teams(self) -> LinearOrganization:
         """
         Returns the organization and teams of the user
-        -- For now, we assume all org only has 1 team
         """
         query = """
                 query {
                     viewer {
-                        teams(first: 100) { 
-                            nodes {
-                                id
-                                name
-                                organization {
+                        organization {
+                            id
+                            name
+                            teams(first: 100) { 
+                                nodes {
                                     id
                                     name
                                 }
@@ -136,20 +162,22 @@ class LinearGraphQLClient:
                 }
             """
         response = self.execute_graphql_query(query)
+        self._raise_if_error_response(response)
+        data = response.get('data', {}).get('viewer', {}).get('organization', {})
+        
+        if not data:
+            raise ValueError("No organization data found")
+
+        org_id = data.get('id')
+        org_name = data.get('name')
+        team_nodes = data.get('teams', {}).get('nodes', [])
+        
         teams = []
-        org_node = None
-
-      
-
-        for team_node in response['data']['viewer']['teams']['nodes']:
-            if org_node is None:
-                org_node = team_node['organization']
-                
-            team = LinearTeam(id=team_node['id'], name=team_node['name'])
+        for team_node in team_nodes:
+            team = LinearTeam(id=team_node.get('id'), name=team_node.get('name'))
             teams.append(team)
 
-        organization = LinearOrganization(id=org_node['id'], name=org_node['name'], teams=teams)
-
+        organization = LinearOrganization(id=org_id, name=org_name, teams=teams)
         return organization
 
 
@@ -165,9 +193,10 @@ class LinearGraphQLClient:
             }
         """
         response = self.execute_graphql_query(query)
-
+        viewer = response.get('data', {}).get('viewer', {})
+        self._raise_if_error_response(response)
         return Person(
-            id=response['data']['viewer']['id'], 
-            name=response['data']['viewer']['name'],
-            email=response['data']['viewer']['email']
+            id=viewer.get('id', ''), 
+            name=viewer.get('name', ''),
+            email=viewer.get('email', '')
         )

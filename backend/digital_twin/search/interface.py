@@ -234,12 +234,9 @@ def encode_chunks(
         chunk_texts[i: i + batch_size] for i in range(0, len(chunk_texts), batch_size)
     ]
     if isinstance(embedding_model, Embeddings):
-        if len(text_batches) > 0:
-            embeddings: list[list[float]] = embedding_model.embed_documents(
-                text_batches
-            )
-        else:
-            embeddings=[]
+        embeddings: list[list[float]]=[]
+        for text_batch in text_batches:
+            embeddings.extend(embedding_model.embed_documents(text_batch))
     elif isinstance(embedding_model, SentenceTransformer):
         embeddings_np: list[np.ndarray] = []
         for text_batch in text_batches:

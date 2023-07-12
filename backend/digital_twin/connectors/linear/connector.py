@@ -15,7 +15,10 @@ from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
 
 class LinearConnector(LoadConnector, PollConnector):
-    def __init__(self, batch_size: int = INDEX_BATCH_SIZE) -> None:
+    def __init__(self, team_id: str, team_name: str, workspace: str, batch_size: int = INDEX_BATCH_SIZE) -> None:
+        self.team_id = team_id
+        self.team_name = team_name
+        self.workspace = workspace
         self.batch_size = batch_size
         self.linear_client: LinearGraphQLClient | None = None
 
@@ -59,10 +62,10 @@ class LinearConnector(LoadConnector, PollConnector):
                 )
             yield batch
 
-    def load_from_state(self, team_id: str) -> GenerateDocumentsOutput:     
-        yield from self._fetch_issues_from_linear(team_id)
+    def load_from_state(self) -> GenerateDocumentsOutput:     
+        yield from self._fetch_issues_from_linear(self.team_id)
 
     def poll_source(
-        self, team_id: str, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch
+        self, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch
     ) -> GenerateDocumentsOutput:
-        yield from self._fetch_issues_from_linear(team_id, start, end)
+        yield from self._fetch_issues_from_linear(self.team_id, start, end)

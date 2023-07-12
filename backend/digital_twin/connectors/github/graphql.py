@@ -39,6 +39,14 @@ class GithubGraphQLClient:
         else:
             raise Exception(f"Query failed with status code {request.status_code}. Query: {query}")
     
+    def _raise_if_error_response(self, response: dict):
+        if response.get('errors'):
+            error_messages = []
+            for error in response.get('errors', []):
+                message = error.get('message', 'Unknown error')
+                error_messages.append(message)
+            raise Exception('; '.join(error_messages))
+    
     def get_pull_request_data(
             self, 
             owner: str, 
@@ -111,6 +119,7 @@ class GithubGraphQLClient:
         pull_requests_data = []
         while True:
             response = self.execute_graphql_query(query, variables)
+            self._raise_if_error_response(response)
             for edge in response['data']['repository']['pullRequests']['edges']:
                 pr = edge['node']
                 if pr['updatedAt'] is None:

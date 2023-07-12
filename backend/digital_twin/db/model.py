@@ -375,6 +375,7 @@ class SlackOAuthStates(Base):
     state: Mapped[str] = mapped_column(String(200), nullable=False)
     expire_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     prosona_organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
+    prosona_user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'))
     organization: Mapped[Organization] = relationship('Organization', back_populates='slack_oauth_states')
 
 

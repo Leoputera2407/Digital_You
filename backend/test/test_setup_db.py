@@ -1,8 +1,8 @@
 import requests
 import json
 
-from digital_twin.db.connectors.google_drive import upsert_db_google_app_cred
-from digital_twin.db.engine import get_session
+from digital_twin.db.connectors.google_drive import async_upsert_db_google_app_cred
+from digital_twin.db.engine import get_async_session
 from digital_twin.server.model import GoogleAppWebCredentials, GoogleAppCredentials
 
 BUCKET_NAME = "Access Token Bucket"
@@ -36,8 +36,13 @@ else:
     print(f"Error occurred: {response.text}")
 """
 app_credentials = GoogleAppCredentials(**credentials['web'])
-db_session = next(get_session())
-res = upsert_db_google_app_cred(app_credentials.dict(), db_session)
+db_session = get_async_session()
+async def upsert_db_google_app_cred():
+    return await async_upsert_db_google_app_cred(
+        app_credentials.dict(),
+        db_session
+    )
+res = upsert_db_google_app_cred()
 
 """
 # URL of your API

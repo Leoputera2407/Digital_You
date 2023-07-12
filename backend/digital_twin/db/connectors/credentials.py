@@ -225,6 +225,8 @@ async def async_update_credential(
     credential.organization_id = organization_id
 
     await db_session.commit()
+    await db_session.refresh(credential)
+
     return credential
 
 @log_sqlalchemy_error(logger)
@@ -246,6 +248,8 @@ async def async_update_credential_json(
     credential.credential_json = credential_json
 
     await db_session.commit()
+    await db_session.refresh(credential)
+
     return credential
 
 def backend_update_credential_json(
