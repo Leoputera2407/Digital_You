@@ -188,3 +188,7 @@ class ConfluenceTestRequest(BaseModel):
 class LinearOrganizationSnapshot(BaseModel):
     name: str
     teams: List[LinearTeam]
+
+
+class NotionWorkspaceSnapshot(BaseModel):
+    name: str

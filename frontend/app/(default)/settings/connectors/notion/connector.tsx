@@ -1,7 +1,10 @@
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import AuthButton from "@/components/ui/authButton";
+import { Badge } from "@/components/ui/badge";
 import { Collapsible } from "@/components/ui/collapsible";
 import { NotionIcon } from "@/components/ui/icon";
+import { fetchNotionWorkspace } from "@/lib/connectors";
+import { useAxios } from "@/lib/hooks/useAxios";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
 import {
@@ -10,6 +13,7 @@ import {
   ConnectorBase,
   ConnectorIndexingStatus,
   Credential,
+  NotionConfig,
   OrganizationBase,
 } from "@/lib/types";
 import { useState } from "react";
@@ -32,6 +36,7 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
   isConnectorCredentialLoading,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { axiosInstance } = useAxios();
 
   const {
     isLoading: isNotionAuthenticating,
@@ -65,11 +70,18 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
   };
 
   const handleCreateLinkConnector = async () => {
-    const connectorBase: ConnectorBase<{}> = {
+    if (!currentOrganization?.id || !notionPublicCredential?.id) {
+      throw new Error("Organization ID or Notion Credential ID is undefined!");
+    }
+    const notionWorkspace = await fetchNotionWorkspace(axiosInstance, currentOrganization.id, notionPublicCredential!.id);
+
+    const connectorBase: ConnectorBase<NotionConfig> = {
       name: "NotionConnector",
       input_type: "load_state",
       source: "notion",
-      connector_specific_config: {},
+      connector_specific_config: {
+        workspace: notionWorkspace.name,
+      },
       refresh_freq: 60 * 30, // 30 minutes
       disabled: false,
     };
@@ -85,6 +97,7 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
     }
   };
 
+
   return (
     <Collapsible
       open={isOpen}
@@ -95,6 +108,16 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
         <div className="flex items-center space-x-2">
           <NotionIcon />
           <span>Notion</span>
+          {
+           !isConnectorCredentialLoading &&
+           notionConnectorIndexingStatus &&
+           notionPublicCredential &&
+           notionConnector &&
+            (
+                <Badge className="bg-orange-200 text-orange-800">
+                    <span>Workspace: {notionConnector.connector_specific_config.workspace}</span>
+                </Badge>
+            )}
         </div>
         <div className="flex items-center space-x-4">
           {!isConnectorCredentialLoading &&

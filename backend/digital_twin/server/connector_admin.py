@@ -1,3 +1,4 @@
+import requests
 from typing import Optional
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from digital_twin.server.model import (
     ConfluenceTestRequest,
     GithubTestRequest,
     LinearOrganizationSnapshot,
+    NotionWorkspaceSnapshot,
 )
 from digital_twin.db.model import (
     Credential,
@@ -300,9 +302,6 @@ async def get_linear_org_and_teams(
     admin_user: User = Depends(current_admin_for_org),
     db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> LinearOrganizationSnapshot:
-    from digital_twin.utils.logging import setup_logger
-    logger = setup_logger(__name__)
-    logger.info("Getting Linear organization and teams")
     linear_credential = await async_fetch_credential_by_id_and_org(
         linear_credential_id, 
         admin_user, 
@@ -334,4 +333,62 @@ async def get_linear_org_and_teams(
     return LinearOrganizationSnapshot(
         name=linear_org_and_teams.name,
         teams=linear_org_and_teams.teams,
+    )
+
+
+@router.get("/{organization_id}/get-notion-workspace")
+async def get_notion_workspace(
+    organization_id: UUID,
+    notion_credential_id: int,
+    admin_user: User = Depends(current_admin_for_org),
+    db_session: AsyncSession = Depends(get_async_session_generator),
+) -> NotionWorkspaceSnapshot:
+    
+    notion_credential = await async_fetch_credential_by_id_and_org(
+        notion_credential_id, 
+        admin_user, 
+        organization_id,
+        db_session
+    )
+    
+    if notion_credential is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Notion credential not found",
+        )
+    access_token = notion_credential.credential_json.get("notion_access_tokens")
+    if not access_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Notion credential, access_token not found",
+        )
+    
+    try:
+        # Define your headers
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28"
+        }
+
+        # Define your endpoint
+        url = "https://api.notion.com/v1/users/me"
+
+        # Make the request
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to fetch Notion workspace: {response.text}",
+            )
+        
+        workspace_data = response.json()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch Notion workspace: {str(e)}",
+        )
+    
+    return NotionWorkspaceSnapshot(
+        workspace_name=workspace_data['bot']['workspace_name'],
     )

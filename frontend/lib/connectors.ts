@@ -6,6 +6,7 @@ import {
   Credential,
   GithubTestBase,
   LinearOrganizationSnapshot,
+  NotionWorkspaceSnapshot,
 } from "./types";
 
 export async function createConnector<T>(
@@ -218,6 +219,27 @@ export async function fetchLinearOrgAndTeam(
   
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to fetch Linear organization and team - ${response.status}`);
+  }
+
+  return response.data;
+}
+
+export async function fetchNotionWorkspace(
+  axiosInstance: Axios,
+  organizationId: string,
+  notionCredentialId: number,
+): Promise<NotionWorkspaceSnapshot> {
+  const response = await axiosInstance.get(
+    `/api/connector/admin/${organizationId}/get-notion-workspace`,
+    {
+      params: {
+        notion_credential_id: notionCredentialId
+      }
+    }
+  );
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Failed to fetch Notion workspace - ${response.status}`);
   }
 
   return response.data;

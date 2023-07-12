@@ -99,8 +99,9 @@ def get_notion_pages_in_batches(
         yield pages[i: i + batch_size]
 
 class NotionConnector(LoadConnector, PollConnector):
-    def __init__(self, batch_size: int = INDEX_BATCH_SIZE) -> None:
+    def __init__(self, workspace: str, batch_size: int = INDEX_BATCH_SIZE) -> None:
         self.batch_size = batch_size
+        self.workspace = workspace
         self.access_token: str | None = None
 
     def load_credentials(self, credentials: dict[str, Any]) -> dict[str, Any] | None:

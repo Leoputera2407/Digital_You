@@ -24,7 +24,7 @@ class Issue(BaseModel):
     labels: List[Label]
 
     @property
-    def assignee_name(self) -> str:
+    def assignee_names(self) -> str:
         return self.assignee.name if self.assignee else ""
 
     @property

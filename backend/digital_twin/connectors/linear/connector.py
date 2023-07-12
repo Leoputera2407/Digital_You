@@ -24,7 +24,7 @@ class LinearConnector(LoadConnector, PollConnector):
 
     
     def load_credentials(self, credentials: dict[str, Any]) -> None:
-        self.github_client = LinearGraphQLClient(credentials[DB_CREDENTIALS_DICT_KEY])
+        self.linear_client = LinearGraphQLClient(credentials[DB_CREDENTIALS_DICT_KEY])
         return None
     
     def _fetch_issues_from_linear(
@@ -55,8 +55,8 @@ class LinearConnector(LoadConnector, PollConnector):
                         "created_at": issue.created_at,
                         "updated_at": issue.updated_at,
                         "archived_at": issue.archived_at,
-                        "assignee": issue.assignee,
-                        "labels": issue.labels,
+                        "assignee": issue.assignee_names,
+                        "labels": issue.label_names,
                     },
                 )
                 )

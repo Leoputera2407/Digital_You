@@ -65,7 +65,11 @@ def create_collections_if_not_exist(
 def should_change_to_polling_connector(
     connector: Connector
 ) -> bool:
-    connector_class = CONNECTOR_MAP[connector.source]
+    maybe_connector_class = CONNECTOR_MAP[connector.source]
+    if isinstance(maybe_connector_class, dict):
+        connector_class = maybe_connector_class[connector.input_type]
+    else:
+        connector_class = maybe_connector_class
     if issubclass(connector_class, PollConnector):
         return True
     else:

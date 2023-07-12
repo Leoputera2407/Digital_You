@@ -7,7 +7,8 @@ BASE_URL = "https://api.notion.com"
 class NotionParser:
 
     def __init__(self, access_token: str):
-        self.headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json",
+        self.headers = {"Authorization": f"Bearer {access_token}", 
+                        "Content-Type": "application/json",
                         "Notion-Version": "2022-06-28"}
 
     def notion_get_blocks(self, page_id: str):

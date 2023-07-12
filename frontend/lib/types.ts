@@ -75,6 +75,10 @@ export interface LinearOrganizationSnapshot {
   }[];
 }
 
+export interface NotionWorkspaceSnapshot {
+  name: string;
+}
+
 // CONNECTORS
 export interface ConnectorBase<T> {
   name: string;
@@ -112,6 +116,10 @@ export interface LinearConfig {
   workspace: string;
   team_name: string;
   team_id: string;
+}
+
+export interface NotionConfig {
+  workspace: string;
 }
 
 export interface ConnectorIndexingStatus<T> {

@@ -6,6 +6,7 @@ import {
   Connector,
   ConnectorIndexingStatus,
   Credential,
+  NotionConfig,
   NotionCredentialJson,
 } from "@/lib/types";
 import type { Axios, AxiosResponse } from "axios";
@@ -23,12 +24,12 @@ export interface UseNotionConnectorsReturn {
   isLoading: boolean;
   handleConnect: () => Promise<void>;
   notionConnectorIndexingStatus:
-    | ConnectorIndexingStatus<{}>
+    | ConnectorIndexingStatus<NotionConfig>
     | undefined;
   notionPublicCredential:
     | Credential<NotionCredentialJson>
     | undefined;
-  notionConnector: Connector<{}> | undefined;
+  notionConnector: Connector<NotionConfig> | undefined;
   credentialIsLinked: boolean;
 }
 interface SetupNotionArgs {
