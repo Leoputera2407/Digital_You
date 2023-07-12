@@ -19,17 +19,7 @@ jobs:
       TYPESENSE_HOST: ${{ secrets.TYPESENSE_HOST }}
       TYPESENSE_PORT: ${{ secrets.TYPESENSE_PORT }}
       TYPESENSE_PROTOCOL: ${{ secrets.TYPESENSE_PROTOCOL }}
-      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      SLACK_CLIENT_ID: ${{ secrets.SLACK_CLIENT_ID }}
-      SLACK_CLIENT_SECRET: ${{ secrets.SLACK_CLIENT_SECRET }}
-      SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
-      SLACK_USER_TOKEN: ${{ secrets.SLACK_USER_TOKEN }}
-      NOTION_CLIENT_ID: ${{ secrets.NOTION_CLIENT_ID }}
-      NOTION_CLIENT_SECRET: ${{ secrets.NOTION_CLIENT_SECRET }}
-      LINEAR_CLIENT_ID: ${{ secrets.LINEAR_CLIENT_ID }}
-      LINEAR_CLIENT_SECRET: ${{ secrets.LINEAR_CLIENT_SECRET }}
       EMBEDDING_OPENAI_API_KEY: ${{ secrets.EMBEDDING_OPENAI_API_KEY }}
-      WEB_DOMAIN: ${{ secrets.WEB_DOMAIN }}
 
     steps:
     - name: Check out repository code
@@ -45,10 +35,19 @@ jobs:
         file: ./backend/Dockerfile.scheduled
         load: true
         tags: my_image:latest
-    
-    - name: Debug environment variables
-      run: |
-        echo POSTGRES_HOST=${{ env.POSTGRES_HOST }}
 
     - name: Run Docker image
-      run: docker run my_image:latest
+      run: |
+        docker run -e POSTGRES_USER=$POSTGRES_USER \
+                   -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+                   -e POSTGRES_HOST=$POSTGRES_HOST \
+                   -e POSTGRES_PORT=$POSTGRES_PORT \
+                   -e POSTGRES_DB=$POSTGRES_DB \
+                   -e QDRANT_API_KEY=$QDRANT_API_KEY \
+                   -e QDRANT_URL=$QDRANT_URL \
+                   -e TYPESENSE_API_KEY=$TYPESENSE_API_KEY \
+                   -e TYPESENSE_HOST=$TYPESENSE_HOST \
+                   -e TYPESENSE_PORT=$TYPESENSE_PORT \
+                   -e TYPESENSE_PROTOCOL=$TYPESENSE_PROTOCOL \
+                   -e EMBEDDING_OPENAI_API_KEY=$EMBEDDING_OPENAI_API_KEY \
+                   my_image:latest
