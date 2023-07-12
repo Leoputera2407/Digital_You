@@ -7,6 +7,29 @@ on:
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
+    env: 
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+      POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+      QDRANT_URL: ${{ secrets.QDRANT_URL }}
+      TYPESENSE_API_KEY: ${{ secrets.TYPESENSE_API_KEY }}
+      TYPESENSE_HOST: ${{ secrets.TYPESENSE_HOST }}
+      TYPESENSE_PORT: ${{ secrets.TYPESENSE_PORT }}
+      TYPESENSE_PROTOCOL: ${{ secrets.TYPESENSE_PROTOCOL }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CLIENT_ID: ${{ secrets.SLACK_CLIENT_ID }}
+      SLACK_CLIENT_SECRET: ${{ secrets.SLACK_CLIENT_SECRET }}
+      SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+      SLACK_USER_TOKEN: ${{ secrets.SLACK_USER_TOKEN }}
+      NOTION_CLIENT_ID: ${{ secrets.NOTION_CLIENT_ID }}
+      NOTION_CLIENT_SECRET: ${{ secrets.NOTION_CLIENT_SECRET }}
+      LINEAR_CLIENT_ID: ${{ secrets.LINEAR_CLIENT_ID }}
+      LINEAR_CLIENT_SECRET: ${{ secrets.LINEAR_CLIENT_SECRET }}
+      EMBEDDING_OPENAI_API_KEY: ${{ secrets.EMBEDDING_OPENAI_API_KEY }}
+      WEB_DOMAIN: ${{ secrets.WEB_DOMAIN }}
 
     steps:
     - name: Check out repository code
