@@ -86,7 +86,7 @@ export function ConnectorStatus<ConnectorConfigType>({
     return (
       <div className="flex flex-col">
         {statusDisplay}
-        {updateTime && <p className="text-sm text-gray-500 mt-2">Last updated: {updateTime}</p>}
+        {updateTime && <p className="text-xs text-gray-500 mt-2">Last updated: {updateTime}</p>}
       </div>
     );
 }

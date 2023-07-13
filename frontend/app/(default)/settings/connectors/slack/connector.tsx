@@ -1,6 +1,7 @@
 "use client";
 import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import AuthButton from "@/components/ui/authButton";
+import { Badge } from "@/components/ui/badge";
 import { Collapsible } from "@/components/ui/collapsible";
 import { SlackIcon } from "@/components/ui/icon";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
@@ -107,6 +108,20 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
         <div className="flex items-center space-x-2">
           <SlackIcon />
           <span>Slack</span>
+          {!isConnectorCredentialLoading &&
+            slackConnectorIndexingStatus &&
+            slackPublicCredential &&
+            slackConnector && (
+              <div className="flex flex-col">
+                <Badge className="bg-orange-200 text-orange-800">
+                  <span>
+                    Workspace:{" "}
+                    {slackConnector.connector_specific_config.workspace}
+                  </span>
+                </Badge>
+                <span className="text-xs text-gray-400">Test out Prosona in your slack with /prosona</span>
+              </div>
+            )}
         </div>
         <div className="flex items-center space-x-4">
           {!isConnectorCredentialLoading &&

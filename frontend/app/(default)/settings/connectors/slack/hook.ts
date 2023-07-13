@@ -1,14 +1,12 @@
-import { createConnector } from "@/lib/connectors";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
 import {
   AnyCredentialJson,
   Connector,
-  ConnectorBase,
   ConnectorIndexingStatus,
   Credential,
   SlackConfig,
-  SlackCredentialJson,
+  SlackCredentialJson
 } from "@/lib/types";
 import type { Axios } from "axios";
 import { useRouter } from "next/navigation";
@@ -64,6 +62,8 @@ const setupSlackOAuth = async ({
     if (response.status === 200) {
       const authUrl = response.data.auth_url;
       
+      /*
+      Creating connector is done server-side now
       // Prepare the connector
       const connectorBase: ConnectorBase<{}> = {
         name: "SlackConnector",
@@ -80,6 +80,7 @@ const setupSlackOAuth = async ({
         connectorBase,
         organizationId
       );
+      */
       
       // Now that the connector is created, redirect to the auth url
       window.location.href = authUrl;
