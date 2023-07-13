@@ -40,9 +40,13 @@ from digital_twin.slack_bot.views import (
     MODAL_RESPONSE_CALLBACK_ID,
     EDIT_BUTTON_ACTION_ID,
     SHUFFLE_BUTTON_ACTION_ID,
+    SELECTION_BUTTON_ACTION_ID,
     EDIT_BLOCK_ID,
 )
-from digital_twin.slack_bot.events.command import handle_prosona_command
+from digital_twin.slack_bot.events.command import (
+    handle_prosona_command,
+    qa_and_response,
+)
 from digital_twin.slack_bot.events.home_tab import build_home_tab
 from digital_twin.slack_bot.config import get_oauth_settings
 from digital_twin.server.model import AuthUrl
@@ -407,3 +411,34 @@ async def handle_edit_response(
         logger.error(f"Error in edit response: {e}")
         error_view = get_view("text_command_modal", text=ERROR_TEXT)
         await client.views_update(view_id=view_id, view=error_view)
+
+
+@slack_app.action(SELECTION_BUTTON_ACTION_ID)
+async def handle_selection_button(
+    ack: AsyncAck, 
+    body: Dict[str, Any],
+    client: AsyncWebClient,
+) -> None:
+    await ack()
+
+    selected_question = body['actions'][0]['value']
+    view_id = body['container']['view_id']
+    
+    private_metadata = body['view']['private_metadata']
+    metadata_dict = json.loads(private_metadata)
+    channel_id = metadata_dict['channel_id']
+    conversation_style = metadata_dict['conversation_style']
+    qdrant_collection_name = metadata_dict['qdrant_collection_name']
+    typesense_collection_name = metadata_dict['typesense_collection_name']
+    is_using_default_conversation_style = metadata_dict['is_using_default_conversation_style']
+
+    await qa_and_response(
+        query=selected_question,
+        channel_id=channel_id,
+        conversation_style=conversation_style,
+        view_id=view_id,
+        qdrant_collection_name=qdrant_collection_name,
+        typesense_collection_name=typesense_collection_name,
+        client=client,
+        is_using_default_conversation_style=is_using_default_conversation_style,
+    )

@@ -171,10 +171,54 @@ def stream_answer_end(answer_so_far: str, next_token: str) -> bool:
         return True
     return False
 
+
+def process_verify_answer(
+    answer_raw: str
+) -> tuple[bool | None, float | None]:
+    
+    def _determine_answerable(answer_str: str | None) -> bool | None:
+        if answer_str is None:
+            return None
+        if "yes" in is_answerable.lower():
+            return True
+        if "no" in is_answerable.lower():
+            return False
+    
+    def _extract_score(answer_str: str | None) -> float | None:
+        if answer_str is None:
+            return None
+        try:
+            score = re.search('(confidence|score|confidence_score|confidence_scores)\D*(\d+\.\d+)', answer_str)
+            if score is not None:
+                return float(score.group(2))
+            else:
+                return None
+        except ValueError:
+            return None
+
+    try:
+        model_raw_json: dict[str, str | list[str]] = json.loads(answer_raw)
+        answer_dict = {k.lower(): v for k, v in model_raw_json.items()}
+        is_answerable = _determine_answerable(
+            str(answer_dict.get("answerable") or answer_dict.get("answer"))
+        )
+        confidence_score = float(
+            answer_dict.get("confidence") or 
+            answer_dict.get("confidence_score") or 
+            answer_dict.get("confidence_scores") or 
+            answer_dict.get("score")
+        )
+        return is_answerable, confidence_score
+    except ValueError:
+        is_answerable = _determine_answerable(answer_raw)
+        confidence_score = _extract_score(answer_raw)
+        return is_answerable, confidence_score
+
+
 async def async_verify_if_docs_are_relevant(
         query: str,
         context_docs: List[InferenceChunk],
-) -> Optional[bool]:
+) -> tuple[bool, float]:
     verify_chain = StuffVerify(
         llm=get_llm(
             **VERIFY_MODEL_SETTINGS
@@ -184,12 +228,13 @@ async def async_verify_if_docs_are_relevant(
         query,
         context_docs=context_docs
     )
-    if "yes" in res.lower():
-        return True
-    elif "no" in res.lower():
-        return False
-    else:
-        return None
+    is_docs_relevant, confidence_score = process_verify_answer(res)
+    # Return False if is_docs_relevant is None
+    is_docs_relevant = is_docs_relevant if is_docs_relevant is not None else False
+    # Return 0.0 if confidence_score is None
+    confidence_score = confidence_score if confidence_score is not None else 0.0
+
+    return is_docs_relevant, confidence_score
 
 class QA(QAModel):
     def __init__(
@@ -209,6 +254,7 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
+        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
@@ -217,7 +263,7 @@ class QA(QAModel):
                 llm=self.llm,
                 prompt=prompt,
             )
-            model_output = qa_system.run(query, context_docs)
+            model_output = qa_system.run(query, context_docs, add_metadata)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -234,6 +280,7 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
+        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
@@ -242,7 +289,7 @@ class QA(QAModel):
                 llm=self.llm,
                 prompt=prompt,
             )
-            model_output = await qa_system.async_run(query, context_docs)
+            model_output = await qa_system.async_run(query, context_docs, add_metadata)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -258,8 +305,12 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
+        add_metadata: bool = False,
     ) -> Tuple[
-        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
+        Optional[str],
+        Dict[str, Optional[Dict[str, str | int | None]]],
+        Optional[bool],
+        Optional[float],
     ]:
         """
         Runs both qa_response and verify chain async.
@@ -269,8 +320,16 @@ class QA(QAModel):
         """
         async def execute_tasks() -> List[Any]:
             tasks = {
-                "qa_response": self.async_answer_question(query, context_docs=context_docs),
-                "verify_relevancy": async_verify_if_docs_are_relevant(query, context_docs=context_docs)
+                "qa_response": self.async_answer_question(
+                    query, 
+                    prompt=prompt,
+                    context_docs=context_docs,
+                    add_metadata=add_metadata,
+                ),
+                "verify_relevancy": async_verify_if_docs_are_relevant(
+                    query, 
+                    context_docs=context_docs
+                )
             }
             results = await asyncio.gather(*tasks.values(), return_exceptions=True)
             for task_name, result in zip(tasks.keys(), results):
@@ -280,12 +339,11 @@ class QA(QAModel):
                 
         # Return the results in the order of the input tasks
         # qa_response is a tuple of (answer, quotes_dict)
-        qa_response, is_docs_relevant = await execute_tasks()
+        qa_response, relevancy_resp = await execute_tasks()
         answer, quotes_dict = qa_response
+        is_docs_relevant, confidence_score = relevancy_resp
         
-        # processed_answer = answer if is_docs_relevant else None
-
-        return answer, quotes_dict
+        return answer, quotes_dict, is_docs_relevant, confidence_score
 
     @log_function_time()
     async def answer_question_stream(

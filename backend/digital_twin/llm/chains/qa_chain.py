@@ -40,6 +40,7 @@ BASE_PROMPT = (
     f"respond with {json.dumps(SAMPLE_JSON_CANNOT_ANSWER).replace('{', '{{').replace('}', '}}')}.\n"
     f"Respond with a json containing answering the user's query and quote the most relevant quotes from the documents provided."
     f"The quotes must be EXACT substrings from the documents.\n"
+    f"Anwer with the most up to date information from the provided document.\n"
     f"Sample question and response:\n"
     f"{QUESTION_PAT}\n{SAMPLE_QUESTION}\n"
     f"{json.dumps(SAMPLE_JSON_RESPONSE).replace('{', '{{').replace('}', '}}')}\n\n"
@@ -89,8 +90,9 @@ class StuffQA(BaseQA):
     def default_prompt(self) -> PromptTemplate:
         """Define the default prompt."""
         prompt = (
-            "HUMAN:\n"
+            "---START OF INSTRUCTIONS--\n"
             f"{BASE_PROMPT}"
+            "---END OF INSTRUCTIONS--\n"
             f'Each context document below is prefixed with "{DOC_SEP_PAT}".\n\n'
             "{context}\n\n---\n\n"
             f"{QUESTION_PAT}\n{{question}}\n"
@@ -98,23 +100,16 @@ class StuffQA(BaseQA):
         return PromptTemplate(
             template=prompt, input_variables=["context", "question"]
         )
-
-    def format_documents(self, documents: List[InferenceChunk], add_metadata:bool = False) -> str:
+ 
+    def format_documents(self, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
         """Format the documents for the prompt."""
-        return "".join(
-            f"{DOC_SEP_PAT}\n{ranked_document.content}\n"
-            for ranked_document in documents
-        ).strip()
-    
-    # def format_documents(self, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
-    #     """Format the documents for the prompt."""
-    #     formatted_docs = ""
-    #     for ranked_document in documents:
-    #         formatted_docs += f"{DOC_SEP_PAT}\n"
-    #         if add_metadata:
-    #             formatted_docs = add_metadata_section(formatted_docs, ranked_document)
-    #         formatted_docs += f"{ranked_document.content}\n"
-    #     return formatted_docs.strip()
+        formatted_docs = ""
+        for ranked_document in documents:
+            formatted_docs += f"{DOC_SEP_PAT}\n"
+            if add_metadata:
+                formatted_docs = add_metadata_section(formatted_docs, ranked_document)
+            formatted_docs += f"{ranked_document.content}\n"
+        return formatted_docs.strip()
     
 
     def create_prompt(self, question: str, documents: List[InferenceChunk], add_metadata: bool = False) -> str:

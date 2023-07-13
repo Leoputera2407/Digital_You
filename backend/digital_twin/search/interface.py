@@ -179,17 +179,13 @@ async def async_retrieve_hybrid_reranked_documents(
         semantic_top_chunks_future,
         keyword_top_chunks_future,
     )
-    logger.info(f"semantic_top_chunks: {[{'semantic_identifier': chunk.semantic_identifier} for chunk in semantic_top_chunks]}")
-    logger.info(f"keyword_top_chunks: {[{'semantic_identifier': chunk.semantic_identifier} for chunk in keyword_top_chunks]}")  
     if not semantic_top_chunks and not keyword_top_chunks:
         logger.warning("Both semantic_top_chunks and keyword_top_chunks are empty.")
         return None, None
     
     rrf_combined_chunks = perform_reciprocal_rank_fusion(
         semantic_top_chunks, keyword_top_chunks, keyword_weight = 0.3
-    )
-    logger.info(f"rrf_combined_chunks: {[{'semantic_identifier': chunk.semantic_identifier} for chunk in rrf_combined_chunks]}")
-        
+    )        
     ranked_chunks = semantic_reranking(
         query, 
         rrf_combined_chunks[:num_rerank],

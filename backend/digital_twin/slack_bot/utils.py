@@ -10,6 +10,10 @@ async def retrieve_sorted_past_messages(
     thread_ts: Optional[str]= None, # Not in thread if None
     limit_scanned_messages: int = 1000,
 ) -> List[str]:
+    # Join the channel
+    await client.conversations_join(
+        channel=context.channel_id,
+    )
     messages = await client.conversations_history(
         channel=context.channel_id,
         include_all_metadata=True,
@@ -18,6 +22,8 @@ async def retrieve_sorted_past_messages(
     )
     
     past_messages = messages.get("messages", [])
+    # Filter only user messages
+    past_messages = [m for m in past_messages if m.get('subtype') is None]
 
     # Sort messages by timestamp, in ascending order
     past_messages.sort(key=lambda m: m["ts"])

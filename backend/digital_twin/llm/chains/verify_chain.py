@@ -20,12 +20,12 @@ SAMPLE_DOCUMENT = "The Eiffel Tower is an iconic symbol of Paris, France. It is 
 
 SAMPLE_JSON_RESPONSE = {
     "answerable": "Yes",
-    "confidence score": '0.954',
+    "confidence_score": '0.954',
 }
 
 SAMPLE_JSON_CANNOT_ANSWER = {
     "answerable": "No",
-    "confidence score": '0.0',
+    "confidence_score": '0.0',
 }
 
 
@@ -76,11 +76,13 @@ class StuffVerify(BaseVerify):
     def default_prompt(self) -> PromptTemplate:
         """Define the default prompt."""
         prompt = (
-           "HUMAN:\n"
+           "---START OF INSTRUCTIONS---\n"
             f"{BASE_PROMPT}"
+            "---END OF INSTRUCTIONS---\n"
             f'Each context document below is prefixed with "{DOC_SEP_PAT}".\n\n'
             "{context}\n\n---\n\n"
             "Question: {question}\n"
+
         )
         return PromptTemplate(
             template=prompt, input_variables=["context", "question"]

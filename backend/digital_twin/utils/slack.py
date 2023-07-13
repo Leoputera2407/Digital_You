@@ -24,7 +24,7 @@ from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
 from digital_twin.db.model import User
 from digital_twin.db.user import (
-     async_get_user_by_id,
+    async_get_user_by_id,
      async_insert_slack_user,    
 )
 from digital_twin.db.connectors.credentials import (
@@ -32,12 +32,12 @@ from digital_twin.db.connectors.credentials import (
 )
 from digital_twin.db.connectors.connectors import (
     async_fetch_connectors,
+    async_create_connector,
 )
 from digital_twin.db.connectors.connector_credential_pair import (
     async_add_credential_to_connector,
 )
-from digital_twin.server.model import StatusResponse
-from digital_twin.server.model import CredentialBase
+from digital_twin.server.model import StatusResponse, ConnectorBase, CredentialBase
 from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
 
@@ -154,6 +154,7 @@ async def associate_slack_user_with_db_user(
 async def handle_credential_and_connector(
         user: User,
         slack_token: str,
+        slack_team_name: str,
         prosona_org_id: UUID,
         db_session: AsyncSession,
         oauth_flow: AsyncOAuthFlow,
@@ -186,6 +187,31 @@ async def handle_credential_and_connector(
                 default=oauth_flow.default_callback_options,
             )
         )
+    """
+    org_slack_connector = await async_fetch_connectors(
+        db_session,
+        organization_id=prosona_org_id,
+        sources=[DocumentSource.SLACK],
+    )
+    """
+    #TODO: Ideally, we should make the connector client side, 
+    # since there are parts that we want to make configurable, but 
+    # for now, we will do it server-side
+    connector_data = ConnectorBase(
+        name=f"SlackConnector-{slack_team_name}",
+        source=DocumentSource.SLACK,
+        input_type=InputType.POLL,
+        connector_specific_config={
+            "workspace": slack_team_name,
+        },
+        refresh_freq=60*30,  # Every 30 mins
+        public_doc=True,
+    )
+    await async_create_connector(
+        connector_data= connector_data,
+        organization_id=prosona_org_id,
+        db_session=db_session,
+    )
     org_slack_connector = await async_fetch_connectors(
         db_session,
         organization_id=prosona_org_id,
@@ -202,9 +228,9 @@ async def handle_credential_and_connector(
                 default=oauth_flow.default_callback_options,
             )
         )
-
+    
     link_resp = await async_add_credential_to_connector(
-        connector_id=org_slack_connector[0].id,
+        connector_id=org_slack_connector[0].id,  # Assumes there are only one slackConnector
         credential_id=cred_id,
         db_session=db_session,
         user=user,
@@ -285,6 +311,7 @@ async def custom_handle_slack_oauth_redirect(
     handle_link_res = await handle_credential_and_connector(
         user=user,
         slack_token=slack_token,
+        slack_team_name=installation.team_name,
         prosona_org_id=prosona_org_id,
         db_session=db_session,
         oauth_flow=oauth_flow,

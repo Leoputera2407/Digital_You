@@ -7,11 +7,14 @@ ERROR_TEXT ="Something went wrong. Please try again later."
 MODAL_RESPONSE_CALLBACK_ID = "response_modal"
 EDIT_BUTTON_ACTION_ID ="edit_response"
 SHUFFLE_BUTTON_ACTION_ID ="shuffle_response"
+SELECTION_BUTTON_ACTION_ID ="selection_response"
 EDIT_BLOCK_ID = "edit_block"
+
 
 def get_view(view_type: str, **kwargs):
     views = {
         "text_command_modal": create_general_text_command_view,
+        "selection_command_modal": create_selection_command_view,
         "response_command_modal": create_response_command_view,
         "edit_command_modal": create_edit_command_view,
     }
@@ -26,6 +29,7 @@ def create_general_text_command_view(text: str) -> None:
     return {
         "type": "modal",
         "callback_id": "text_modal",
+        "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "title": {"type": "plain_text", "text": "Prosona"},
         "blocks": [
             {
@@ -102,6 +106,7 @@ def create_response_command_view(
         "callback_id": MODAL_RESPONSE_CALLBACK_ID,
         "title": {"type": "plain_text", "text": "Prosona"},
         "submit": {"type": "plain_text", "text": "Share", "emoji": True},
+        "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "private_metadata": private_metadata_str,
         "blocks": blocks
     }
@@ -115,6 +120,7 @@ def create_edit_command_view(private_metadata: str, response: str):
         "callback_id": MODAL_RESPONSE_CALLBACK_ID,
         "title": {"type": "plain_text", "text": "Edit Response"},
         "submit": {"type": "plain_text", "text": "Share"},
+        "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "private_metadata": private_metadata,
         "blocks": [
             {
@@ -133,3 +139,47 @@ def create_edit_command_view(private_metadata: str, response: str):
             }
         ]
     }
+
+
+def create_selection_command_view(
+        past_messages: List[dict[str, any]],
+        private_metadata_str: str,
+) -> dict[str, any]:
+    buttons = [
+        {
+            "type": "button",
+            "text": {
+                "type": "plain_text",
+                "text": "Answer this!",
+                "emoji": True
+            },
+            "style": "primary",  # Make the button green
+            "value": m['text'],  # The text of the message is used as the value of the button
+            "action_id": SELECTION_BUTTON_ACTION_ID 
+        }
+        for m in past_messages
+    ]
+
+    # Each button is put in a separate section
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"Question {i+1}: {button['value']}"  # The question is displayed here
+            },
+            "accessory": button
+        }
+        for i, button in enumerate(buttons)
+    ]
+
+    # Add the blocks to the view
+    view = {
+        "type": "modal",
+        "callback_id": "selection_modal",
+        "title": {"type": "plain_text", "text": "Prosona"},
+        "blocks": blocks,
+        "private_metadata": private_metadata_str
+    }
+
+    return view
