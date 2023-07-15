@@ -59,7 +59,7 @@ class InferenceChunk(BaseChunk):
             )
             init_kwargs[SOURCE_LINKS] = {int(k): v for k, v in cast(
                 dict[str, str], source_links_dict).items()}
-
+        from digital_twin.utils.logging import setup_logger
         if METADATA in init_kwargs:
             init_kwargs[METADATA] = json.loads(init_kwargs[METADATA])
         

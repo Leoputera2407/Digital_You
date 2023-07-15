@@ -10,7 +10,7 @@ from sqlalchemy import (
     Integer, 
     DateTime, 
     Boolean,
-    Float,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects import postgresql
@@ -91,8 +91,9 @@ class Organization(Base):
     credentials: Mapped[List["Credential"]] = relationship(
         "Credential", back_populates="organization", lazy="joined"
     )
-    slack_users: Mapped[List["SlackUser"]] = relationship(
-        "SlackUser", back_populates="organization", lazy="joined"
+    slack_organization_associations: Mapped[List["SlackOrganizationAssociation"]] = relationship(
+        "SlackOrganizationAssociation",
+        back_populates="organization",
     )
     invitations: Mapped[List["Invitation"]] = relationship(
         "Invitation",
@@ -313,9 +314,9 @@ class IndexAttempt(Base):
             f"updated_at={self.updated_at!r}, "
         )
 
+
 class SlackUser(Base):
     __tablename__ = 'slack_users'
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     team_id: Mapped[str] = mapped_column(String)
     slack_user_id: Mapped[str] = mapped_column(String)
@@ -330,11 +331,25 @@ class SlackUser(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'))
-    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"))
     user: Mapped[User] = relationship("User", back_populates="slack_users")
-    organization: Mapped[Organization] = relationship(
-        "Organization", back_populates="slack_users", lazy="joined"
+    slack_organization_association_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey('slack_organization_associations.id')
     )
+    slack_organization_association: Mapped["SlackOrganizationAssociation"] = relationship(
+        "SlackOrganizationAssociation",
+        back_populates="slack_users",
+    )
+
+class SlackOrganizationAssociation(Base):
+    __tablename__ = 'slack_organization_associations'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    team_id: Mapped[str] = mapped_column(String)
+    organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
+    slack_users: Mapped[List["SlackUser"]] = relationship("SlackUser", back_populates="slack_organization_association") 
+    organization: Mapped[Organization] = relationship("Organization", back_populates="slack_organization_associations")
+
+    __table_args__ = (UniqueConstraint('team_id', 'organization_id'),)
 
 class GoogleAppCredential(Base):
     __tablename__ = 'google_app_credentials'

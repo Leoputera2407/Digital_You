@@ -41,9 +41,6 @@ async def async_consume_csrf(credential_id: int, db_session: AsyncSession) -> Op
             CSRFToken.csrf_token == csrf_token
         )
         result = await db_session.execute(delete_stmt)
-        
-        if result.rowcount == 0:
-            raise Exception('Failed to consume CSRF token')
         await db_session.commit()
         return token
 

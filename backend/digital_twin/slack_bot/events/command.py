@@ -11,7 +11,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 
 from digital_twin.config.app_config import MIN_CHAT_PAIRS_THRESHOLD
 from digital_twin.slack_bot.personality import async_handle_user_conversation_style, async_rephrase_response
-from digital_twin.slack_bot.views import get_view, LOADING_TEXT, ERROR_TEXT
+from digital_twin.slack_bot.views import get_view,  ERROR_TEXT
 from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
 from digital_twin.qa import async_get_default_backend_qa_model
 from digital_twin.db.async_slack_bot import async_get_chat_pairs
@@ -35,7 +35,6 @@ logger = setup_logger()
 async def async_gather_preprocess_tasks(
         async_db_session: AsyncSession, 
         client: AsyncWebClient, 
-        command: Union[str, Pattern], 
         slack_user_id: str,
         team_id: str, 
         view_id: str,
@@ -89,6 +88,8 @@ async def qa_and_response(
     typesense_collection_name: str,
     client: AsyncWebClient,
     is_using_default_conversation_style: bool,
+    slack_user_id: str,
+    slack_chat_pairs: list[tuple[str, str]] = [],
     ranked_chunks: List[IndexChunk]=None
 ) -> None:
     """
@@ -120,12 +121,33 @@ async def qa_and_response(
         )
 
     search_docs = chunks_to_search_docs(ranked_chunks)
+    
+    if len(search_docs) == 0:
+        private_metadata_str = json.dumps(
+            {
+                "response": "Cannot find any relevant documents. Please ask a different question!"
+            }
+        ) 
+        display_doc_view = get_view(
+                "response_command_modal", 
+                private_metadata_str=private_metadata_str,
+                is_using_default_conversation_style=is_using_default_conversation_style,
+                is_rephrasing_stage=False,
+                search_docs=search_docs,
+        )
+        await client.views_update(view_id=view_id, view=display_doc_view)
+        return
+
+    private_metadata_str = json.dumps(
+        {
+            "response": "Synthezing AI generated response..."
+        }
+    ) 
     display_doc_view = get_view(
             "response_command_modal", 
-            private_metadata_str='', 
-            response='Synthezing AI generated response...',
+            private_metadata_str=private_metadata_str,
             is_using_default_conversation_style=is_using_default_conversation_style,
-            is_hide_button=True,
+            is_rephrasing_stage=False,
             search_docs=search_docs,
     )
     await client.views_update(view_id=view_id, view=display_doc_view)
@@ -141,7 +163,6 @@ async def qa_and_response(
         {
             "response": processed_response, 
             "channel_id": channel_id,
-            "query": query, 
             "conversation_style": conversation_style,
             "is_docs_revelant": is_docs_revelant,
             "confidence_score": confidence_score,
@@ -150,19 +171,41 @@ async def qa_and_response(
     response_view = get_view(
         "response_command_modal", 
         private_metadata_str=private_metadata_str, 
-        response=processed_response,
         is_using_default_conversation_style=is_using_default_conversation_style,
-        is_hide_button=False,
+        is_rephrasing_stage=True,
+        is_rephrase_answer_available=False,
         search_docs=search_docs,
     )
     await client.views_update(view_id=view_id, view=response_view)
-    """    
-    else:
-        error_view = get_view("text_command_modal",
-                                text="Sorry, none of your documents are relevant to this question. ")
-        await client.views_update(view_id=view_id, view=error_view)
-        return  
-    """  
+
+    
+    rephrased_response = await async_rephrase_response(
+        conversation_style=conversation_style,
+        query=query,
+        slack_user_id=slack_user_id,
+        qa_response=qa_response,
+        chat_pairs=slack_chat_pairs,
+    )
+    private_metadata_str = json.dumps(
+        {
+            "response": processed_response, 
+            "rephrased_response": rephrased_response,
+            "channel_id": channel_id,
+            "conversation_style": conversation_style,
+            "is_docs_revelant": is_docs_revelant,
+            "confidence_score": confidence_score,
+            'is_using_default_conversation_style': is_using_default_conversation_style,
+        }
+    )
+    response_view = get_view(
+        "response_command_modal",
+        private_metadata_str=private_metadata_str,
+        is_using_default_conversation_style=is_using_default_conversation_style,
+        is_rephrasing_stage=True,
+        is_rephrase_answer_available=True,
+        search_docs=search_docs,
+    )
+    await client.views_update(view_id=view_id, view=response_view)
     return
 
 @log_function_time()
@@ -171,24 +214,19 @@ async def handle_prosona_command(
     ack: AsyncAck,
     payload: dict[str, any], 
     command: Union[str, Pattern],
-    client: AsyncWebClient
+    client: AsyncWebClient,
 ) -> None:
     await ack()
     slack_user_id = command["user_id"]
     team_id = command["team_id"]
     channel_id = command["channel_id"]
-    trigger_id = command['trigger_id']
-    loading_view = get_view("text_command_modal", text=LOADING_TEXT)
-    logger.info(f"Opening loading view {trigger_id}")
-    response = await client.views_open(trigger_id=trigger_id, view=loading_view)
-    view_id = response["view"]["id"]
+    view_id = context["view_id"]
 
     try: 
         async with get_async_session() as async_db_session:
             conversation_style, slack_chat_pairs, qdrant_collection_name, typesense_collection_name = await async_gather_preprocess_tasks(
                 async_db_session,
                 client,
-                command,
                 slack_user_id,
                 team_id,
                 view_id
@@ -224,6 +262,7 @@ async def handle_prosona_command(
                 "qdrant_collection_name": qdrant_collection_name,
                 "typesense_collection_name": typesense_collection_name,
                 "is_using_default_conversation_style": is_using_default_conversation_style,
+                "slack_chat_pairs": slack_chat_pairs[:3],  # Give just 3 examples since space is limited
             })
             # Create the selection modal view and open it
             selection_view = get_view(
@@ -242,6 +281,7 @@ async def handle_prosona_command(
             await client.views_update(view_id=view_id, view=text_view)
             query = text
             await qa_and_response(
+                slack_user_id=slack_user_id,
                 query=query,
                 channel_id=channel_id,
                 conversation_style=conversation_style,
@@ -250,6 +290,7 @@ async def handle_prosona_command(
                 typesense_collection_name=typesense_collection_name,
                 client=client,
                 is_using_default_conversation_style=is_using_default_conversation_style,
+                slack_chat_pairs=slack_chat_pairs[:3],  # Give just 3 examples since space is limited
             )
             return   
     except Exception as e:

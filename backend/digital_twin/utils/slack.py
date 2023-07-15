@@ -25,7 +25,8 @@ from digital_twin.connectors.model import InputType
 from digital_twin.db.model import User
 from digital_twin.db.user import (
     async_get_user_by_id,
-     async_insert_slack_user,    
+    async_insert_slack_user,  
+    async_upsert_org_to_slack_team  
 )
 from digital_twin.db.connectors.credentials import (
     async_create_credential,
@@ -138,7 +139,6 @@ async def associate_slack_user_with_db_user(
             db_session,
             admin_slack_user_id, 
             admin_slack_team_id,
-            organization_id=prosona_org_id,
             db_user_id=prosona_user.id,
     )
 
@@ -187,13 +187,7 @@ async def handle_credential_and_connector(
                 default=oauth_flow.default_callback_options,
             )
         )
-    """
-    org_slack_connector = await async_fetch_connectors(
-        db_session,
-        organization_id=prosona_org_id,
-        sources=[DocumentSource.SLACK],
-    )
-    """
+ 
     #TODO: Ideally, we should make the connector client side, 
     # since there are parts that we want to make configurable, but 
     # for now, we will do it server-side
@@ -206,6 +200,7 @@ async def handle_credential_and_connector(
         },
         refresh_freq=60*30,  # Every 30 mins
         public_doc=True,
+        disabled=True,
     )
     await async_create_connector(
         connector_data= connector_data,
@@ -292,6 +287,14 @@ async def custom_handle_slack_oauth_redirect(
         db_session,
         prosona_user_id,
     )
+    # Since only admin org can install,
+    # we can upsert the slack team assocation to user's org
+    await async_upsert_org_to_slack_team(
+        session=db_session,
+        team_id=installation.team_id,
+        organization_id=prosona_org_id,
+    )
+
     # We need to associate admin_slack_user installer 
     # with our DB user, and we do so by looking up the email
     associate_result = await associate_slack_user_with_db_user(
@@ -305,7 +308,6 @@ async def custom_handle_slack_oauth_redirect(
 
     user = associate_result["user"]
     slack_token = associate_result["slack_token"]
-    
     
     # Add credentials for the admin slack user
     handle_link_res = await handle_credential_and_connector(

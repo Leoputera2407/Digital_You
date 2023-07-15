@@ -179,9 +179,9 @@ def process_verify_answer(
     def _determine_answerable(answer_str: str | None) -> bool | None:
         if answer_str is None:
             return None
-        if "yes" in is_answerable.lower():
+        if "yes" in answer_str.lower():
             return True
-        if "no" in is_answerable.lower():
+        if "no" in answer_str.lower():
             return False
     
     def _extract_score(answer_str: str | None) -> float | None:

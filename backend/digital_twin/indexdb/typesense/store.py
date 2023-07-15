@@ -75,6 +75,7 @@ def create_typesense_collection(
             {"name": SECTION_CONTINUATION, "type": "bool"},
             {"name": ALLOWED_USERS, "type": "string[]"},
             {"name": ALLOWED_GROUPS, "type": "string[]"},
+            {"name": METADATA, "type": "string"},
         ],
     }
     ts_client.collections.create(collection_schema)
@@ -152,6 +153,7 @@ def index_typesense_chunks(
                 SECTION_CONTINUATION: chunk.section_continuation,
                 ALLOWED_USERS: doc_user_map[document.id][ALLOWED_USERS],
                 ALLOWED_GROUPS: doc_user_map[document.id][ALLOWED_GROUPS],
+                METADATA: json.dumps(document.metadata),
             }
         )
 

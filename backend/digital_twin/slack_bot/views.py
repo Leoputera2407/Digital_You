@@ -16,7 +16,6 @@ def get_view(view_type: str, **kwargs):
         "text_command_modal": create_general_text_command_view,
         "selection_command_modal": create_selection_command_view,
         "response_command_modal": create_response_command_view,
-        "edit_command_modal": create_edit_command_view,
     }
 
     if view_type not in views:
@@ -43,64 +42,123 @@ def create_general_text_command_view(text: str) -> None:
     }
 
 def create_response_command_view(
-        private_metadata_str: str, 
-        response: str, 
         is_using_default_conversation_style: bool, 
-        is_hide_button: bool, 
+        is_rephrasing_stage: bool, 
         search_docs,
+        private_metadata_str: str = '{}',
+        is_rephrase_answer_available: bool = False,
+        is_edit_view: bool = False
 ) -> None:
-    blocks = [
+    metadata_dict = json.loads(private_metadata_str)
+
+    blocks = []
+
+    if is_rephrasing_stage:
+        if is_edit_view:
+            metadata_dict["source"] = "edit"
+            # add the multiline_plain_text input for editing response
+            edit_section = {
+                "type": "input",
+                "block_id": EDIT_BLOCK_ID,
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "response_input",
+                    "multiline": True,
+                    "initial_value": metadata_dict["rephrased_response"]  # set the initial value to rephrase response
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": "Edit your AI-generated response:",
+                }
+            }
+            blocks.append(edit_section)
+        else:
+            # add the new section for rephrase answer
+            rephrase_text = metadata_dict["rephrased_response"] if is_rephrase_answer_available else "Rephrasing to sound like you"
+            metadata_dict["source"] = "ai_response"
+            rephrase_section = {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Rephrased Response:*\n\n" + rephrase_text
+                    },
+                    "accessory": {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": ":pencil2: Edit", "emoji": True},
+                        "action_id": EDIT_BUTTON_ACTION_ID
+                    }
+                }
+            blocks.append(rephrase_section)
+        
+            blocks.append({
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": ":twisted_rightwards_arrows: Shuffle", "emoji": True},
+                        "action_id": SHUFFLE_BUTTON_ACTION_ID
+                    }
+                ]
+            })
+        if is_using_default_conversation_style and is_rephrasing_stage:
+            warning_message = {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": ":warning: We're using the default style, as you didn't have enough chat history."
+                }
+            }
+            blocks.append(warning_message)
+
+            
+
+    # add the main response section
+    blocks.append(
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Your AI-generated response:*\n\n" + response
+                "text": "*Your AI-generated response:*\n\n" + metadata_dict["response"]
             }
         }
-    ]
-    
-    if not is_hide_button:
-        blocks[0]["accessory"] = {
-            "type": "button",
-            "text": {"type": "plain_text", "text": ":pencil2: Edit", "emoji": True},
-            "action_id": EDIT_BUTTON_ACTION_ID
-        }
-        blocks.append({
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": ":twisted_rightwards_arrows: Shuffle", "emoji": True},
-                    "action_id": SHUFFLE_BUTTON_ACTION_ID
-                }
-            ]
-        })
-
-    if is_using_default_conversation_style:
+    )
+    confidence_score_label = {
+        "type": "context",
+        "elements": [
+            {
+                "type": "mrkdwn",
+                "text": f"*Confidence Score:* {metadata_dict.get('confidence_score', 'N/A')}"
+            }
+        ]
+    }
+    blocks.append(confidence_score_label)
+    if metadata_dict.get("is_docs_relevant", True) is False:
         warning_message = {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": ":warning: We're using the default style, as you didn't have enough chat history."
+                "text": ":warning: Our model is unsure if this answers your question"
             }
         }
-        blocks.insert(1, warning_message)
-    
-    top_3_docs = "\n".join([
-    f"<{doc.link}|{doc.source_type.capitalize()}>\n{doc.blurb}" if doc.link else '' 
-    for doc in search_docs[:3]])    
-    
-    blocks.extend([
-        {"type": "divider"},
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Top 3 most relevant documents:*\n\n" + top_3_docs
-            }
-        }
-    ])
+        blocks.append(warning_message)   
 
+    if search_docs:
+        top_3_docs = "\n".join([
+            f"<{doc.link}|{doc.source_type.capitalize()}>\n{doc.blurb}" if doc.link else '' 
+            for doc in search_docs[:3]]
+        ) 
+        blocks.extend([
+            {"type": "divider"},
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Top 3 most relevant documents:*\n\n" + top_3_docs
+                }
+            }
+        ])
+
+    private_metadata_str = json.dumps(metadata_dict)
     return {
         "type": "modal",
         "callback_id": MODAL_RESPONSE_CALLBACK_ID,
@@ -109,35 +167,6 @@ def create_response_command_view(
         "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "private_metadata": private_metadata_str,
         "blocks": blocks
-    }
-
-def create_edit_command_view(private_metadata: str, response: str):
-    metadata_dict = json.loads(private_metadata)
-    metadata_dict["source"] = "edit"
-    private_metadata = json.dumps(metadata_dict)
-    return {
-        "type": "modal",
-        "callback_id": MODAL_RESPONSE_CALLBACK_ID,
-        "title": {"type": "plain_text", "text": "Edit Response"},
-        "submit": {"type": "plain_text", "text": "Share"},
-        "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
-        "private_metadata": private_metadata,
-        "blocks": [
-            {
-                "type": "input",
-                "block_id": EDIT_BLOCK_ID,
-                "element": {
-                    "type": "plain_text_input",
-                    "action_id": "response_input",
-                    "multiline": True,
-                    "initial_value": response
-                },
-                "label": {
-                    "type": "plain_text",
-                    "text": "Edit your AI-generated response:",
-                }
-            }
-        ]
     }
 
 

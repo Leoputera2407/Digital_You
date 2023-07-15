@@ -127,7 +127,6 @@ export function useSlackConnectors({
 
   // Sorted by most recent
   const slackConnectorIndexingStatus = slackConnectorIndexingStatuses?.[0];
-
   const credentialIsLinked =
     slackConnectorIndexingStatus !== undefined &&
     slackPublicCredential !== undefined &&

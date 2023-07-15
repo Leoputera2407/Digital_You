@@ -97,7 +97,6 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
       deleteAndRefresh(slackConnector);
     }
   }, [slackConnector]);
-
   return (
     <Collapsible
       open={isOpen}

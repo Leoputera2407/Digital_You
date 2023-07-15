@@ -8,7 +8,7 @@ from digital_twin.server.model import GoogleAppWebCredentials, GoogleAppCredenti
 BUCKET_NAME = "Access Token Bucket"
 BUCKET_SOURCE = "localhost_google_app_credentials.json"
 #destination ="./localhost_google_app_credentials.json"
-destination="./localhost.json"
+destination="./localhost_google_app_credentials.json"
 """
 with open(destination, 'wb+') as f:
   res = supabase.storage.from_(BUCKET_NAME).download(BUCKET_SOURCE)
@@ -42,8 +42,14 @@ async def upsert_db_google_app_cred():
         app_credentials.dict(),
         db_session
     )
-res = upsert_db_google_app_cred()
 
+# You should run your coroutine inside an event loop
+async def main():
+    res = await upsert_db_google_app_cred()
+
+
+import asyncio
+asyncio.run(main())
 """
 # URL of your API
 url = "http://localhost:8080/connector/google-drive/app-credential"

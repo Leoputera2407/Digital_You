@@ -30,12 +30,12 @@ from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
 from digital_twin.auth.users import current_user, current_admin_for_org
 from digital_twin.llm.interface import get_llm
 from digital_twin.config.app_config import WEB_DOMAIN, SLACK_USER_TOKEN
+from digital_twin.slack_bot.views import LOADING_TEXT
 from digital_twin.db.model import User
 from digital_twin.db.engine import get_async_session, get_session
 from digital_twin.llm.chains.personality_chain import ShuffleChain, PERSONALITY_MODEL_SETTINGS
 from digital_twin.slack_bot.views import (
     get_view,
-    LOADING_TEXT,
     ERROR_TEXT,
     MODAL_RESPONSE_CALLBACK_ID,
     EDIT_BUTTON_ACTION_ID,
@@ -54,7 +54,9 @@ from digital_twin.db.model import SlackUser
 from digital_twin.db.engine import get_async_session_generator
 from digital_twin.db.user import (
     async_get_slack_user, 
-    insert_slack_user,
+    async_get_user_by_email,
+    async_insert_slack_user,
+    async_get_organization_id_from_team_id,
 )
 
 from digital_twin.utils.slack import (
@@ -64,6 +66,7 @@ from digital_twin.utils.slack import (
     custom_handle_installation,
     format_openai_to_slack,
     format_slack_to_openai,
+    async_get_user_info,
 )
 from digital_twin.utils.logging import setup_logger
 
@@ -132,36 +135,8 @@ class SlackServerSignup(BaseModel):
     slack_user_id: str
 
 
-@router.get("/slack/server_signup")
-async def slack_server_signup(
-    signup_info: SlackServerSignup = Depends(),
-    _ : User = Depends(current_user),
-    db_session: Session = Depends(get_session),
-):
-    try:
-        res = insert_slack_user(
-            db_session,
-            signup_info.slack_user_id, 
-            signup_info.team_id,
-            signup_info.supabase_user_id
-        )
-        if not res:
-            return HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-                detail="Internal Server Error"
-            ) 
-       
-        return JSONResponse(status_code=status.HTTP_201_CREATED, content={"message": "User successfully signed up."})
-    except Exception as e:
-        logger.error(f"Error while signing up slack user: {e}")
-        return HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail="Internal Server Error"
-        )
-
 @router.post("/slack/events")
-async def handle_slack_event(req: Request):
-   logger.info("Handling slack event")
+async def handle_slack_event(req: Request):  
    return await app_handler.handle(req)
 
 @router.get("/slack/install/{organization_id}")
@@ -272,6 +247,7 @@ async def set_user_info(
     payload: Dict[str, Any], 
     body: Dict[str, Any], 
     next_: Callable[[], Awaitable[None]],
+    client: AsyncWebClient,
 ) -> None:
     event_type = payload.get('event', {}).get('type', '')
     logger.info(f"Event type: {event_type}")
@@ -287,16 +263,46 @@ async def set_user_info(
         if not slack_user_id or not team_id:
             # Wierd edge-case, just in case we get a bad payload
             raise ValueError(f'Error while verifying the slack token')
+        
+        if 'command' in payload:
+            trigger_id = payload['trigger_id']
+            loading_view = get_view("text_command_modal", text=LOADING_TEXT)
+            response = await client.views_open(trigger_id=trigger_id, view=loading_view)
+            context["view_id"] = response["view"]["id"]
         # Look up user in external system using their Slack user ID
         async with get_async_session() as async_db_session: 
-            user: SlackUser = await async_get_slack_user(async_db_session, slack_user_id, team_id)
-            if user is None:
-                raise ValueError("No Matching User ID found for slack_user {slack_user_id}}")
-            context["DB_USER_ID"] = user.user_id
+            organization_id = await async_get_organization_id_from_team_id(
+                session=async_db_session,
+                team_id=team_id,
+            )
+            if not organization_id:
+                return BoltResponse(
+                    status=200,
+                    body="Your Slack Workspace is not associated to any Organization. Please contant your administrator.",
+                )
+            slack_user: SlackUser = await async_get_slack_user(async_db_session, slack_user_id, team_id)
+            if slack_user is None:
+                slack_user_info = await client.users_info(user=slack_user_id)
+                slack_user_email = slack_user_info.get('user', {}).get('profile', {}).get('email', None) 
+                if not slack_user_email:
+                    raise ValueError(f'Error while verifying the slack token')
+                db_user: User = await async_get_user_by_email(async_db_session, slack_user_email)
+                if not db_user:
+                    raise ValueError(f'Error while verifying the slack token')
+                
+                slack_user = await async_insert_slack_user(
+                    async_db_session, 
+                    slack_user_id, 
+                    team_id, 
+                    db_user.id
+                )
+                if not slack_user:
+                    raise ValueError(f'Error while verifying the slack token') 
+            context["DB_USER_ID"] = slack_user.user_id
+            context["ORGANIZATION_ID"] = organization_id
     except Exception as e:
-        search_params = f"?slack_user_id={slack_user_id}&team_id={team_id}"
         logger.info(f"Error while verifying the slack token: {e}")
-        return BoltResponse(status=200, body=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN}/slack/interface{search_params} | Prosona Website>")
+        return BoltResponse(status=200, body=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN} | Prosona Website>")
     
     await next_()
 
@@ -343,7 +349,7 @@ async def handle_view_submission(
         # get the updated response from the user's input
         response = body['view']['state']['values'][EDIT_BLOCK_ID]['response_input']['value']
     else:
-        response = payload['response']
+        response = payload['rephrased_response']
 
     await client.chat_postMessage(
         channel=channel_id,
@@ -362,11 +368,6 @@ async def handle_shuffle_click(
         # Acknowledge the action
         await ack()
         view_id = body['container']['view_id']
-
-        loading_view = get_view("text_command_modal", text=LOADING_TEXT)
-        await client.views_update(view_id=view_id, view=loading_view)
-
-    
         shuffle_chain = ShuffleChain(
             llm=get_llm(
                 **PERSONALITY_MODEL_SETTINGS
@@ -383,7 +384,16 @@ async def handle_shuffle_click(
             slack_user_id=slack_user_id,
         )
         processed_response = format_openai_to_slack(response)
-        response_view = get_view("response_command_modal", private_metadata_str=private_metadata_str, response=processed_response)
+        private_metadata['rephrased_response'] = processed_response
+        private_metadata_str = json.dumps(private_metadata)
+        response_view = get_view(
+            "response_command_modal", 
+            private_metadata_str=private_metadata_str, 
+            is_using_default_conversation_style=private_metadata['is_using_default_conversation_style'],
+            is_rephrasing_stage=True,
+            is_rephrase_answer_available=True,
+            search_docs=[],
+        )
         await client.views_update(view_id=view_id, view=response_view)
     except Exception as e:
         logger.error(f"Error in shuffle click: {e}")
@@ -402,11 +412,17 @@ async def handle_edit_response(
     try:
         view_id = body['container']['view_id']
         metadata_dict = json.loads(body['view']['private_metadata'])
-        private_metadata = body['view']['private_metadata']
-        response = metadata_dict['response']
-
-        edit_view = get_view("edit_command_modal", private_metadata=private_metadata, response=response)
-        await client.views_update(view_id=view_id, view=edit_view)
+        private_metadata = body['view']['private_metadata']        
+        response_view = get_view(
+            "response_command_modal", 
+            private_metadata_str=body['view']['private_metadata'], 
+            is_using_default_conversation_style=metadata_dict['is_using_default_conversation_style'],
+            is_rephrasing_stage=True,
+            is_rephrase_answer_available=True,
+            is_edit_view=True,
+            search_docs=[],
+        )
+        await client.views_update(view_id=view_id, view=response_view)
     except Exception as e:
         logger.error(f"Error in edit response: {e}")
         error_view = get_view("text_command_modal", text=ERROR_TEXT)
@@ -420,7 +436,7 @@ async def handle_selection_button(
     client: AsyncWebClient,
 ) -> None:
     await ack()
-
+    slack_user_id = body['user']['id']
     selected_question = body['actions'][0]['value']
     view_id = body['container']['view_id']
     
@@ -431,8 +447,10 @@ async def handle_selection_button(
     qdrant_collection_name = metadata_dict['qdrant_collection_name']
     typesense_collection_name = metadata_dict['typesense_collection_name']
     is_using_default_conversation_style = metadata_dict['is_using_default_conversation_style']
+    slack_chat_pairs = metadata_dict['slack_chat_pairs']
 
     await qa_and_response(
+        slack_user_id=slack_user_id,
         query=selected_question,
         channel_id=channel_id,
         conversation_style=conversation_style,
@@ -441,4 +459,5 @@ async def handle_selection_button(
         typesense_collection_name=typesense_collection_name,
         client=client,
         is_using_default_conversation_style=is_using_default_conversation_style,
+        slack_chat_pairs=slack_chat_pairs,
     )
