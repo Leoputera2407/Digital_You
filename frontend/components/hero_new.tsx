@@ -61,14 +61,14 @@ const hero_new = (): JSX.Element => {
       <motion.video
         style={{ 
           scale: videoScale, 
-          width: "105%", 
+          width: "100%", 
           height: "100%", 
           objectFit: "cover", 
           objectPosition: "center", 
-          clipPath: "inset(0 0 0 5%)"
+          clipPath: "inset(0 0 0 0)"
         }}
         className="rounded-md max-w-screen-lg shadow-lg dark:shadow-white/25 border dark:border-white/25 w-full bg-white dark:bg-black"
-        src="https://user-images.githubusercontent.com/33604451/252248216-9cec7a5a-6542-433b-b4be-33b09a7372c9.mp4"
+        src="https://private-user-images.githubusercontent.com/34851861/253830464-dcff16bb-c8cd-4766-bb69-2dde66642e98.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTEiLCJleHAiOjE2ODk1NDcwMzksIm5iZiI6MTY4OTU0NjczOSwicGF0aCI6Ii8zNDg1MTg2MS8yNTM4MzA0NjQtZGNmZjE2YmItYzhjZC00NzY2LWJiNjktMmRkZTY2NjQyZTk4Lm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFJV05KWUFYNENTVkVINTNBJTJGMjAyMzA3MTYlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjMwNzE2VDIyMzIxOVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTVmNzI0OTZjNWY0MGQ3N2JjYTVhZTRlZjE3YTFjMDU4ODRhYmYyNTZhZDMyYzgxNjg3YWZmNDFiOGQ5NzBmNDgmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjdG9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.n1AoK8DCWDZ0OTtUf38K8fDNlzoNO9fiJs96r1Tu49A"
         autoPlay
         muted
         loop
