@@ -6,13 +6,13 @@ RUN apt-get update \
        supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ./backend/requirements.txt /tmp/requirements.txt
+COPY ./requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /tmp/requirements.txt
 RUN playwright install
 RUN playwright install-deps
 
 WORKDIR /app
-COPY ./backend/digital_twin /app/digital_twin
+COPY ./digital_twin /app/digital_twin
 
 ENV PYTHONPATH /app
 CMD ["/bin/sh", "-c", "python digital_twin/background/scheduled.py"]

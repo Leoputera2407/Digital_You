@@ -123,6 +123,29 @@ files = [
 frozenlist = ">=1.1.0"
 
 [[package]]
+name = "airplanesdk"
+version = "0.3.36"
+description = "A Python SDK for writing Airplane tasks"
+optional = false
+python-versions = ">=3.7.2,<4.0.0"
+files = [
+    {file = "airplanesdk-0.3.36-py3-none-any.whl", hash = "sha256:e0c56fc48f1ea8bbed6fc5b031228855aa61b40cce3d0cfb3fdc6cb25daa3db1"},
+    {file = "airplanesdk-0.3.36.tar.gz", hash = "sha256:52094fec9eb7ee7de9e30fbb839dadaf8a75718bb30e7c3b4bdf4d75c22d7fd7"},
+]
+
+[package.dependencies]
+backoff = ">=2.2.1,<3.0.0"
+deprecation = ">=2.1.0,<3.0.0"
+docstring-parser = ">=0.14.1,<0.15.0"
+filetype = ">=1.2.0,<2.0.0"
+inflection = ">=0.5.1,<0.6.0"
+openai = ">=0.27.7,<0.28.0"
+python-slugify = ">=6.1.2,<7.0.0"
+pytimeparse2 = ">=1.6.0,<2.0.0"
+requests = ">=2.25.1,<3.0.0"
+typing-extensions = ">=4.3.0,<5.0.0"
+
+[[package]]
 name = "alembic"
 version = "1.11.1"
 description = "A database migration tool for SQLAlchemy."
@@ -922,6 +945,17 @@ trio = ["trio (>=0.14,<0.23)"]
 wmi = ["wmi (>=1.5.1,<2.0.0)"]
 
 [[package]]
+name = "docstring-parser"
+version = "0.14.1"
+description = "Parse Python docstrings in reST, Google and Numpydoc format"
+optional = false
+python-versions = ">=3.6,<4.0"
+files = [
+    {file = "docstring_parser-0.14.1-py3-none-any.whl", hash = "sha256:14ac6ec1f1ba6905c4d8cb90fd0bc55394f5678183752c90e44812bf28d7a515"},
+    {file = "docstring_parser-0.14.1.tar.gz", hash = "sha256:2c77522e31b7c88b1ab457a1f3c9ae38947ad719732260ba77ee8a3deb58622a"},
+]
+
+[[package]]
 name = "docutils"
 version = "0.20.1"
 description = "Docutils -- Python Documentation Utilities"
@@ -1060,6 +1094,17 @@ files = [
 [package.extras]
 docs = ["furo (>=2023.5.20)", "sphinx (>=7.0.1)", "sphinx-autodoc-typehints (>=1.23,!=1.23.4)"]
 testing = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "diff-cover (>=7.5)", "pytest (>=7.3.1)", "pytest-cov (>=4.1)", "pytest-mock (>=3.10)", "pytest-timeout (>=2.1)"]
+
+[[package]]
+name = "filetype"
+version = "1.2.0"
+description = "Infer file type and MIME type of any file/buffer. No external dependencies."
+optional = false
+python-versions = "*"
+files = [
+    {file = "filetype-1.2.0-py2.py3-none-any.whl", hash = "sha256:7ce71b6880181241cf7ac8697a2f1eb6a8bd9b429f7ad6d27b8db9ba5f1c2d25"},
+    {file = "filetype-1.2.0.tar.gz", hash = "sha256:66b56cd6474bf41d8c54660347d37afcc3f7d1970648de365c102ef77548aadb"},
+]
 
 [[package]]
 name = "fqdn"
@@ -1731,6 +1776,17 @@ zipp = ">=0.5"
 docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
 perf = ["ipython"]
 testing = ["flake8 (<5)", "flufl.flake8", "importlib-resources (>=1.3)", "packaging", "pyfakefs", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-flake8", "pytest-mypy (>=0.9.1)", "pytest-perf (>=0.9.2)"]
+
+[[package]]
+name = "inflection"
+version = "0.5.1"
+description = "A port of Ruby on Rails inflector to Python"
+optional = false
+python-versions = ">=3.5"
+files = [
+    {file = "inflection-0.5.1-py2.py3-none-any.whl", hash = "sha256:f38b2b640938a4f35ade69ac3d053042959b62a0f1076a5bbaa1b9526605a8a2"},
+    {file = "inflection-0.5.1.tar.gz", hash = "sha256:1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417"},
+]
 
 [[package]]
 name = "invoke"
@@ -2987,13 +3043,13 @@ files = [
 
 [[package]]
 name = "openai"
-version = "0.27.6"
+version = "0.27.7"
 description = "Python client library for the OpenAI API"
 optional = false
 python-versions = ">=3.7.1"
 files = [
-    {file = "openai-0.27.6-py3-none-any.whl", hash = "sha256:1f07ed06f1cfc6c25126107193726fe4cf476edcc4e1485cd9eb708f068f2606"},
-    {file = "openai-0.27.6.tar.gz", hash = "sha256:63ca9f6ac619daef8c1ddec6d987fe6aa1c87a9bfdce31ff253204d077222375"},
+    {file = "openai-0.27.7-py3-none-any.whl", hash = "sha256:788fb7fa85bf7caac6c1ed7eea5984254a1bdaf09ef485acf0e5718c8b2dc25a"},
+    {file = "openai-0.27.7.tar.gz", hash = "sha256:bca95fd4c3054ef38924def096396122130454442ec52005915ecf8269626b1d"},
 ]
 
 [package.dependencies]
@@ -3954,6 +4010,37 @@ dev = ["black", "isort", "tox"]
 docs = ["Jinja2 (==3.0.3)", "Sphinx (==1.3.6)"]
 mypy = ["mypy", "types-requests"]
 test = ["coverage (>=5,<6)", "mock (==1.3.0)", "pytest (>=7,<8)", "pytest-mock (>=2,<3)", "pytest-xdist (>=1,<2)", "responses (==0.13.3)"]
+
+[[package]]
+name = "python-slugify"
+version = "6.1.2"
+description = "A Python slugify application that also handles Unicode"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+files = [
+    {file = "python-slugify-6.1.2.tar.gz", hash = "sha256:272d106cb31ab99b3496ba085e3fea0e9e76dcde967b5e9992500d1f785ce4e1"},
+    {file = "python_slugify-6.1.2-py2.py3-none-any.whl", hash = "sha256:7b2c274c308b62f4269a9ba701aa69a797e9bca41aeee5b3a9e79e36b6656927"},
+]
+
+[package.dependencies]
+text-unidecode = ">=1.3"
+
+[package.extras]
+unidecode = ["Unidecode (>=1.1.1)"]
+
+[[package]]
+name = "pytimeparse2"
+version = "1.7.1"
+description = "Time expression parser."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pytimeparse2-1.7.1-py3-none-any.whl", hash = "sha256:a162ea6a7707fd0bb82dd99556efb783935f51885c8bdced0fce3fffe85ab002"},
+    {file = "pytimeparse2-1.7.1.tar.gz", hash = "sha256:98668cdcba4890e1789e432e8ea0059ccf72402f13f5d52be15bdfaeb3a8b253"},
+]
+
+[package.extras]
+dateutil = ["python-dateutil (>=2.8.2,<2.9.0)"]
 
 [[package]]
 name = "pytz"
@@ -5076,6 +5163,17 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["pre-commit", "pytest (>=7.0)", "pytest-timeout"]
 
 [[package]]
+name = "text-unidecode"
+version = "1.3"
+description = "The most basic Text::Unidecode port"
+optional = false
+python-versions = "*"
+files = [
+    {file = "text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93"},
+    {file = "text_unidecode-1.3-py2.py3-none-any.whl", hash = "sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8"},
+]
+
+[[package]]
 name = "threadpoolctl"
 version = "3.1.0"
 description = "threadpoolctl"
@@ -5942,4 +6040,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "6efa76ca47d7359449586e4629274ae4e8854d90ba884a3a47e822c4457227b6"
+content-hash = "bf279ec9759f7490b3ef69a58c220e19ac5f1b3bb13b29fad481dc4a67e633d6"

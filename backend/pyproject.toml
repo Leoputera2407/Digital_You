@@ -9,7 +9,7 @@ packages = [{include = "digital_twin"}]
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
 markdown = "3.4.3"
-openai = "0.27.6"
+openai = "0.27.7"
 pdf2image = "1.16.3"
 pypdf = "3.8.1"
 strenum = "0.4.10"
@@ -49,6 +49,7 @@ psycopg2 = "^2.9.6"
 cohere = "^4.11.2"
 promptlayer = "^0.1.91"
 jira = "^3.5.2"
+airplanesdk = "^0.3.36"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

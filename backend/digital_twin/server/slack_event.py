@@ -111,7 +111,6 @@ slack_app = AsyncApp(
     oauth_settings=get_oauth_settings(),
     process_before_response=True,
     before_authorize=before_authorize,
-    raise_error_for_unhandled_request=True,
 )
 slack_app.client.retry_handlers.append(AsyncRateLimitErrorRetryHandler(max_retry_count=2))
 
@@ -350,7 +349,7 @@ async def handle_view_submission(
         response = body['view']['state']['values'][EDIT_BLOCK_ID]['response_input']['value']
     else:
         response = payload['rephrased_response']
-
+        
     await client.chat_postMessage(
         channel=channel_id,
         text=response,
