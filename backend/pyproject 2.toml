@@ -1,0 +1,62 @@
+[tool.poetry]
+name = "digital-twin"
+version = "0.1.0"
+description = ""
+authors = ["hanifleoputera"]
+readme = "README.md"
+packages = [{include = "digital_twin"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+markdown = "3.4.3"
+openai = "0.27.7"
+pdf2image = "1.16.3"
+pypdf = "3.8.1"
+strenum = "0.4.10"
+supabase = "1.0.3"
+tiktoken = "0.4.0"
+unstructured = "0.6.5"
+anthropic = "0.2.8"
+fastapi = "0.95.2"
+python-multipart = "0.0.6"
+uvicorn = "0.22.0"
+pypandoc = "1.11"
+docx2txt = "0.8"
+guidance = "0.0.53"
+python-jose = "3.3.0"
+slack-sdk = "^3.21.3"
+slack-bolt = "^1.18.0"
+qdrant-client = "^1.2.0"
+grpcio-tools = "^1.54.2"
+python-dotenv = "^1.0.0"
+langchain = "0.0.227"
+pydantic = {extras = ["email"], version = "^1.10.8"}
+google-api-python-client = "2.86.0"
+google-auth-httplib2 = "0.1.0"
+google-auth-oauthlib = "1.0.0"
+pygithub = "1.58.2"
+atlassian-python-api = "^3.38.0"
+playwright = "^1.35.0"
+pypdf2 = "^3.0.1"
+supervisor = "^4.2.5"
+bs4 = "^0.0.1"
+sentence-transformers = "^2.2.2"
+typesense = "^0.15.1"
+alembic = "^1.11.1"
+sqlalchemy = "^2.0.16"
+asyncpg = "^0.27.0"
+psycopg2 = "^2.9.6"
+cohere = "^4.11.2"
+promptlayer = "^0.1.91"
+jira = "^3.5.2"
+airplanesdk = "^0.3.36"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+digital_twin = 'digital_twin.__main__:main'

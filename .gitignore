@@ -46,3 +46,4 @@ next-env.d.ts
 backend/pandoc-*
 **/.pandoc-*
 prosona.code-workspace
+*.icloud
