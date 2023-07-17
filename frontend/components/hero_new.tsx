@@ -56,6 +56,13 @@ const hero_new = (): JSX.Element => {
         <p className="text-base max-w-sm text-gray-500 mb-5 sm:mb-10">
         Your Personalized Workplace Co-Pilot, Amplifying Your Professional Impact.
         </p>
+
+        <div>
+              <a className="btn p-4 text-slate-900 bg-gradient-to-r from-white/80 via-white to-white/80 hover:bg-white transition duration-150 ease-in-out group" href="https://9a04i53lzc4.typeform.com/to/E0H4xTzS">
+                Beta Waitlist <span className="tracking-normal text-purple-500 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">-&gt;</span>
+              </a>
+            </div>
+
       </motion.div>
       
       <motion.video
