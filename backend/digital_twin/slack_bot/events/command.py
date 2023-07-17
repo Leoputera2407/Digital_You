@@ -121,7 +121,6 @@ async def qa_and_response(
         )
 
     search_docs = chunks_to_search_docs(ranked_chunks)
-    
     if len(search_docs) == 0:
         private_metadata_str = json.dumps(
             {

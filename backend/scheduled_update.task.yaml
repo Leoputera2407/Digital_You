@@ -1,0 +1,60 @@
+# Full reference: https://docs.airplane.dev/tasks/task-definition
+
+# Used by Airplane to identify your task. Do not change.
+slug: scheduled_update_docker
+
+# A human-readable name for your task.
+name: scheduled_update_docker
+
+# A human-readable description for your task.
+description: "Update job periodically."
+
+# A list of inputs to your task. Parameters can be passed into the docker command
+# as {{params.slug}}, e.g. command: /bin/my_command --id {{params.user_id}}.
+parameters: []
+
+# Configuration for a Docker task.
+docker:
+  # The name of the image to use.
+  image: hanifprosona/prosona:latest
+
+  # The Docker command to run. Supports JavaScript templates
+  # (https://docs.airplane.dev/runbooks/javascript-templates).
+  command: python digital_twin/background/scheduled.py
+
+  # A map of environment variables to use when running the task. The value
+  # should be an object; if specifying raw values, the value must be an object
+  # with `value` mapped to the value of the environment variable; if
+  # using config variables, the value must be an object with `config`
+  # mapped to the name of the config variable.
+  envVars:
+    DOCKER_PULL_SECRETS:
+      config: DOCKER_PULL_SECRETS
+    EMBEDDING_OPENAI_API_KEY:
+      config: EMBEDDING_OPENAI_API_KEY
+    POSTGRES_DB:
+      config: POSTGRES_DB
+    POSTGRES_HOST:
+      config: POSTGRES_HOST
+    POSTGRES_PASSWORD:
+      config: POSTGRES_PASSWORD
+    POSTGRES_PORT:
+      config: POSTGRES_PORT
+    POSTGRES_USER:
+      config: POSTGRES_USER
+    QDRANT_API_KEY:
+      config: QDRANT_API_KEY
+    QDRANT_URL:
+      config: QDRANT_URL
+    TYPESENSE_API_KEY:
+      config: TYPESENSE_API_KEY
+    TYPESENSE_HOST:
+      config: TYPESENSE_HOST
+    TYPESENSE_PORT:
+      config: TYPESENSE_PORT
+    TYPESENSE_PROTOCOL:
+      config: TYPESENSE_PROTOCOL
+
+# The maximum number of seconds the task should take before being timed out.
+# Default: 3600.
+timeout: 5400
