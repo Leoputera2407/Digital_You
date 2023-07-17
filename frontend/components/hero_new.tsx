@@ -56,19 +56,26 @@ const hero_new = (): JSX.Element => {
         <p className="text-base max-w-sm text-gray-500 mb-5 sm:mb-10">
         Your Personalized Workplace Co-Pilot, Amplifying Your Professional Impact.
         </p>
+
+        <div>
+              <a className="btn p-4 text-slate-900 bg-gradient-to-r from-white/80 via-white to-white/80 hover:bg-white transition duration-150 ease-in-out group" href="https://9a04i53lzc4.typeform.com/to/E0H4xTzS">
+                Beta Waitlist <span className="tracking-normal text-purple-500 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">-&gt;</span>
+              </a>
+            </div>
+
       </motion.div>
       
       <motion.video
         style={{ 
           scale: videoScale, 
-          width: "105%", 
+          width: "100%", 
           height: "100%", 
           objectFit: "cover", 
           objectPosition: "center", 
-          clipPath: "inset(0 0 0 5%)"
+          clipPath: "inset(0 0 0 0)"
         }}
         className="rounded-md max-w-screen-lg shadow-lg dark:shadow-white/25 border dark:border-white/25 w-full bg-white dark:bg-black"
-        src="https://user-images.githubusercontent.com/33604451/252248216-9cec7a5a-6542-433b-b4be-33b09a7372c9.mp4"
+        src="https://user-images.githubusercontent.com/34851861/253835923-d98e8240-2621-4d8e-b195-3b9fea5e7608.mp4"
         autoPlay
         muted
         loop

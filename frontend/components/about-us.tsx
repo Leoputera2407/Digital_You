@@ -1,4 +1,4 @@
-export default function Features04() {
+export default function AboutUs() {
   return (
     <section className="relative">
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
