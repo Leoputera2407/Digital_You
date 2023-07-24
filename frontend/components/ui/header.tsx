@@ -1,7 +1,7 @@
 "use client"
 import { useSupabase } from '@/lib/context/authProvider'
 import { useToast } from "@/lib/hooks/useToast"
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AuthButton from './authButton'
 import { GoogleFCIcon } from './icon'
 import Logo from './logo'
@@ -12,8 +12,26 @@ export default function Header() {
   const { session, supabase } = useSupabase();
   const { publish } = useToast();
   const [isPending, setIsPending] = useState(false);
-
   
+  useEffect(() => {
+    let url = new URL(window.location.href);
+    console.log("url is ", url)
+    let searchParams = new URLSearchParams(url.search);
+    let error = searchParams.get("error");
+    let errorDescription = searchParams.get("error_description");
+    console.log("error is ", error)
+    if (
+      error == 'server_error' &&
+      errorDescription == 'Database+error+saving+new+user'
+    ) {
+      publish({
+        variant: "danger",
+        text: "Error: " + error + ". Description: " + errorDescription,
+      });
+    }
+  }, []);
+
+
   // Function to handle sign in
   const handleSignIn = async () => {
     setIsPending(true);
@@ -36,7 +54,6 @@ export default function Header() {
     setIsPending(false);
   };
 
-
   
   return (
     <header className="absolute w-full z-30">
@@ -50,7 +67,6 @@ export default function Header() {
 
           {/* Desktop navigation */}
           <nav className="flex-grow">
-
             {/* Desktop sign in links */}
             <ul className="flex justify-end items-center">
               <li>
