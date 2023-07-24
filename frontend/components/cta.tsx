@@ -23,10 +23,10 @@ export default function Cta() {
           { /* Content */}
           <div className="max-w-3xl mx-auto text-center">
             <div>
-              <div className="inline-flex font-medium bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-purple-200 pb-3">The workplace co-pilot</div>
+              <div className="inline-flex font-medium bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-purple-200 pb-3">Your co-pilot for intelligent responses in Slack.</div>
             </div>
-            <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Work smarter not harder with AI</h2>
-            <p className="text-lg text-slate-400 mb-8">The integration of AI into internal knowledge sharing isn’t merely about staying on the cutting edge of technology; it’s about unlocking the full potential of our collective imagination to create scalable, adaptable, and innovative entities.</p>
+            <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Focus on what truly matters</h2>
+            <p className="text-lg text-slate-400 mb-8">Meeting your OKRs, making an impact, or enjoying pastimes outside work. You no longer need to be burdened by crafting routine replies</p>
             <div>
               <a className="btn p-4 text-slate-900 bg-gradient-to-r from-white/80 via-white to-white/80 hover:bg-white transition duration-150 ease-in-out group" href="https://9a04i53lzc4.typeform.com/to/E0H4xTzS">
                 Beta Waitlist <span className="tracking-normal text-purple-500 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">-&gt;</span>

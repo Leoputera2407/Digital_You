@@ -17,7 +17,7 @@ export default function Integrations() {
         <div className="py-12 md:py-20 border-t border-slate-800">
           {/* Section header */}
           <div className="max-w-3xl mx-auto text-center pb-12">
-            <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Connect to All Stores of Knowledge</h2>
+            <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Connect to all stores of knowledge</h2>
           </div>
           {/* Logo animation */}
           <div className="relative flex flex-col items-center p-16">
