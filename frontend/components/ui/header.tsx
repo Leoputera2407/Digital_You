@@ -24,7 +24,7 @@ export default function Header() {
     
     if (
       error === 'server_error' &&
-      errorDescription === 'Database+error+saving+new+user'
+      errorDescription === "Database error saving new user"
     ) {
       console.log('went here')
       publish({
