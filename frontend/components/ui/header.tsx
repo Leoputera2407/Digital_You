@@ -12,6 +12,13 @@ export default function Header() {
   const { session, supabase } = useSupabase();
   const { publish } = useToast();
   const [isPending, setIsPending] = useState(false);
+
+  async function Refresh() {
+    // remove query parameters from URL
+    const location = window.location;
+    const cleanUrl = `${location.protocol}//${location.host}${location.pathname}`;
+    window.history.pushState({}, "", cleanUrl);
+  }
   
   useEffect(() => {
     let url = new URL(window.location.href);
@@ -29,8 +36,9 @@ export default function Header() {
       console.log('went here')
       publish({
         variant: "danger",
-        text: "Error: " + error + ". Description: " + errorDescription,
+        text: "Error: Please sign up with your work email",
       });
+      Refresh();
     }
   }, []);
 
