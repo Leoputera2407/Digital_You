@@ -20,10 +20,13 @@ export default function Header() {
     let error = searchParams.get("error");
     let errorDescription = searchParams.get("error_description");
     console.log("error is ", error)
+    console.log("error desc is ", errorDescription)
+    
     if (
-      error == 'server_error' &&
-      errorDescription == 'Database+error+saving+new+user'
+      error === 'server_error' &&
+      errorDescription === 'Database+error+saving+new+user'
     ) {
+      console.log('went here')
       publish({
         variant: "danger",
         text: "Error: " + error + ". Description: " + errorDescription,
