@@ -1,3 +1,4 @@
+"use client";
 import Authbutton from '@/components/ui/authButton';
 import { useAxios } from '@/lib/hooks/useAxios';
 import { useToast } from '@/lib/hooks/useToast';
@@ -36,7 +37,8 @@ export default function WhitelistedOrganizations() {
         variant: "danger",
         text: "An error occurred while joining the organization",
       });
-  }
+    }
+  };
 
   return (
     <div className="max-w-sm mx-auto">
