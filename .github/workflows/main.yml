@@ -10,7 +10,28 @@ jobs:
     steps:
       # This step checks out a copy of your repository.
       - uses: actions/checkout@v2
+
+      # This step logs into Docker
+      - name: Login to Docker
+        uses: docker/login-action@v1
+        with:
+          registry: registry.fly.io
+          username: x
+          password: ${{ secrets.FLY_API_TOKEN }}
+
+      # This step builds and pushes the Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.githubaction
+          push: true
+          tags: registry.fly.io/prosona-backend:latest
+
+      # This step sets up flyctl
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only -a prosona-backend --config backend/fly.toml --dockerfile backend/Dockerfile.githubaction --wait-timeout=1800
+
+      # This step deploys the Docker image to Fly.io
+      - run: flyctl deploy --image registry.fly.io/prosona-backend:latest --remote-only -a prosona-backend --wait-timeout=1800
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
