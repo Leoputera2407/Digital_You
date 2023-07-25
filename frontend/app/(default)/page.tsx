@@ -3,12 +3,12 @@ export const metadata = {
   description: 'Prosona Landing Page',
 }
 
-import Hero from '@/components/hero_new'
-import Features02 from '@/components/features-02'
-import Integrations from '@/components/integrations'
-import AboutUs from '@/components/about-us'
-import Testimonials from '@/components/testimonials'
-import Cta from '@/components/cta'
+import AboutUs from '@/components/ui/about-us'
+import Cta from '@/components/ui/cta'
+import Features02 from '@/components/ui/features-02'
+import Hero from '@/components/ui/hero'
+import Integrations from '@/components/ui/integrations'
+import Testimonials from '@/components/ui/testimonials'
 
 export default function Home() {
   return (

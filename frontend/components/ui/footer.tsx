@@ -21,7 +21,9 @@ export default function Footer() {
                   </a>
                 </li>
               </ul>
-                <div className="text-sm text-slate-300">© Prosona.ai <span className="text-slate-500">-</span> All rights reserved.  
+                <div className="text-sm text-slate-300">© Prosona.ai 
+                <span className="text-slate-500">-</span>  
+                <a> All rights reserved. </a> 
                 <span className="text-slate-500">-</span>
                     <a href="/terms"> Terms and Conditions </a> 
                     <span className="text-slate-500">-</span>
