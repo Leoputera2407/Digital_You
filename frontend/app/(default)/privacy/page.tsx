@@ -1,4 +1,4 @@
-import PrivacyPolicy from '@/components/privacy'
+import PrivacyPolicy from '@/components/ui/privacy'
 
 export default function Privacy() {
   return (

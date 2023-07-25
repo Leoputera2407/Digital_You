@@ -1,4 +1,4 @@
-import OrganizationSelect from "@/components/orgSelector"
+import OrganizationSelect from "@/components/ui/orgSelector"
 import { PlugIcon, WorkspaceIcon } from "@/components/ui/icon"
 import { SidebarNav } from "@/components/ui/sidebar-nav"
 

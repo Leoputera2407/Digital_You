@@ -1,4 +1,4 @@
-import Terms from '@/components/terms'
+import Terms from '@/components/ui/terms'
 
 export default function TermsandConditions() {
   return (
