@@ -9,7 +9,10 @@ function startsWithExcludedPath(pathname: string): boolean {
     "/api/auth",
     "/settings/connectors/google-drive/auth/callback", 
     "/settings/connectors/notion/auth/callback",
-    "/settings/connectors/linear/auth/callback"
+    "/settings/connectors/linear/auth/callback",
+    "/privacy",
+    "/terms"
+
   ];
   return excludedPaths.some(excludedPath => pathname.startsWith(excludedPath));
 }

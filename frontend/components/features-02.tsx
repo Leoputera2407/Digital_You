@@ -7,6 +7,7 @@ import FeatureImg05 from '@/public/images/briefcase.png';
 import FeatureImg06 from '@/public/images/chart-connected.png';
 import FeatureImg03 from '@/public/images/chart-tree.png';
 import FeatureImg01 from '@/public/images/portrait.png';
+import securityImg from '@/public/images/security.png';
 import FeatureImg02 from '@/public/images/time-fast.png';
 
 interface FeatureBoxProps {
@@ -60,8 +61,48 @@ export default function Features02() {
 
           { /* Section header */}
           <div className="max-w-3xl mx-auto text-center pb-12 md:pb-20">
-            <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Faster. Smarter.</h2>
+            <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Secure. Smart.</h2>
           </div>
+
+            { /* Box #1 */}
+              <div className="md:col-span-12 mb-6" data-aos="fade-down">
+                <HighlighterItem>
+                  <div className="relative h-full bg-slate-900 rounded-[inherit] z-20 overflow-hidden">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                      { /* Blurred shape */}
+                      <div className="absolute right-0 top-0 blur-2xl" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="342" height="393">
+                          <defs>
+                            <linearGradient id="bs-a" x1="19.609%" x2="50%" y1="14.544%" y2="100%">
+                              <stop offset="0%" stopColor="#6366F1" />
+                              <stop offset="100%" stopColor="#6366F1" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          <path fill="url(#bs-a)" fillRule="evenodd" d="m104 .827 461 369-284 58z" transform="translate(0 -112.827)" opacity=".7" />
+                        </svg>
+                      </div>
+                      { /* Radial gradient */}
+                      <div className="absolute flex items-center justify-center bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 pointer-events-none -z-10 h-full aspect-square" aria-hidden="true">
+                        <div className="absolute inset-0 translate-z-0 bg-purple-500 rounded-full blur-[120px] opacity-70" />
+                        <div className="absolute w-1/4 h-1/4 translate-z-0 bg-purple-400 rounded-full blur-[40px]" />
+                      </div>
+                      { /* Text */}
+                      <div className="md:max-w-[480px] shrink-0 order-1 md:order-none p-6 pt-0 md:p-8 md:pr-0">
+                        <div className="mb-5">
+                          <div>
+                            <h3 className="inline-flex text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-1">Privacy First</h3>
+                            <p className="text-slate-400">Your internal knowledge is your secret sauce which is why Prosona is a privacy first system. </p>
+                          </div>
+                        </div>
+                      </div>
+                      { /* Image */}
+                      <div className="relative w-full h-64 md:h-auto overflow-hidden">
+                        <Image className="absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto max-w-none md:relative md:left-0{md}transla{}-x-0" src={securityImg} width="504" height="400" alt="Feature 01" />
+                      </div>
+                    </div>
+                  </div>
+                </HighlighterItem>
+              </div>
 
           { /* Highlighted boxes */}
           <div className="relative pb-12 md:pb-20">
@@ -79,6 +120,9 @@ export default function Features02() {
             </div>
             { /* Grid */}
             <Highlighter className="grid md:grid-cols-3 gap-6 group grid-auto-rows minmax(100px, auto)">
+         
+         
+         
           <FeatureBox 
           title="Augmenting Employees"
           description="Prosona augments domain experts within a company by reducing their time spent on routine queries, allowing them to focus on their core responsibilities."

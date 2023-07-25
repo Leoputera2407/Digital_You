@@ -53,8 +53,8 @@ const hero_new = (): JSX.Element => {
         <h1 className="text-5xl sm:text-6xl font-bold max-w-lg sm:max-w-xl">
         Empowering Experts, Powering Knowledge. <span className="text-primary">Prosona.</span>
         </h1>
-        <p className="text-base max-w-sm text-gray-500 mb-5 sm:mb-10">
-        Your Personalized Workplace Co-Pilot, Amplifying Your Professional Impact.
+        <p className="text-base max-w-sm text-gray-500 mb-5 sm:mb-5">
+        Your co-pilot for intelligent responses in Slack.
         </p>
 
         <div>

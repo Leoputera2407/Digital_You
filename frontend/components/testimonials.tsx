@@ -25,19 +25,19 @@ export default function Testimonials() {
   const items: Item[] = [
     {
       img: TestimonialImg01,
-      quote: "Prosona has been a lifesaver, reducing the time I spend on routine queries dramatically while keeping my unique tone intact.",
+      quote: "Prosona has saved me so much time on routine queries while keeping my unique tone intact.",
       name: 'Adrian Sarstedt',
       role: 'CTO, Sphere'
     },
     {
       img: TestimonialImg02,
-      quote: "Prosona is transformative, embodying our experts' knowledge perfectly. It’s efficiency and reliability personified.",
+      quote: "Prosona is always there when I need to send a quick message out. Can't live without it!",
       name: 'Nina Brown',
       role: 'Product Manger, CCV'
     },
     {
       img: TestimonialImg03,
-      quote: "Prosona has supercharged our collective hive mind, promoting documentation while maintaining a personal touch.",
+      quote: "I save hours everyday thanks to Prosona",
       name: 'Brian Chan',
       role: 'Software Engineer, Start up'
 
