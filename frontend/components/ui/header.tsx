@@ -13,7 +13,6 @@ export default function Header() {
   const { publish } = useToast();
   const [isPending, setIsPending] = useState(false);
 
-  
   // Function to handle sign in
   const handleSignIn = async () => {
     setIsPending(true);

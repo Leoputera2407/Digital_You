@@ -12,14 +12,14 @@ import {
   Connector,
   ConnectorIndexingStatus,
   Credential,
-  OrganizationBase,
+  OrganizationAssociationBase,
 } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import { FaSpinner } from "react-icons/fa";
 import { useSlackConnectors } from "./hook";
 
 interface SlackConnectorProps {
-  currentOrganization: OrganizationBase | null;
+  currentOrganization: OrganizationAssociationBase | null;
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
   connectorsData: Connector<any>[] | undefined;

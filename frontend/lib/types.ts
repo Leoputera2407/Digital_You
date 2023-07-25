@@ -15,13 +15,29 @@ export interface ConfluenceTestBase {
   wiki_page_url: string;
 }
 
-export interface OrganizationBase {
+export interface OrganizationAssociationBase {
   id: string;
   name: string;
   role: UserRole;
   joined_at: string;
 }
 
+export interface OrganizationData {
+  id: string;
+  name: string;
+};
+
+export interface WhitelistDataResponse {
+  success: boolean;
+  message: string;
+  data: OrganizationData[];
+};
+
+export interface OrganizationDataResponse {
+  success: boolean;
+  message: string;
+  data: OrganizationData | null;
+};
 export interface UserByEmail {
     user_email: string;
 }
@@ -45,7 +61,7 @@ export interface OrganizationUpdateInfo{
 };
 
 export interface UserOrgResponse {
-  organizations: OrganizationBase[];
+  organizations: OrganizationAssociationBase[];
 }
 
 

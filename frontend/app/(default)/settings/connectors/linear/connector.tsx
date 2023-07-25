@@ -19,7 +19,7 @@ import {
     ConnectorIndexingStatus,
     Credential,
     LinearConfig,
-    OrganizationBase,
+    OrganizationAssociationBase,
 } from "@/lib/types";
 import { ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
@@ -27,7 +27,7 @@ import { FaSpinner } from "react-icons/fa";
 import { useLinearManyConnectors } from "./hook";
 
 interface LinearConnectorProps {
-  currentOrganization: OrganizationBase | null;
+  currentOrganization: OrganizationAssociationBase | null;
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
   connectorsData: Connector<any>[] | undefined;

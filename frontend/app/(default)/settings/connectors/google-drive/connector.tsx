@@ -10,14 +10,14 @@ import {
   ConnectorBase,
   ConnectorIndexingStatus,
   Credential,
-  OrganizationBase,
+  OrganizationAssociationBase,
 } from "@/lib/types";
 import { useState } from "react";
 import { FaSpinner } from "react-icons/fa";
 import { useGoogleConnectors } from "./hook";
 
 interface GoogleDriveConnectorProps {
-  currentOrganization: OrganizationBase | null;
+  currentOrganization: OrganizationAssociationBase | null;
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
   connectorsData: Connector<AnyCredentialJson>[] | undefined;

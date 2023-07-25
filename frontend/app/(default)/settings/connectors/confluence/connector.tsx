@@ -27,7 +27,7 @@ import {
   ConnectorBase,
   ConnectorIndexingStatus,
   Credential,
-  OrganizationBase,
+  OrganizationAssociationBase,
 } from "@/lib/types";
 import { verifyValidParamString } from "@/lib/utils";
 import { FC, useState } from "react";
@@ -36,7 +36,7 @@ import { FaSpinner } from "react-icons/fa";
 import { useConfluenceConnectors } from "./hook";
 
 interface ConfluenceConnectorProps {
-  currentOrganization: OrganizationBase | null;
+  currentOrganization: OrganizationAssociationBase | null;
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
   connectorsData: Connector<any>[] | undefined;

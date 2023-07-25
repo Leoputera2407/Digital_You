@@ -1,12 +1,12 @@
 import { useSupabase } from "@/lib/context/authProvider";
 import { fetcher } from "@/lib/fetcher";
 import { useAxios } from "@/lib/hooks/useAxios";
-import { OrganizationBase, UserOrgResponse } from "@/lib/types";
+import { OrganizationAssociationBase, UserOrgResponse } from "@/lib/types";
 import useSWR, { mutate } from "swr";
 
 
 type UseAccountResponse = {
-  organizations: OrganizationBase[] | undefined;
+  organizations: OrganizationAssociationBase[] | undefined;
   isLoading: boolean;
   isError: boolean;
   revalidate: () => void;

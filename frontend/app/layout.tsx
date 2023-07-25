@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./css/style.css";
 
+import PostSignInOrganizationCheck from "@/components/ui/postSignIn";
 import AuthProvider from "@/lib/context/authProvider";
 import { OrganizationProvider } from "@/lib/context/orgProvider";
 import { ToastProvider } from "../components/ui/Toast";
@@ -37,15 +38,17 @@ const RootLayout = async ({
         className={`${inter.variable} font-inter antialiased bg-slate-900 text-slate-100 tracking-tight`}
       >
         <AuthProvider session={session}>
-          <OrganizationProvider>
-            <ToastProvider>
-              <div className="flex flex-col min-h-screen overflow-hidden">
-                {children}
-              </div>
-            </ToastProvider>
-          </OrganizationProvider>
+          <PostSignInOrganizationCheck>
+            <OrganizationProvider>
+              <ToastProvider>
+                <div className="flex flex-col min-h-screen overflow-hidden">
+                  {children}
+                </div>
+              </ToastProvider>
+            </OrganizationProvider>
+          </PostSignInOrganizationCheck>
+          <Analytics />
         </AuthProvider>
-        <Analytics />
       </body>
     </html>
   );

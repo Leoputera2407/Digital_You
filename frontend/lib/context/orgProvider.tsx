@@ -1,11 +1,11 @@
 "use client";
 import useAccount from "@/lib/hooks/useAccount";
-import { OrganizationBase } from "@/lib/types";
+import { OrganizationAssociationBase } from "@/lib/types";
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 
 type OrganizationContextProps = {
-  organizations: OrganizationBase[] | undefined;
-  currentOrganization: OrganizationBase | null;
+  organizations: OrganizationAssociationBase[] | undefined;
+  currentOrganization: OrganizationAssociationBase | null;
   switchOrganization: (organizationId: string) => void;
   isLoading: boolean;
   isError: boolean;
@@ -28,11 +28,11 @@ export const OrganizationProvider = ({
   // If organizations is not None, we sort the organizations by joined_at date
   // with the latest joined_at date first
   // This will only be set during the inital render and when switchOrganization is called
-  let sortedOrganizations: OrganizationBase[] | null = null;
+  let sortedOrganizations: OrganizationAssociationBase[] | null = null;
   if (organizations) {
     sortedOrganizations = [...organizations].sort((a, b) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime());
   }
-  const [currentOrganization, setCurrentOrganization] = useState<OrganizationBase | null>(null);
+  const [currentOrganization, setCurrentOrganization] = useState<OrganizationAssociationBase | null>(null);
 
   useEffect(() => {
     // Try to get the saved organization ID from localStorage

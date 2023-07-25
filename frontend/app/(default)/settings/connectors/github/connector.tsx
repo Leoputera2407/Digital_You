@@ -31,7 +31,7 @@ import {
   GithubConfig,
   GithubCredentialJson,
   GithubTestBase,
-  OrganizationBase,
+  OrganizationAssociationBase,
 } from "@/lib/types";
 import { verifyValidParamString } from "@/lib/utils";
 import { Axios } from "axios";
@@ -43,7 +43,7 @@ import { FaSpinner } from "react-icons/fa";
 import { useGithubManyConnectors } from "./hook";
 
 interface GithubConnectorProps {
-  currentOrganization: OrganizationBase | null;
+  currentOrganization: OrganizationAssociationBase | null;
   connectorIndexingStatuses: ConnectorIndexingStatus<any>[] | undefined;
   credentialsData: Credential<AnyCredentialJson>[] | undefined;
   connectorsData: Connector<any>[] | undefined;
