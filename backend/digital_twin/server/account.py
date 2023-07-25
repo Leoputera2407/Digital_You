@@ -79,7 +79,7 @@ async def get_user_org_and_roles(
     ]
     return UserOrgResponse(organizations=user_org)
 
-@router.get("/whitelisted-orgs", response_model=StatusResponse[List[OrganizationName]])
+@router.get("/whitelisted-orgs", response_model=StatusResponse[List[OrganizationData]])
 async def get_whitelisted_org(
     current_user: User = Depends(current_user),
     db_session: AsyncSession = Depends(get_async_session_generator)

@@ -1,7 +1,8 @@
+"use client";
 import { useSupabase } from "@/lib/context/authProvider";
 import { fetcher } from "@/lib/fetcher";
 import { OrganizationDataResponse } from "@/lib/types";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import useSWR from "swr";
 

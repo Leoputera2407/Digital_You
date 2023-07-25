@@ -88,7 +88,7 @@ export default function Header() {
                   </span>
                 </a>
               </li>
-              {!isLive &&
+              {isLive &&
                 (session ? (
                   <SignedInUser />
                 ) : (
@@ -107,7 +107,7 @@ export default function Header() {
                       </span>
                     </AuthButton>
                   </li>
-                ))};
+                ))}
             </ul>
           </nav>
         </div>
