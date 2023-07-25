@@ -90,9 +90,11 @@ class InvitationBase(BaseModel):
     email: str
     status: str
 
-class OrganizationName(BaseModel):
+class OrganizationData(BaseModel):
     name: str
-class OrganizationAdminInfo(OrganizationName):
+    id: int
+
+class OrganizationAdminInfo(OrganizationData):
     whitelisted_email_domain: Optional[str]
     pending_invitations: List[InvitationBase]
     users: List[UserByEmail]
@@ -101,6 +103,9 @@ class OrganizationUpdateInfoRequest(BaseModel):
     name: Optional[str] = None
     whitelisted_email_domain: Optional[str] = None
 
+class OrganizationCreateRequest(BaseModel):
+    name: str
+    invited_users: List[UserByEmail]
 class IndexAttemptRequest(BaseModel):
     input_type: InputType = InputType.POLL
     connector_specific_config: dict[str, Any]
@@ -165,15 +170,14 @@ class CredentialSnapshot(CredentialBase):
     updated_at: datetime
 
 
-class OrganizationBase(BaseModel):
+class OrganizationAssociationBase(BaseModel):
     id: UUID
     name: str
     role: UserRole
     joined_at: datetime
 
 class UserOrgResponse(BaseModel):
-    organizations: List[OrganizationBase]
-
+    organizations: List[OrganizationAssociationBase]
 
 class GithubTestRequest(BaseModel):
     access_token_value: str 

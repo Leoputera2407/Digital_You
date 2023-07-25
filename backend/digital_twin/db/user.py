@@ -147,19 +147,42 @@ def get_user_org_assocations(
 async def async_get_user_org_assocations(
     user: User,
     db_session: AsyncSession,
+    organization: Optional[Organization] = None,
 ) -> List[UserOrganizationAssociation]:
-    result = await db_session.execute(
-        select(UserOrganizationAssociation)
-        .options(joinedload(UserOrganizationAssociation.organization))
-        .where(UserOrganizationAssociation.user_id == user.id)
-    )
-    
-    associations = result.scalars().unique().all()
+    query = select(UserOrganizationAssociation).options(
+        joinedload(UserOrganizationAssociation.organization)
+        ).where(UserOrganizationAssociation.user_id == user.id)
+
+    if organization is not None:
+        query = query.where(UserOrganizationAssociation.organization_id == organization.id)
+        
+    associations = await db_session.execute(query)
 
     if not associations:
         return []    
     
     return associations
+
+
+async def async_get_user_org_role(
+    user: User,
+    organization: Organization,
+    db_session: AsyncSession,
+) -> Optional[UserOrganizationAssociation]:
+    result = await db_session.execute(
+        select(UserOrganizationAssociation)
+        .options(
+            joinedload(UserOrganizationAssociation.organization),
+        )
+        .where(
+            UserOrganizationAssociation.user_id == user.id,
+            UserOrganizationAssociation.organization_id == organization.id
+        )
+    )
+
+    association = result.scalars().first()
+
+    return association
 
 
 @log_sqlalchemy_error(logger)

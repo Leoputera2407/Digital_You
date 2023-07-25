@@ -21,10 +21,11 @@ def send_user_invitation_email(workspace_name: str, invitee_email: str, token: s
     msg["Subject"] = f"You're invited to join {workspace_name} workspace"
     msg["From"] = SMTP_USER
     msg["To"] = invitee_email
-
-    link = f"{WEB_DOMAIN}/accept-invitation?token={token}"
-
-    body = MIMEText(f"Click the following link to accept your invitation: {link}")
+    # TODO: We'll do proper invitation flow later, for now just send them to the landing page
+    #link = f"{WEB_DOMAIN}/accept-invitation?token={token}"
+    #body = MIMEText(f"Click the following link to accept your invitation: {link}")
+    link = f"{WEB_DOMAIN}"
+    body = MIMEText(f"Sign up with your work email here: {link}")
     msg.attach(body)
 
     with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as s:
