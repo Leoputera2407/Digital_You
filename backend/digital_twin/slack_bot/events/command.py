@@ -155,6 +155,7 @@ async def qa_and_response(
     qa_response, sources, is_docs_revelant, confidence_score = await qa_model.async_answer_question_and_verify(
         query, 
         context_docs=ranked_chunks,
+        add_metadata=False,
     )
         
     processed_response = format_openai_to_slack(qa_response if qa_response else "")

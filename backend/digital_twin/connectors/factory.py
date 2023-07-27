@@ -44,7 +44,7 @@ CONNECTOR_MAP = {
 
 def identify_connector_class(
     source: DocumentSource,
-    input_type: InputType,
+    input_type: InputType | None = None,
 ) -> Type[BaseConnector]:
     connector_by_source = CONNECTOR_MAP.get(source, {})
 
