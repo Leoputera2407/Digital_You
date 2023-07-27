@@ -11,7 +11,7 @@ NULL_DOC_TOKEN = "?[DOCUMENT]"
 NULL_EXAMPLE_TOKEN = "?[EXAMPLE]"
 EXAMPLE_SEP_PAT = "---NEW EXAMPLE---"
 
-PERSONALITY_MODEL_SETTINGS = {"temperature": 0.3, "max_output_tokens": 2000}
+PERSONALITY_MODEL_SETTINGS = {"temperature": 0.1, "max_output_tokens": 2000}
 class BasePersonalityChain(BaseChain):
     """
     Base class for Personality.

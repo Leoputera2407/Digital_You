@@ -179,15 +179,17 @@ def create_selection_command_view(
             "type": "button",
             "text": {
                 "type": "plain_text",
-                "text": "Answer this!",
+                "text": "Answer This!" if m['thread_ts'] is None else "Go to Thread",
                 "emoji": True
             },
             "style": "primary",  # Make the button green
-            "value": m['text'],  # The text of the message is used as the value of the button
+            "value": m['message'],  # The text of the message is used as the value of the button
             "action_id": SELECTION_BUTTON_ACTION_ID 
         }
-        for m in past_messages
+        for m in past_messages 
     ]
+    
+    zip_message = zip(buttons, past_messages)
 
     # Each button is put in a separate section
     blocks = [
@@ -195,11 +197,11 @@ def create_selection_command_view(
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"Question {i+1}: {button['value']}"  # The question is displayed here
+                "text": f"{m['sender']}: {button['value']}"  # The question is displayed here
             },
             "accessory": button
         }
-        for i, button in enumerate(buttons)
+        for button, m in zip_message
     ]
 
     # Add the blocks to the view

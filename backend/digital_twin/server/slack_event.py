@@ -380,9 +380,11 @@ async def handle_shuffle_click(
         )
         private_metadata_str = body['view']['private_metadata']
         private_metadata = json.loads(body['view']['private_metadata'])
-        old_response = format_slack_to_openai(private_metadata['response'])
+        old_response = format_slack_to_openai(private_metadata['rephrased_response'])
         conversation_style = private_metadata['conversation_style']
         slack_user_id = body['user']['id']
+        
+        logger.error(f"Old response: {private_metadata}")
         response = await shuffle_chain.async_run(
             old_response=old_response,
             conversation_style=conversation_style,
