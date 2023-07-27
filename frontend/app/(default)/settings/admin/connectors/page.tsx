@@ -31,7 +31,6 @@ export default function ConnectorMenuPage() {
     Array(ValidDataSourceTypesArray.length).fill(false)
   );
   const { currentOrganization } = useOrganization();
-  console.log("currentOrganization", currentOrganization);
   const {
     isLoading: isConnectorCredentialLoading,
     isConnectorIndexingStatusesError,

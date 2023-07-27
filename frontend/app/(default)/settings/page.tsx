@@ -1,253 +1,127 @@
 "use client";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/react-hook-form/form";
-import Authbutton from "@/components/ui/authButton";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import AuthButton from "@/components/ui/authButton";
+import { SlackIcon } from "@/components/ui/icon";
+import { useSupabase } from "@/lib/context/authProvider";
 import { useOrganization } from "@/lib/context/orgProvider";
-import { useOrgAdminOps } from "@/lib/hooks/useOrgAdminOps";
-import { OrganizationAdminInfo } from "@/lib/types";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
+import { fetcher } from "@/lib/fetcher";
+import { useAxios } from "@/lib/hooks/useAxios";
+import { useToast } from "@/lib/hooks/useToast";
+import { SlackIntegration, StatusResponse } from "@/lib/types";
+import { Axios } from "axios";
+import { useEffect, useState } from "react";
+import { FaSpinner } from "react-icons/fa";
+import useSWR from "swr";
 
-const domainRegex = /^([a-z0-9](-*[a-z0-9])*)(\.([a-z0-9](-*[a-z0-9])*))*$/i;
+const slackIntegration = async ({
+  axiosInstance,
+  organizationId,
+}: {
+  axiosInstance: Axios;
+  organizationId: string;
+}): Promise<[boolean, string?]> => {
+  try {
+    const response = await axiosInstance.get(
+      `/api/slack/install/${organizationId}?slack_integration_type=${SlackIntegration.USER}`
+    );
 
-const orgUpdateFormSchema = z.object({
-  organizationName: z.string().min(2, {
-    message: "Organization name must be at least 2 characters.",
-  }),
-  emailDomain: z.string().refine((domain) => domainRegex.test(domain), {
-    message:
-      "Invalid domain format. It should be something like 'example.com' or 'subdomain.example.com",
-  }),
-});
+    if (response.status === 200) {
+      const authUrl = response.data.auth_url;
+      window.location.href = authUrl;
 
-const inviteUserFormSchema = z.object({
-  inviteEmail: z.string().email(),
-});
+      return [true];
+    } else {
+      const errorMsg = `Failed to setup OAuth for Slack - ${response.status}`;
+      console.error(errorMsg);
+      return [false, errorMsg];
+    }
+  } catch (error: any) {
+    const errorMsg = `Failed to setup OAuth for Slack - ${error.message}`;
+    console.error(errorMsg);
+    return [false, errorMsg];
+  }
+};
 
-function countPendingInvitationsAndMembers(
-  adminOrgInfo: OrganizationAdminInfo | undefined
-) {
-  const numInvitations = adminOrgInfo?.pending_invitations?.length || 0;
-  const numMembers = adminOrgInfo?.users?.length || 0;
-
-  return { numInvitations, numMembers };
-}
-
-function combineMembersAndPendingInvitations(
-  adminOrgInfo: OrganizationAdminInfo | undefined
-) {
-  const members =
-    adminOrgInfo?.users?.map((user) => ({
-      email: user.user_email,
-      isPending: false,
-    })) || [];
-
-  const invitations =
-    adminOrgInfo?.pending_invitations?.map((invitation) => ({
-      email: invitation.email,
-      isPending: true,
-    })) || [];
-
-  return [...members, ...invitations];
-}
-
-export default function ProfileFormPage() {
+export default function SlackConnectionPage() {
+  const { session } = useSupabase();
   const { currentOrganization } = useOrganization();
-  const {
-    adminOrgInfo,
-    isAdminOrgInfoError,
-    handleAddUserToOrg,
-    handleRemoveUserFromOrg,
-    handlePromoteUserToAdmin,
-    handleUpdateAdminOrganizationInfo,
-  } = useOrgAdminOps(currentOrganization?.id);
-
-  const { numInvitations, numMembers } =
-    countPendingInvitationsAndMembers(adminOrgInfo);
-  const combinedUserList = combineMembersAndPendingInvitations(adminOrgInfo);
-  console.log(adminOrgInfo);
-  const orgForm = useForm<z.infer<typeof orgUpdateFormSchema>>({
-    resolver: zodResolver(orgUpdateFormSchema),
-  });
-
-  const inviteUserForm = useForm<z.infer<typeof inviteUserFormSchema>>({
-    resolver: zodResolver(inviteUserFormSchema),
-  });
-
+  const shouldFetch = session !== null && currentOrganization?.id !== undefined
+  const { axiosInstance } = useAxios();
+  const { publish } = useToast();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isConnectingToSlack, setIsConnectingToSlack] = useState<boolean>(false);
+  const [fetchedData, setFetchedData] = useState<StatusResponse | null>(null);
+  //console.log(fetchedData)
+  const { data, error, mutate } = useSWR(
+    shouldFetch && fetchedData === null
+      ? `/api/organization/${currentOrganization?.id}/verify-slack-users`
+      : null,
+    (url) => fetcher(url, axiosInstance)
+  );
+  // Once data is received, stop revalidating
   useEffect(() => {
-    orgForm.setValue("organizationName", adminOrgInfo?.name || "");
-    orgForm.setValue(
-      "emailDomain",
-      adminOrgInfo?.whitelisted_email_domain || ""
-    );
-  }, [adminOrgInfo, orgForm]);
+    if (data) {
+        setFetchedData(data);        
+        setIsLoading(false);
+    }
+  }, [data, mutate]);
 
-  async function onUpdateOrgSubmit(
-    values: z.infer<typeof orgUpdateFormSchema>
-  ) {
-    await handleUpdateAdminOrganizationInfo(
-      values.emailDomain,
-      values.organizationName
-    );
-  }
+  const handleOnClick = async () => {
+    setIsConnectingToSlack(true);
+    try {
+      const organizationId = currentOrganization?.id;
+      if (organizationId === undefined) {
+        throw new Error("Org ID is undefined");
+      }
 
-  async function onAddUserSubmit(values: z.infer<typeof inviteUserFormSchema>) {
-    inviteUserForm.setValue("inviteEmail", "");
-    await handleAddUserToOrg(values.inviteEmail);
-  }
+      const [success, errorMsg] = await slackIntegration({
+        axiosInstance,
+        organizationId: organizationId,
+      });
 
-  const onRevokeClick = async (email: string, isPending: boolean) => {
-    await handleRemoveUserFromOrg(email, isPending);
+      if (!success) {
+        publish({
+          variant: "danger",
+          text: errorMsg!,
+        });
+      }
+    } catch (error: any) {
+      publish({
+        variant: "danger",
+        text: error.message,
+      });
+    } finally {
+      setIsConnectingToSlack(false);
+    }
   };
 
-  const onPromoteClick = async (email: string) => {
-    await handlePromoteUserToAdmin(email);
-  };
-
-  return (
-    <>
-    <Form {...orgForm}>
-      <form
-        onSubmit={orgForm.handleSubmit(onUpdateOrgSubmit)}
-        className="space-y-4"
-      >
-        <div className="space-y-1">
-          <h2 className="text-md font-medium text-white">Workspace Settings</h2>
-          <p className="text-sm text-muted-foreground">
-            A workspace lets you collaborate with your team.
-          </p>
-          <Separator className="my-3" />
-        </div>
-        <FormField
-          control={orgForm.control}
-          name="organizationName"
-          render={({ field, fieldState: { error } }) => (
-            <FormItem>
-              <FormLabel className="text-white">Organization Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Your organization name" {...field} />
-              </FormControl>
-              <FormDescription>The name of our organization</FormDescription>
-              <FormMessage color={error && "red"}>
-                {error?.message}
-              </FormMessage>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={orgForm.control}
-          name="emailDomain"
-          render={({ field, fieldState: { error } }) => (
-            <FormItem>
-              <FormLabel className="text-white">Whitelisted E-mail Domain</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="Your whitelisted e-mail domain"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Allow any user with an e-mail from the specified domain to
-                auto join this workspace
-              </FormDescription>
-              <FormMessage color={error && "red"}>
-                {error?.message}
-              </FormMessage>
-            </FormItem>
-          )}
-        />
-       <div className="flex justify-end">
-        <Authbutton 
-          type="submit" 
-          className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
-        >
-          Update
-        </Authbutton>
-      </div>
-      </form>
-    </Form>
-    < Separator />
-    <Form {...inviteUserForm}>
-      <form
-        onSubmit={inviteUserForm.handleSubmit(onAddUserSubmit)}
-        className="space-y-4"
-      >
-        <h2 className="text-md font-medium text-white">Workspace Members</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage active members and invitations to your workspace.
-        </p>
-        <FormField
-          control={inviteUserForm.control}
-          name="inviteEmail"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-white">Invite by Email</FormLabel>
-              <FormControl>
-                <Input placeholder="Email to invite" {...field} />
-              </FormControl>
-              <div className="flex justify-end">
-                <Authbutton 
-                  type="submit" 
-                  className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
-                >
-                  Send Invite
-                </Authbutton>
-              </div>
-            </FormItem>
-          )}
-        />
-      </form>
-    </Form>
-  
-    <h3 className="my-4 text-white">
-      {numInvitations} Invitations and {numMembers} Members
-    </h3>
-    {combinedUserList.map((member) => (
-      <div
-      key={member.email}
-      className="flex justify-between items-center bg-slate-900 rounded-[inherit] z-20 overflow-hidden p-3 rounded-lg shadow my-2 border border-gray-100 border-opacity-20"
-    >
-      <div>
-        <p
-          className={`font-semibold text-slate-400 ${
-            member.isPending ? "text-gray-400" : "text-white"
-          }`}
-        >
-          {member.email}
-          {member.isPending && (
-            <span className="italic text-gray-500"> (Pending)</span>
-          )}
-        </p>
-      </div>
-      <div className="space-x-2">
-        {!member.isPending && (
-          <Authbutton
-            onClick={() => onPromoteClick(member.email)}
-            className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow text-white"
-          >
-            Promote to Admin
-          </Authbutton>
-        )}
-        <Authbutton
-          onClick={() => onRevokeClick(member.email, member.isPending)}
-          className="text-sm bg-red-500 hover:bg-red-600 px-4 py-1 rounded shadow text-white"
-        >
-          Revoke
-        </Authbutton>
+  const content = isLoading ? (
+    <div className="flex justify-center items-center">
+      <div className="animate-spin h-5 w-5 text-white">
+        <FaSpinner />
       </div>
     </div>
-    ))}
-  </>
+  ) : fetchedData?.success ? (
+    <>
+      <h3 className="text-lg font-medium">You're connected to Slack!</h3>
+      <p className="text-sm text-muted-foreground">
+        Call "/prosona" in Slack to start answering in your context and tone.
+      </p>
+    </>
+  ) : (
+    <>
+      <h3 className="text-lg font-medium">Connect to Slack!</h3>
+      <p className="text-sm text-muted-foreground">
+        You're almost there! Click the button below to start using prosona
+      </p>
+      <AuthButton
+        className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+        isLoading={isConnectingToSlack}
+        onClick={handleOnClick}
+      >
+        <SlackIcon /> Add to Slack
+      </AuthButton>
+    </>
   );
+
+  return <div>{content}</div>;
 }

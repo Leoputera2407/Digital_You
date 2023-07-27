@@ -16,7 +16,7 @@ def chunks_to_search_docs(chunks: list[InferenceChunk] | None):
     search_docs = (
         [
             SearchDoc(
-                semantic_identifier=chunk.semantic_identifier,
+                semantic_identifier=chunk.semantic_identifier if chunk.semantic_identifier else '',
                 link=chunk.source_links.get(0) if chunk.source_links else None,
                 blurb=chunk.blurb,
                 source_type=chunk.source_type,

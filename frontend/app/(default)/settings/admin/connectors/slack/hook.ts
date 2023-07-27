@@ -6,7 +6,8 @@ import {
   ConnectorIndexingStatus,
   Credential,
   SlackConfig,
-  SlackCredentialJson
+  SlackCredentialJson,
+  SlackIntegration,
 } from "@/lib/types";
 import type { Axios } from "axios";
 import { useRouter } from "next/navigation";
@@ -56,14 +57,16 @@ const setupSlackOAuth = async ({
     */
    
     // Get the auth url
-    const response = await axiosInstance.get(`/api/slack/install/${organizationId}`);
+    const response = await axiosInstance.get(
+      `/api/slack/install/${organizationId}?slack_integration_type=${SlackIntegration.CONNECTOR}`
+    );
     
     // Check if we got a successful response
     if (response.status === 200) {
       const authUrl = response.data.auth_url;
       
       /*
-      Creating connector is done server-side now
+      TODO: Creating connector is done server-side now
       // Prepare the connector
       const connectorBase: ConnectorBase<{}> = {
         name: "SlackConnector",

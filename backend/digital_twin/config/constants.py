@@ -29,6 +29,9 @@ SLACK_APP_PERMISSIONS = [
             "groups:read",
             "users:read.email",
         ]
+SLACK_USER_SCOPES = [
+    "chat:write"
+]
 
 DEFAULT_SLACK_CONVERSATION_STYLE="""
 The style of conversation is formal, precise, and usually in third person perspective. 

@@ -20,7 +20,7 @@ export const GET = async (request: NextRequest) => {
   });
 
   let response = null;
-  const url = new URL(buildBackendHTTPUrl("/connector/linear/callback"));
+  const url = new URL(buildBackendHTTPUrl("/connector/notion/callback"));
   url.search = request.nextUrl.search;
   
   response = await axiosInstance.get(
@@ -32,11 +32,11 @@ export const GET = async (request: NextRequest) => {
 
   if (response.status < 200 || response.status >= 300) {
     console.log(
-      "Error in Linear callback:",
+      "Error in Notion callback:",
       response.data.message
     );
     return NextResponse.redirect(new URL("/error", getDomain(request)));
   }
 
-  return NextResponse.redirect(new URL("/settings/connectors", getDomain(request)));
+  return NextResponse.redirect(new URL("/settings/admin/connectors", getDomain(request)));
 };

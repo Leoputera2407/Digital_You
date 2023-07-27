@@ -3,11 +3,9 @@ import json
 from uuid import UUID
 from logging import Logger
 from urllib.parse import urlencode
-from typing import Dict, Any, Callable, Awaitable, Union
-from fastapi import APIRouter, Request, HTTPException, Depends, status
-from fastapi.responses import JSONResponse
+from typing import Dict, Any, Callable, Awaitable
+from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response as StarletteResponse, RedirectResponse
 
@@ -27,12 +25,15 @@ from slack_bolt.adapter.fastapi.async_handler import (
 )
 from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
 
-from digital_twin.auth.users import current_user, current_admin_for_org
+from digital_twin.auth.users import current_user
 from digital_twin.llm.interface import get_llm
 from digital_twin.config.app_config import WEB_DOMAIN, SLACK_USER_TOKEN
 from digital_twin.slack_bot.views import LOADING_TEXT
-from digital_twin.db.model import User
-from digital_twin.db.engine import get_async_session, get_session
+from digital_twin.db.model import User, UserRole
+from digital_twin.db.user import (
+    async_get_user_org_by_user_and_org_id,
+)
+from digital_twin.db.engine import get_async_session
 from digital_twin.llm.chains.personality_chain import ShuffleChain, PERSONALITY_MODEL_SETTINGS
 from digital_twin.slack_bot.views import (
     get_view,
@@ -50,12 +51,11 @@ from digital_twin.slack_bot.events.command import (
 from digital_twin.slack_bot.events.home_tab import build_home_tab
 from digital_twin.slack_bot.config import get_oauth_settings
 from digital_twin.server.model import AuthUrl
-from digital_twin.db.model import SlackUser
+from digital_twin.db.model import SlackUser, SlackIntegration
 from digital_twin.db.engine import get_async_session_generator
 from digital_twin.db.user import (
     async_get_slack_user, 
     async_get_user_by_email,
-    async_insert_slack_user,
     async_get_organization_id_from_team_id,
 )
 
@@ -66,7 +66,6 @@ from digital_twin.utils.slack import (
     custom_handle_installation,
     format_openai_to_slack,
     format_slack_to_openai,
-    async_get_user_info,
 )
 from digital_twin.utils.logging import setup_logger
 
@@ -143,20 +142,30 @@ async def install(
     response: StarletteResponse, 
     organization_id: UUID,
     request: Request,
-    user: User = Depends(current_admin_for_org),
+    slack_integration_type: SlackIntegration = Query(...),
+    user: User = Depends(current_user),
     db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> AuthUrl:
     oauth_flow: AsyncOAuthFlow = app_handler.app.oauth_flow
+    user_association = await async_get_user_org_by_user_and_org_id(
+        db_session, user.id, organization_id
+    )
+    if slack_integration_type == SlackIntegration.CONNECTOR.value and \
+        user_association.role != UserRole.ADMIN:
+          raise HTTPException(
+            status_code=403,
+            detail="Access denied. User is not an admin for this organization.",
+        )
+    
     if oauth_flow is not None and \
             request.method == "GET":
-        logger.info(f"Handling slack install {organization_id}")
-
         bolt_resp = await custom_handle_installation(
             user=user,
             oauth_flow=oauth_flow,
             organization_id=organization_id,
             db_session=db_session,
             request=request,
+            slack_integration_type=slack_integration_type,
         ) 
         # Convert bolt response to starlette response
         res = to_starlette_response(bolt_resp)
@@ -214,16 +223,17 @@ async def slack_oauth_redirect(
             request=request,
         )
         if isinstance(res, SlackResponseStatus):
+            base_redirect_url = res.redirect_url
             # If status code indicates success, redirect to the settings page
             if res.success: 
-                return RedirectResponse(url=f"{WEB_DOMAIN}/settings/connectors")
+                return RedirectResponse(url=base_redirect_url)
             else:  # On failure, redirect to the WEB_DOMAIN with the status and body as query parameters
                 error_data = {
                     'status': res.status_code,
                     'error_message': res.error_message,
                     'connector_type': 'slack'
                 }
-                return RedirectResponse(url=f"{WEB_DOMAIN}/settings/connectors?{urlencode(error_data)}")
+                return RedirectResponse(url=f"{base_redirect_url}?{urlencode(error_data)}")
             
         raise HTTPException(
             status_code=500, 
@@ -268,8 +278,8 @@ async def set_user_info(
             loading_view = get_view("text_command_modal", text=LOADING_TEXT)
             response = await client.views_open(trigger_id=trigger_id, view=loading_view)
             context["view_id"] = response["view"]["id"]
-        # Look up user in external system using their Slack user ID
         async with get_async_session() as async_db_session: 
+            # Look up user in our db using their Slack user ID
             organization_id = await async_get_organization_id_from_team_id(
                 session=async_db_session,
                 team_id=team_id,
@@ -284,24 +294,19 @@ async def set_user_info(
                 slack_user_info = await client.users_info(user=slack_user_id)
                 slack_user_email = slack_user_info.get('user', {}).get('profile', {}).get('email', None) 
                 if not slack_user_email:
-                    raise ValueError(f'Error while verifying the slack token')
+                    raise ValueError(f'Cannot find email for slack user')
                 db_user: User = await async_get_user_by_email(async_db_session, slack_user_email)
                 if not db_user:
-                    raise ValueError(f'Error while verifying the slack token')
-                
-                slack_user = await async_insert_slack_user(
-                    async_db_session, 
-                    slack_user_id, 
-                    team_id, 
-                    db_user.id
-                )
-                if not slack_user:
-                    raise ValueError(f'Error while verifying the slack token') 
+                    return BoltResponse(
+                        status=200,
+                        body=f"<@{slack_user_id}> You're almost there, your company is signed up for Prosona. Please sign up here <{WEB_DOMAIN} | Prosona Website> using your work email"
+                    )
             context["DB_USER_ID"] = slack_user.user_id
+            context["SLACK_USER_TOKEN"] = slack_user.slack_user_token
             context["ORGANIZATION_ID"] = organization_id
     except Exception as e:
         logger.info(f"Error while verifying the slack token: {e}")
-        return BoltResponse(status=200, body=f"Sorry <@{slack_user_id}>, you aren't registered for Prosona Service. Please sign up here <{WEB_DOMAIN} | Prosona Website>")
+        return BoltResponse(status=200, body=f"Sorry we encountered an error: {e}.")
     
     await next_()
 
@@ -333,6 +338,7 @@ async def render_home_tab(
 
 @slack_app.view(MODAL_RESPONSE_CALLBACK_ID)
 async def handle_view_submission(
+    context: AsyncBoltContext,
     ack: AsyncAck, 
     client: AsyncWebClient, 
     body: Dict[str, Any],
@@ -349,12 +355,14 @@ async def handle_view_submission(
         response = body['view']['state']['values'][EDIT_BLOCK_ID]['response_input']['value']
     else:
         response = payload['rephrased_response']
-        
+    
+    logger.info(f"Slack user token is {context['SLACK_USER_TOKEN']}")
     await client.chat_postMessage(
+        #as_user=True,
         channel=channel_id,
         text=response,
         username=body['user']['username'],
-        token=SLACK_USER_TOKEN,
+        token=context["SLACK_USER_TOKEN"],
     )
 
 @slack_app.action(SHUFFLE_BUTTON_ACTION_ID)

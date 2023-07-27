@@ -28,7 +28,7 @@ BASE_URL = "https://api.notion.com"
 def _build_frontend_notion_redirect() -> str:
     #return f"{WEB_DOMAIN}/connectors/notion/auth/callback"
     # TODO: Remove once done testing
-    return f"{WEB_DOMAIN}/settings/connectors/notion/auth/callback"
+    return f"{WEB_DOMAIN}/settings/admin/connectors/notion/auth/callback"
 
 
 async def async_get_auth_url(

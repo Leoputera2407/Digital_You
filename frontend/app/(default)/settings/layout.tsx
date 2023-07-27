@@ -1,17 +1,22 @@
+import { PlugIcon, SlackIcon, WorkspaceIcon } from "@/components/ui/icon"
 import OrganizationSelect from "@/components/ui/orgSelector"
-import { PlugIcon, WorkspaceIcon } from "@/components/ui/icon"
 import { SidebarNav } from "@/components/ui/sidebar-nav"
 
 const sidebarNavItems = [
   {
     title: "Work Space",
-    href: "/settings",
+    href: "/settings/admin/workspace",
     icon: <WorkspaceIcon />,
   },
   {
     title: "Connectors",
-    href: "/settings/connectors",
+    href: "/settings/admin/connectors",
     icon: <PlugIcon /> ,
+  },
+  {
+    title: "Slack Integration",
+    href: "/settings",
+    icon: <SlackIcon />,
   },
 ]
 

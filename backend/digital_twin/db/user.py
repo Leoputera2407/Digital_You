@@ -156,12 +156,13 @@ async def async_get_user_org_assocations(
     if organization is not None:
         query = query.where(UserOrganizationAssociation.organization_id == organization.id)
         
-    associations = await db_session.execute(query)
+    result = await db_session.execute(query)
 
-    if not associations:
-        return []    
-    
-    return associations
+    if not result:
+        return []
+
+    unique_associations = result.scalars().unique() 
+    return unique_associations
 
 
 async def async_get_user_org_role(
@@ -268,7 +269,8 @@ async def async_insert_slack_user(
     session: AsyncSession, 
     slack_user_id: str, 
     team_id: str, 
-    db_user_id: UUID
+    db_user_id: UUID,
+    slack_user_token: str
 ) -> Optional[SlackUser]:
     slack_org_association = await find_slack_association_by_team_id(
         session,
@@ -283,7 +285,8 @@ async def async_insert_slack_user(
         slack_user_id=slack_user_id,
         team_id=team_id,
         user_id=db_user_id,
-        slack_organization_association_id=slack_org_association.id
+        slack_organization_association_id=slack_org_association.id,
+        slack_user_token=slack_user_token,
     )
     session.add(slack_user)
     await session.commit()

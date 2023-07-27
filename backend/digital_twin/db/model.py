@@ -39,6 +39,11 @@ class InvitationStatus(str, pyEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
 
+class SlackIntegration(str, pyEnum):
+    CONNECTOR = "connector"
+    USER = "user"
+    
+
 class Base(DeclarativeBase):
     pass
 
@@ -340,6 +345,7 @@ class SlackUser(Base):
         "SlackOrganizationAssociation",
         back_populates="slack_users",
     )
+    slack_user_token: Mapped[str] = mapped_column(String, nullable=True)
 
 class SlackOrganizationAssociation(Base):
     __tablename__ = 'slack_organization_associations'
@@ -392,7 +398,9 @@ class SlackOAuthStates(Base):
     prosona_organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
     prosona_user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'))
     organization: Mapped[Organization] = relationship('Organization', back_populates='slack_oauth_states')
-
+    slack_integration_type: Mapped[SlackIntegration] = mapped_column(
+        Enum(SlackIntegration, native_enum=False)
+    )
 
 class SlackInstallations(Base):
     __tablename__ = "slack_installations"

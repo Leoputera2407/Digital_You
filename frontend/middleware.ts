@@ -7,9 +7,9 @@ function startsWithExcludedPath(pathname: string): boolean {
   const excludedPaths = [
     "/_next",
     "/api/auth",
-    "/settings/connectors/google-drive/auth/callback", 
-    "/settings/connectors/notion/auth/callback",
-    "/settings/connectors/linear/auth/callback",
+    "/settings/admin/connectors/google-drive/auth/callback", 
+    "/settings/admin/connectors/notion/auth/callback",
+    "/settings/admin/connectors/linear/auth/callback",
     "/privacy",
     "/terms"
 

@@ -7,6 +7,7 @@ import ast
 
 from slack_sdk.oauth.installation_store import Bot, Installation
 from sqlalchemy import and_, desc, select
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.utils.logging import setup_logger, async_log_sqlalchemy_error
@@ -15,6 +16,8 @@ from digital_twin.db.model import (
     SlackBots, 
     SlackInstallations,
     SlackOAuthStates,
+    SlackIntegration,
+    SlackOrganizationAssociation,
 )
 
 logger = setup_logger()
@@ -96,6 +99,7 @@ async def async_issue_slack_state(
     state: str, 
     prosona_user_id: UUID,
     prosona_org_id: UUID,
+    slack_integration_type: SlackIntegration,
     expiration_seconds: int
 ) -> bool:    
     now = datetime.utcfromtimestamp(time.time() + expiration_seconds)
@@ -103,7 +107,8 @@ async def async_issue_slack_state(
         state=state, 
         expire_at=now,
         prosona_user_id=prosona_user_id,
-        prosona_organization_id=prosona_org_id
+        prosona_organization_id=prosona_org_id,
+        slack_integration_type=slack_integration_type
         )
     )
     await session.commit()
@@ -114,21 +119,19 @@ async def async_issue_slack_state(
 async def async_consume_slack_state(
     session: AsyncSession, 
     state: str
-) -> Tuple[str, UUID, UUID]:
+) -> Tuple[str, UUID, UUID, SlackIntegration]:
     """
     It returns the whether the state is valid and 
     the prosona_organization_id associated with the state.
     """
-
     query = select(SlackOAuthStates).where(
             and_(SlackOAuthStates.state == state, SlackOAuthStates.expire_at > datetime.utcnow()))
     result = await session.execute(query)
     slack_state_instance = result.scalars().first()
-    logger.debug(f"consume's query result: {slack_state_instance}")
     if slack_state_instance:
         await session.delete(slack_state_instance)
         await session.commit()
-        return slack_state_instance.state, slack_state_instance.prosona_organization_id, slack_state_instance.prosona_user_id
+        return slack_state_instance.state, slack_state_instance.prosona_organization_id, slack_state_instance.prosona_user_id, slack_state_instance.slack_integration_type
     else:
         logger.warning(f"No state found to consume: {state}")
         raise Exception(f"No state found to consume: {state}")
@@ -205,3 +208,21 @@ async def async_get_chat_pairs(
     )
     chat_pair = chat_pairs.scalars().first()
     return ast.literal_eval(chat_pair) if chat_pair else []
+
+@async_log_sqlalchemy_error(logger)
+async def async_get_associated_slack_user(
+    session: AsyncSession, 
+    user_id: str, 
+    organization_id: str
+) -> Optional[SlackUser]:
+    result = await session.execute(
+        select(SlackUser).options(
+            joinedload(SlackUser.slack_organization_association)
+        ).where(
+            SlackUser.user_id == user_id, 
+            SlackUser.slack_organization_association.has(
+                SlackOrganizationAssociation.organization_id == organization_id
+            )
+        )
+    )
+    return result.scalars().first()

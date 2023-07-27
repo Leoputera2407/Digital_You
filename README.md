@@ -15,7 +15,7 @@ pipx install poetry
 # Should print some version of poetry
 poetry --version
 ```
-* Now install the deps and run
+* Now install the deps and run-m '
 ```
 cd backend
 make virtualenv 

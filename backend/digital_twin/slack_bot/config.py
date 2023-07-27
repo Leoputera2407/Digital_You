@@ -15,9 +15,10 @@ from digital_twin.config.app_config import (
     SLACK_CLIENT_ID, 
     SLACK_CLIENT_SECRET, 
 )
-from digital_twin.config.constants import SLACK_APP_PERMISSIONS
+from digital_twin.config.constants import SLACK_APP_PERMISSIONS, SLACK_USER_SCOPES
 
 from digital_twin.utils.logging import setup_logger
+from digital_twin.db.model import SlackIntegration
 from digital_twin.db.engine import get_async_session
 from digital_twin.db.async_slack_bot import (
     async_save_slack_installation,
@@ -105,6 +106,7 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
             self,
             prosona_user_id: UUID,
             prosona_org_id: UUID,
+            slack_integration_type: SlackIntegration,
             db_session: AsyncSession,
     ) -> str:
         state: str = str(uuid4())
@@ -114,6 +116,7 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
                 state,
                 prosona_user_id=prosona_user_id,
                 prosona_org_id=prosona_org_id,
+                slack_integration_type=slack_integration_type,
                 expiration_seconds=120,
             )
         except Exception as e:
@@ -126,12 +129,12 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
             self, 
             state: str,
             db_session: AsyncSession
-        ) -> Tuple[str, Optional[UUID], Optional[UUID]]:
+        ) -> Tuple[str, Optional[UUID], Optional[UUID], Optional[SlackIntegration]]:
         try:
-            state, prosona_org_id, prosona_user_id = await async_consume_slack_state(
+            state, prosona_org_id, prosona_user_id, slack_integration_type = await async_consume_slack_state(
                 db_session, state,
             )
-            return state, prosona_org_id, prosona_user_id
+            return state, prosona_org_id, prosona_user_id, slack_integration_type
         except Exception as e:
             message = f"Failed to find any persistent data for state: {state} - {e}"
             self.logger.warning(message)
@@ -143,6 +146,7 @@ def get_oauth_settings():
         client_id=SLACK_CLIENT_ID,
         client_secret=SLACK_CLIENT_SECRET,
         scopes=SLACK_APP_PERMISSIONS,
+        user_scopes=SLACK_USER_SCOPES,
         install_page_rendering_enabled=True,
         install_path="/slack/install",
         redirect_uri_path="/slack/oauth_redirect",

@@ -3,6 +3,10 @@ export enum UserRole {
   ADMIN = "admin",
 }
 
+export enum SlackIntegration {
+  CONNECTOR = "connector",
+  USER = "user"
+}
 export interface GithubTestBase {
   access_token_value: string;
   repository_name: string;
@@ -27,15 +31,16 @@ export interface OrganizationData {
   name: string;
 };
 
-export interface WhitelistDataResponse {
+export interface StatusResponse {
   success: boolean;
   message: string;
+}
+
+export interface WhitelistDataResponse extends StatusResponse {
   data: OrganizationData[];
 };
 
-export interface OrganizationDataResponse {
-  success: boolean;
-  message: string;
+export interface OrganizationDataResponse extends StatusResponse {
   data: OrganizationData | null;
 };
 export interface UserByEmail {

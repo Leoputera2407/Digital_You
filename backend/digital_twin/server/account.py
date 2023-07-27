@@ -25,9 +25,7 @@ from digital_twin.db.user import (
     async_get_user_by_email,
     get_user_org_by_user_and_org_id,
     async_get_user_org_by_user_and_org_id,
-    async_get_user_org_role,
     get_organization_by_id,
-    async_get_invitation_by_user_and_org,
     async_get_user_org_assocations,
     async_get_organization_admin_info,
 )
@@ -35,6 +33,7 @@ from digital_twin.db.engine import (
     get_session,
     get_async_session_generator,
 )
+from digital_twin.db.async_slack_bot import async_get_associated_slack_user
 
 from digital_twin.server.model import (
     UserByEmail,
@@ -440,3 +439,16 @@ async def update_admin_organization_info(
         success=True,
         message="Organization information successfully updated.",
     )
+
+@router.get("/{organization_id}/verify-slack-users")
+async def verify_if_user_has_associated_slack_users(
+    organization_id: UUID,
+    user: User = Depends(current_user),
+    db_session: AsyncSession = Depends(get_async_session_generator),
+) -> StatusResponse:
+    slack_user = await async_get_associated_slack_user(db_session, user.id, organization_id)
+    
+    if slack_user is None:
+        return StatusResponse(success=False, message="No associated Slack user found.")
+
+    return StatusResponse(success=True, message="Associated Slack user found.")
