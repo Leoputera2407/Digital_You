@@ -19,6 +19,7 @@ from digital_twin.connectors.interfaces import (
 from digital_twin.connectors.github.graphql import GithubGraphQLClient
 from digital_twin.connectors.github.model import PullRequest
 from digital_twin.connectors.model import Document, Section
+from digital_twin.utils.timing import format_timestamp
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
@@ -151,12 +152,12 @@ class GithubConnector(LoadConnector, PollConnector):
                         source=DocumentSource.GITHUB,
                         semantic_identifier=pull_request.title,
                         metadata={
-                            "merged": pull_request.merged,
+                            "merged": str(pull_request.merged),
                             "state": pull_request.state,
-                            "updated_at": pull_request.updated_at,
-                            "created_at": pull_request.created_at,
-                            "closed_at": pull_request.closed_at,
-                            "merged_at": pull_request.merged_at,
+                            "updated_at": format_timestamp(pull_request.updated_at),
+                            "created_at": format_timestamp(pull_request.created_at),
+                            "closed_at": format_timestamp(pull_request.closed_at),
+                            "merged_at": format_timestamp(pull_request.merged_at),
                             "author": pull_request.author_name,
                             "reviewers": pull_request.reviewer_names,
                             "assignees": pull_request.assignee_names,

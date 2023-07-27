@@ -26,9 +26,9 @@ class BaseConnector(abc.ABC):
             if isinstance(metadata_value, str):
                 metadata_lines.append(f"{metadata_key}: {metadata_value}")
             elif isinstance(metadata_value, list):
-                if not all([isinstance(val, str) for val in metadata_value]):
-                    raise RuntimeError(custom_parser_req_msg)
-                metadata_lines.append(f'{metadata_key}: {", ".join(metadata_value)}')
+                # Only include String Type metadata
+                metadata_value_string_only = [val for val in metadata_value if isinstance(val, str)]
+                metadata_lines.append(f'{metadata_key}: {", ".join(metadata_value_string_only)}')
             else:
                 raise RuntimeError(custom_parser_req_msg)
         return metadata_lines

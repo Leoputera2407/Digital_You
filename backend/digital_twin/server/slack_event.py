@@ -356,9 +356,7 @@ async def handle_view_submission(
     else:
         response = payload['rephrased_response']
     
-    logger.info(f"Slack user token is {context['SLACK_USER_TOKEN']}")
     await client.chat_postMessage(
-        #as_user=True,
         channel=channel_id,
         text=response,
         username=body['user']['username'],

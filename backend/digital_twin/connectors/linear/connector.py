@@ -10,9 +10,12 @@ from digital_twin.connectors.interfaces import (
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
 from digital_twin.connectors.model import Document, Section
 from digital_twin.connectors.linear.connector_auth import DB_CREDENTIALS_DICT_KEY
+from digital_twin.utils.timing import format_timestamp
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
+
+
 
 class LinearConnector(LoadConnector, PollConnector):
     def __init__(self, team_id: str, team_name: str, workspace: str, batch_size: int = INDEX_BATCH_SIZE) -> None:
@@ -52,9 +55,9 @@ class LinearConnector(LoadConnector, PollConnector):
                     source=DocumentSource.LINEAR,
                     semantic_identifier=issue.title,
                     metadata={
-                        "created_at": issue.created_at,
-                        "updated_at": issue.updated_at,
-                        "archived_at": issue.archived_at,
+                        "created_at": format_timestamp(issue.created_at),
+                        "updated_at": format_timestamp(issue.updated_at),
+                        "archived_at": format_timestamp(issue.archived_at),
                         "assignee": issue.assignee_names,
                         "labels": issue.label_names,
                     },
