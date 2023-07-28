@@ -20,9 +20,9 @@ from digital_twin.utils.logging import (
     async_log_sqlalchemy_error,
 )
 from digital_twin.server.model import (
-    UserByEmail,
     InvitationBase,
     OrganizationAdminInfo,
+    UserAdminData
 )
 
 logger = setup_logger()
@@ -79,7 +79,12 @@ async def async_get_organization_admin_info(
         for invitation in organization.invitations if invitation.status == InvitationStatus.PENDING
     ]
 
-    users = [UserByEmail(user_email=user_association.user.email) for user_association in organization.users]
+    users = [
+        UserAdminData(
+            user_email=user_association.user.email,
+            user_id=user_association.user.id,
+            role=user_association.role.value,
+        ) for user_association in organization.users]
     return OrganizationAdminInfo(
         name=organization.name,
         id=organization.id, 

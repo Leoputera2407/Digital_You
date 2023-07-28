@@ -86,6 +86,10 @@ class QAResponse(SearchResponse):
 class UserByEmail(BaseModel):
     user_email: str
 
+class UserAdminData(UserByEmail):
+    user_id: UUID
+    role: UserRole
+
 class InvitationBase(BaseModel):
     email: str
     status: str
@@ -97,7 +101,7 @@ class OrganizationData(BaseModel):
 class OrganizationAdminInfo(OrganizationData):
     whitelisted_email_domain: Optional[str]
     pending_invitations: List[InvitationBase]
-    users: List[UserByEmail]
+    users: List[UserAdminData]
 
 class OrganizationUpdateInfoRequest(BaseModel):
     name: Optional[str] = None
