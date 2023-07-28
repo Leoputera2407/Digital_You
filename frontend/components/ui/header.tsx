@@ -26,8 +26,6 @@ export default function Header() {
     let searchParams = new URLSearchParams(url.search);
     let error = searchParams.get("error");
     let errorDescription = searchParams.get("error_description");
-    console.log("error is ", error);
-    console.log("error desc is ", errorDescription);
 
     if (
       error === "server_error" &&
@@ -77,17 +75,19 @@ export default function Header() {
           <nav className="flex-grow">
             {/* Desktop sign in links */}
             <ul className="flex justify-end items-center">
-              <li>
-                <a
-                  className="btn-sm text-slate-900 bg-gradient-to-r from-white/80 via-white to-white/80 hover:bg-white transition duration-150 ease-in-out group"
-                  href="https://9a04i53lzc4.typeform.com/to/E0H4xTzS"
-                >
-                  Beta Waitlist{" "}
-                  <span className="tracking-normal text-purple-500 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">
-                    -&gt;
-                  </span>
-                </a>
-              </li>
+              {!session && (
+                <li>
+                  <a
+                    className="btn-sm text-slate-900 bg-gradient-to-r from-white/80 via-white to-white/80 hover:bg-white transition duration-150 ease-in-out group"
+                    href="https://9a04i53lzc4.typeform.com/to/E0H4xTzS"
+                  >
+                    Beta Waitlist{" "}
+                    <span className="tracking-normal text-purple-500 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">
+                      -&gt;
+                    </span>
+                  </a>
+                </li>
+              )}
               {isLive &&
                 (session ? (
                   <SignedInUser />

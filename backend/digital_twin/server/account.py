@@ -458,13 +458,13 @@ async def get_admin_organization_info(
     return organization_info
 
 
-@router.put("/{organization_id}/admin/info", response_model=StatusResponse[OrganizationAdminInfo])
+@router.put("/{organization_id}/admin/info", response_model=StatusResponse)
 async def update_admin_organization_info(
     organization_id: UUID, 
     update_info: OrganizationUpdateInfoRequest,
     _: User = Depends(current_admin_for_org),
     db_session: AsyncSession = Depends(get_async_session_generator),
-) -> StatusResponse[OrganizationAdminInfo]:
+) -> StatusResponse:
     organization = await db_session.get(Organization, organization_id)
     
     if not organization:

@@ -4,7 +4,7 @@ import { useSupabase } from "@/lib/context/authProvider";
 import { fetcher } from "@/lib/fetcher";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { OrganizationDataResponse } from "@/lib/types";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import useSWR from "swr";
 
@@ -13,8 +13,8 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
   const { axiosInstance } = useAxios();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const maxRetries = 3;
-
 
   const [hasOrganization, setHasOrganization] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -29,7 +29,8 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
       .then((response) => {
         if (response.data.success) {
           setHasOrganization(true);
-          router.push("/settings")
+          const fullPath = `${pathname}?${searchParams.toString()}`;
+          router.push(fullPath)
         } else {
           router.push("/log-in/join-organization");
         }

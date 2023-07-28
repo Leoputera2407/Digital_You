@@ -47,6 +47,10 @@ export interface UserByEmail {
     user_email: string;
 }
 
+export interface UserAdminData extends UserByEmail {
+  role: UserRole;
+  user_id: string;
+}
 
 export interface InvitationBase {
     email: string;
@@ -57,7 +61,7 @@ export interface OrganizationAdminInfo{
   name: string;
   whitelisted_email_domain?: string;
   pending_invitations: InvitationBase[];
-  users: UserByEmail[];
+  users: UserAdminData[];
 }
 
 export interface OrganizationUpdateInfo{

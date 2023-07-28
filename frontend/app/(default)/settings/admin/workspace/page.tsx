@@ -9,11 +9,13 @@ import {
   FormMessage,
 } from "@/components/react-hook-form/form";
 import Authbutton from "@/components/ui/authButton";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { useSupabase } from "@/lib/context/authProvider";
 import { useOrganization } from "@/lib/context/orgProvider";
 import { useOrgAdminOps } from "@/lib/hooks/useOrgAdminOps";
-import { OrganizationAdminInfo } from "@/lib/types";
+import { OrganizationAdminInfo, UserRole } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -50,12 +52,16 @@ function combineMembersAndPendingInvitations(
   const members =
     adminOrgInfo?.users?.map((user) => ({
       email: user.user_email,
+      user_id: user.user_id,
+      user_role: user.role,
       isPending: false,
     })) || [];
 
   const invitations =
     adminOrgInfo?.pending_invitations?.map((invitation) => ({
       email: invitation.email,
+      user_id: null,
+      user_role: null,
       isPending: true,
     })) || [];
 
@@ -64,6 +70,7 @@ function combineMembersAndPendingInvitations(
 
 export default function ProfileFormPage() {
   const { currentOrganization } = useOrganization();
+  const { user } = useSupabase();
   const {
     adminOrgInfo,
     isAdminOrgInfoError,
@@ -76,7 +83,6 @@ export default function ProfileFormPage() {
   const { numInvitations, numMembers } =
     countPendingInvitationsAndMembers(adminOrgInfo);
   const combinedUserList = combineMembersAndPendingInvitations(adminOrgInfo);
-  console.log(adminOrgInfo);
   const orgForm = useForm<z.infer<typeof orgUpdateFormSchema>>({
     resolver: zodResolver(orgUpdateFormSchema),
   });
@@ -117,137 +123,148 @@ export default function ProfileFormPage() {
 
   return (
     <>
-    <Form {...orgForm}>
-      <form
-        onSubmit={orgForm.handleSubmit(onUpdateOrgSubmit)}
-        className="space-y-4"
-      >
-        <div className="space-y-1">
-          <h2 className="text-md font-medium text-white">Workspace Settings</h2>
+      <Form {...orgForm}>
+        <form
+          onSubmit={orgForm.handleSubmit(onUpdateOrgSubmit)}
+          className="space-y-4"
+        >
+          <div className="space-y-1">
+            <h2 className="text-md font-medium text-white">
+              Workspace Settings
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              A workspace lets you collaborate with your team.
+            </p>
+            <Separator className="my-3" />
+          </div>
+          <FormField
+            control={orgForm.control}
+            name="organizationName"
+            render={({ field, fieldState: { error } }) => (
+              <FormItem>
+                <FormLabel className="text-white">Organization Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Your organization name" {...field} />
+                </FormControl>
+                <FormDescription>The name of our organization</FormDescription>
+                <FormMessage color={error && "red"}>
+                  {error?.message}
+                </FormMessage>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={orgForm.control}
+            name="emailDomain"
+            render={({ field, fieldState: { error } }) => (
+              <FormItem>
+                <FormLabel className="text-white">
+                  Whitelisted E-mail Domain
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Your whitelisted e-mail domain"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Allow any user with an e-mail from the specified domain to
+                  auto join this workspace
+                </FormDescription>
+                <FormMessage color={error && "red"}>
+                  {error?.message}
+                </FormMessage>
+              </FormItem>
+            )}
+          />
+          <div className="flex justify-end">
+            <Authbutton
+              type="submit"
+              className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+            >
+              Update
+            </Authbutton>
+          </div>
+        </form>
+      </Form>
+      <Separator />
+      <Form {...inviteUserForm}>
+        <form
+          onSubmit={inviteUserForm.handleSubmit(onAddUserSubmit)}
+          className="space-y-4"
+        >
+          <h2 className="text-md font-medium text-white">Workspace Members</h2>
           <p className="text-sm text-muted-foreground">
-            A workspace lets you collaborate with your team.
+            Manage active members and invitations to your workspace.
           </p>
-          <Separator className="my-3" />
-        </div>
-        <FormField
-          control={orgForm.control}
-          name="organizationName"
-          render={({ field, fieldState: { error } }) => (
-            <FormItem>
-              <FormLabel className="text-white">Organization Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Your organization name" {...field} />
-              </FormControl>
-              <FormDescription>The name of our organization</FormDescription>
-              <FormMessage color={error && "red"}>
-                {error?.message}
-              </FormMessage>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={orgForm.control}
-          name="emailDomain"
-          render={({ field, fieldState: { error } }) => (
-            <FormItem>
-              <FormLabel className="text-white">Whitelisted E-mail Domain</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="Your whitelisted e-mail domain"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Allow any user with an e-mail from the specified domain to
-                auto join this workspace
-              </FormDescription>
-              <FormMessage color={error && "red"}>
-                {error?.message}
-              </FormMessage>
-            </FormItem>
-          )}
-        />
-       <div className="flex justify-end">
-        <Authbutton 
-          type="submit" 
-          className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+          <FormField
+            control={inviteUserForm.control}
+            name="inviteEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-white">Invite by Email</FormLabel>
+                <FormControl>
+                  <Input placeholder="Email to invite" {...field} />
+                </FormControl>
+                <div className="flex justify-end">
+                  <Authbutton
+                    type="submit"
+                    className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+                  >
+                    Send Invite
+                  </Authbutton>
+                </div>
+              </FormItem>
+            )}
+          />
+        </form>
+      </Form>
+
+      <h3 className="my-4 text-white">
+        {numInvitations} Invitations and {numMembers} Members
+      </h3>
+      {combinedUserList.map((member) => (
+        <div
+          key={member.email}
+          className="flex justify-between items-center bg-slate-900 rounded-[inherit] z-20 overflow-hidden p-3 rounded-lg shadow my-2 border border-gray-100 border-opacity-20"
         >
-          Update
-        </Authbutton>
-      </div>
-      </form>
-    </Form>
-    < Separator />
-    <Form {...inviteUserForm}>
-      <form
-        onSubmit={inviteUserForm.handleSubmit(onAddUserSubmit)}
-        className="space-y-4"
-      >
-        <h2 className="text-md font-medium text-white">Workspace Members</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage active members and invitations to your workspace.
-        </p>
-        <FormField
-          control={inviteUserForm.control}
-          name="inviteEmail"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-white">Invite by Email</FormLabel>
-              <FormControl>
-                <Input placeholder="Email to invite" {...field} />
-              </FormControl>
-              <div className="flex justify-end">
-                <Authbutton 
-                  type="submit" 
-                  className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow"
+          <div className="flex">
+            <p
+              className={`font-semibold text-slate-400 ${
+                member.isPending ? "text-gray-400" : "text-white"
+              }`}
+            >
+              {member.email}
+              {member.isPending && (
+                <span className="italic text-gray-500"> (Pending)</span>
+              )}
+            </p>
+            {user?.id === member.user_id && (
+              <Badge className="bg-orange-200 text-orange-800 ml-2">
+                <span>You</span>
+              </Badge>
+            )}
+          </div>
+          {user?.id !== member.user_id && (
+            <div className="space-x-2">
+              {!member.isPending && member.user_role === UserRole.ADMIN && (
+                <Authbutton
+                  onClick={() => onPromoteClick(member.email)}
+                  className="inline-flex items-center justify-center text-sm bg-purple-500 hover:bg-purple-600 px-6 py-2 rounded shadow text-white text-center"
                 >
-                  Send Invite
+                  Promote to Admin
                 </Authbutton>
-              </div>
-            </FormItem>
+              )}
+              <Authbutton
+                onClick={() => onRevokeClick(member.email, member.isPending)}
+                className="inline-flex items-center justify-center text-sm bg-red-500 hover:bg-red-600 px-6 py-2 rounded shadow text-white text-center"
+              >
+                Revoke
+              </Authbutton>
+            </div>
           )}
-        />
-      </form>
-    </Form>
-  
-    <h3 className="my-4 text-white">
-      {numInvitations} Invitations and {numMembers} Members
-    </h3>
-    {combinedUserList.map((member) => (
-      <div
-      key={member.email}
-      className="flex justify-between items-center bg-slate-900 rounded-[inherit] z-20 overflow-hidden p-3 rounded-lg shadow my-2 border border-gray-100 border-opacity-20"
-    >
-      <div>
-        <p
-          className={`font-semibold text-slate-400 ${
-            member.isPending ? "text-gray-400" : "text-white"
-          }`}
-        >
-          {member.email}
-          {member.isPending && (
-            <span className="italic text-gray-500"> (Pending)</span>
-          )}
-        </p>
-      </div>
-      <div className="space-x-2">
-        {!member.isPending && (
-          <Authbutton
-            onClick={() => onPromoteClick(member.email)}
-            className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow text-white"
-          >
-            Promote to Admin
-          </Authbutton>
-        )}
-        <Authbutton
-          onClick={() => onRevokeClick(member.email, member.isPending)}
-          className="text-sm bg-red-500 hover:bg-red-600 px-4 py-1 rounded shadow text-white"
-        >
-          Revoke
-        </Authbutton>
-      </div>
-    </div>
-    ))}
-  </>
+        </div>
+      ))}
+    </>
   );
 }
