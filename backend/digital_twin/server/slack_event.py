@@ -44,6 +44,7 @@ from digital_twin.slack_bot.views import (
     SELECTION_BUTTON_ACTION_ID,
     EDIT_BLOCK_ID,
 )
+from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
 from digital_twin.slack_bot.events.command import (
     handle_prosona_command,
     qa_and_response,
@@ -347,6 +348,7 @@ async def handle_view_submission(
 
     payload: Dict[str, Any] = json.loads(body['view']['private_metadata'])
     channel_id = payload['channel_id']
+    thread_ts = payload['ts']
 
      # Check if the submission is from the edit view
     if payload.get("source") == "edit":
@@ -361,6 +363,7 @@ async def handle_view_submission(
         text=response,
         username=body['user']['username'],
         token=context["SLACK_USER_TOKEN"],
+        thread_ts=thread_ts,
     )
 
 @slack_app.action(SHUFFLE_BUTTON_ACTION_ID)
@@ -384,7 +387,6 @@ async def handle_shuffle_click(
         conversation_style = private_metadata['conversation_style']
         slack_user_id = body['user']['id']
         
-        logger.error(f"Old response: {private_metadata}")
         response = await shuffle_chain.async_run(
             old_response=old_response,
             conversation_style=conversation_style,
@@ -418,11 +420,11 @@ async def handle_edit_response(
     await ack()
     try:
         view_id = body['container']['view_id']
-        metadata_dict = json.loads(body['view']['private_metadata'])
         private_metadata = body['view']['private_metadata']        
+        metadata_dict = json.loads(private_metadata)
         response_view = get_view(
             "response_command_modal", 
-            private_metadata_str=body['view']['private_metadata'], 
+            private_metadata_str=private_metadata, 
             is_using_default_conversation_style=metadata_dict['is_using_default_conversation_style'],
             is_rephrasing_stage=True,
             is_rephrase_answer_available=True,
@@ -443,28 +445,53 @@ async def handle_selection_button(
     client: AsyncWebClient,
 ) -> None:
     await ack()
-    slack_user_id = body['user']['id']
-    selected_question = body['actions'][0]['value']
     view_id = body['container']['view_id']
-    
+    loading_view = get_view("text_command_modal", text=LOADING_TEXT)
+    await client.views_update(view_id=view_id, view=loading_view)
+
+    slack_user_id = body['user']['id']
+    team_id = body['team']['id']
+    button_value = json.loads(body['actions'][0]['value'])
+    selected_question = button_value['message']
+    thread_ts = button_value['thread_ts']
+    ts = button_value['ts']
+    in_thread = button_value['in_thread']
+
     private_metadata = body['view']['private_metadata']
     metadata_dict = json.loads(private_metadata)
     channel_id = metadata_dict['channel_id']
-    conversation_style = metadata_dict['conversation_style']
-    qdrant_collection_name = metadata_dict['qdrant_collection_name']
-    typesense_collection_name = metadata_dict['typesense_collection_name']
-    is_using_default_conversation_style = metadata_dict['is_using_default_conversation_style']
-    slack_chat_pairs = metadata_dict['slack_chat_pairs']
 
-    await qa_and_response(
-        slack_user_id=slack_user_id,
-        query=selected_question,
-        channel_id=channel_id,
-        conversation_style=conversation_style,
-        view_id=view_id,
-        qdrant_collection_name=qdrant_collection_name,
-        typesense_collection_name=typesense_collection_name,
-        client=client,
-        is_using_default_conversation_style=is_using_default_conversation_style,
-        slack_chat_pairs=slack_chat_pairs,
-    )
+    if thread_ts is None or in_thread: 
+        # This means user have selected to 
+        # (1) answer a standalone message
+        # (2) answer a message in a thread
+        await qa_and_response(
+            slack_user_id=slack_user_id,
+            query=selected_question,
+            channel_id=channel_id,
+            team_id=team_id,
+            view_id=view_id,
+            client=client,
+            thread_ts=thread_ts,
+            ts=ts,
+        )
+    else:
+        # Get the latest message from the thread
+        past_messages = await retrieve_sorted_past_messages(
+            client, 
+            channel_id, 
+            thread_ts=thread_ts,
+            limit_scanned_messages=50,
+        )
+        parent_message = past_messages[0]
+        remaining_messages = past_messages[1:]
+        latest_5_remaining_messages = remaining_messages[-5:]
+        messages_to_select  = [parent_message] + latest_5_remaining_messages
+        selection_view = get_view(
+            "selection_command_modal", 
+            past_messages=messages_to_select,
+            private_metadata_str=private_metadata,
+            in_thread=True,
+        )
+        await client.views_update(view_id=view_id, view=selection_view)
+        return

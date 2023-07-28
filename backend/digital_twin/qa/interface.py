@@ -28,7 +28,6 @@ class QAModel:
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
@@ -40,7 +39,6 @@ class QAModel:
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
@@ -52,7 +50,6 @@ class QAModel:
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str], 
         Dict[str, Optional[Dict[str, str | int | None]]],
@@ -67,6 +64,5 @@ class QAModel:
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-        add_metadata: bool = False,
     ) -> Generator[Optional[Dict[str, Any]], None, None]:
         raise NotImplementedError

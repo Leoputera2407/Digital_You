@@ -10,6 +10,7 @@ from digital_twin.llm.chains.base import (
     DOC_SEP_PAT,
     QUESTION_PAT,
 )
+from digital_twin.llm.chains.utils import add_metadata_section
 from digital_twin.utils.logging import setup_logger
 from digital_twin.utils.timing import log_function_time
 
@@ -91,10 +92,12 @@ class StuffVerify(BaseVerify):
    
     def format_documents(self, documents: List[InferenceChunk]) -> str:
         """Format the documents for the prompt."""
-        return "".join(
-            f"{DOC_SEP_PAT}\n{ranked_document.content}\n"
-            for ranked_document in documents
-        ).strip()
+        formatted_docs = ""
+        for ranked_document in documents:
+            formatted_docs += f"{DOC_SEP_PAT}\n"
+            formatted_docs += add_metadata_section(ranked_document)
+            formatted_docs += f"{ranked_document.content}\n"
+        return formatted_docs.strip()
 
     def create_prompt(self, question: str, documents: List[InferenceChunk]) -> str:
         """Create a formatted prompt with the given question and documents."""

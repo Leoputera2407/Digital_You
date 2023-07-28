@@ -82,15 +82,12 @@ def temp_solution_create_collection_if_not_exist(
 async def qa_and_response(
     query: str,
     channel_id: str,
-    conversation_style: str,
+    team_id: str,
     view_id: str,
-    qdrant_collection_name: str,
-    typesense_collection_name: str,
     client: AsyncWebClient,
-    is_using_default_conversation_style: bool,
     slack_user_id: str,
-    slack_chat_pairs: list[tuple[str, str]] = [],
-    ranked_chunks: List[IndexChunk]=None
+    thread_ts: Optional[str],
+    ts: Optional[str],
 ) -> None:
     """
     This function synthesizes an AI generated response based on the query provided. 
@@ -98,27 +95,39 @@ async def qa_and_response(
     Parameters:
     query (str): The query to generate response.
     channel_id (str): The channel id where the command is triggered.
-    conversation_style (str): The style of conversation to be used.
+    team_id (str): The team id where the command is triggered.
     view_id (str): The id of the view to update.
-    qdrant_collection_name (str): The collection name of the Qdrant DB.
-    typesense_collection_name (str): The collection name of the Typesense DB.
     client (AsyncWebClient): The async Slack client to be used.
-    is_using_default_conversation_style (bool): Flag to determine if default conversation style is being used.
     ranked_chunks (List[Document], optional): List of documents ranked by relevance to the query.
+    thread_ts (str, optional): The thread timestamp of the message to be updated.
+    ts (str, optional): The timestamp of the message to be updated.
 
     Returns:
     None: This function doesn't return anything but updates the view with the AI generated response.
     """
-    if not ranked_chunks:
-        temp_solution_create_collection_if_not_exist(qdrant_collection_name, typesense_collection_name)
 
-        ranked_chunks, _ = await async_retrieve_hybrid_reranked_documents(
-            query = query,
-            user_id = None, # This mean it'll retrieve all public docs (which only that now)
-            filters = None,
-            vectordb = QdrantVectorDB(collection=qdrant_collection_name),
-            keywordb = TypesenseIndex(collection=typesense_collection_name),
+    async with get_async_session() as async_db_session:
+        conversation_style, slack_chat_pairs, qdrant_collection_name, typesense_collection_name = await async_gather_preprocess_tasks(
+            async_db_session,
+            client,
+            slack_user_id,
+            team_id,
+            view_id
         )
+
+    is_using_default_conversation_style = False
+    if len(slack_chat_pairs) < MIN_CHAT_PAIRS_THRESHOLD:
+        is_using_default_conversation_style = True
+    
+    temp_solution_create_collection_if_not_exist(qdrant_collection_name, typesense_collection_name)
+
+    ranked_chunks, _ = await async_retrieve_hybrid_reranked_documents(
+        query = query,
+        user_id = None, # This mean it'll retrieve all public docs (which only that now)
+        filters = None,
+        vectordb = QdrantVectorDB(collection=qdrant_collection_name),
+        keywordb = TypesenseIndex(collection=typesense_collection_name),
+    )
 
     search_docs = chunks_to_search_docs(ranked_chunks)
     if len(search_docs) == 0:
@@ -155,7 +164,6 @@ async def qa_and_response(
     qa_response, sources, is_docs_revelant, confidence_score = await qa_model.async_answer_question_and_verify(
         query, 
         context_docs=ranked_chunks,
-        add_metadata=False,
     )
         
     processed_response = format_openai_to_slack(qa_response if qa_response else "")
@@ -195,6 +203,7 @@ async def qa_and_response(
             "is_docs_revelant": is_docs_revelant,
             "confidence_score": confidence_score,
             'is_using_default_conversation_style': is_using_default_conversation_style,
+            'ts': thread_ts if thread_ts else ts,
         }
     )
     response_view = get_view(
@@ -212,87 +221,40 @@ async def qa_and_response(
 async def handle_prosona_command(
     context: AsyncBoltContext,
     ack: AsyncAck,
-    payload: dict[str, any], 
     command: Union[str, Pattern],
     client: AsyncWebClient,
 ) -> None:
     await ack()
     slack_user_id = command["user_id"]
-    team_id = command["team_id"]
     channel_id = command["channel_id"]
     view_id = context["view_id"]
 
     try: 
-        async with get_async_session() as async_db_session:
-            conversation_style, slack_chat_pairs, qdrant_collection_name, typesense_collection_name = await async_gather_preprocess_tasks(
-                async_db_session,
-                client,
-                slack_user_id,
-                team_id,
-                view_id
-            )
-
-        is_using_default_conversation_style = False
-        if len(slack_chat_pairs) < MIN_CHAT_PAIRS_THRESHOLD:
-            is_using_default_conversation_style = True
-        
-
-        thread_ts = payload.get("thread_ts")
-        if thread_ts is None:
-            limit_scanned_messages = 5
-        else:
-            limit_scanned_messages = 15
         # Get the latest message from the channel
         past_messages = await retrieve_sorted_past_messages(
             client, 
-            context, 
-            thread_ts=thread_ts, 
-            limit_scanned_messages=limit_scanned_messages
+            channel_id, 
+            limit_scanned_messages=5,
         )
-        if thread_ts is None:
-            # NOTE: Due to the async interaction of slack actions, i.e. button clicks,
-            # we need to handle the qa in the slack action handler.
-            # Please refer to the `handle_selection_button` for the continuation of the qa
 
-            # We need to parcel all the necessary metadata into the private_metadata field
-            # Remember there's a 3000 word limit.
-            private_metadata_str = json.dumps({
-                "channel_id": channel_id,
-                "conversation_style": conversation_style,
-                "qdrant_collection_name": qdrant_collection_name,
-                "typesense_collection_name": typesense_collection_name,
-                "is_using_default_conversation_style": is_using_default_conversation_style,
-                "slack_chat_pairs": slack_chat_pairs[:3],  # Give just 3 examples since space is limited
-            })
-            # Create the selection modal view and open it
-            selection_view = get_view(
-                "selection_command_modal", 
-                past_messages=past_messages,
-                private_metadata_str=private_metadata_str,
-            )
-            await client.views_update(view_id=view_id, view=selection_view)
-            return
+        # NOTE: Due to the async interaction of slack actions, i.e. button clicks,
+        # we need to handle the qa in the slack action handler.
+        # Please refer to the `handle_selection_button` for the continuation of the qa
 
-        else:
-            # Construct the text with the format "user: message"
-            text = "\n".join([f"{m['user']}: {m['text']}" for m in past_messages[-5:]])
-
-            text_view = get_view("text_command_modal", text=text)
-            await client.views_update(view_id=view_id, view=text_view)
-            query = text
-            await qa_and_response(
-                slack_user_id=slack_user_id,
-                query=query,
-                channel_id=channel_id,
-                conversation_style=conversation_style,
-                view_id=view_id,
-                qdrant_collection_name=qdrant_collection_name,
-                typesense_collection_name=typesense_collection_name,
-                client=client,
-                is_using_default_conversation_style=is_using_default_conversation_style,
-                slack_chat_pairs=slack_chat_pairs[:3],  # Give just 3 examples since space is limited
-            )
-            return   
+        # We need to parcel all the necessary metadata into the private_metadata field
+        # Remember there's a 3000 word limit.
+        private_metadata_str = json.dumps({
+            "channel_id": channel_id,
+        })
+        # Create the selection modal view and open it
+        selection_view = get_view(
+            "selection_command_modal", 
+            past_messages=past_messages,
+            private_metadata_str=private_metadata_str,
+            in_thread=False,
+        )
+        await client.views_update(view_id=view_id, view=selection_view)
+        return
     except Exception as e:
         logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = get_view("text_command_modal", text=ERROR_TEXT)

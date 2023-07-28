@@ -254,7 +254,6 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
@@ -263,7 +262,7 @@ class QA(QAModel):
                 llm=self.llm,
                 prompt=prompt,
             )
-            model_output = qa_system.run(query, context_docs, add_metadata)
+            model_output = qa_system.run(query, context_docs)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -280,7 +279,6 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
     ]:
@@ -289,7 +287,7 @@ class QA(QAModel):
                 llm=self.llm,
                 prompt=prompt,
             )
-            model_output = await qa_system.async_run(query, context_docs, add_metadata)
+            model_output = await qa_system.async_run(query, context_docs)
         except Exception as e:
             logger.exception(e)
             model_output = "Model Failure"
@@ -305,7 +303,6 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-        add_metadata: bool = False,
     ) -> Tuple[
         Optional[str],
         Dict[str, Optional[Dict[str, str | int | None]]],
@@ -324,7 +321,6 @@ class QA(QAModel):
                     query, 
                     prompt=prompt,
                     context_docs=context_docs,
-                    add_metadata=add_metadata,
                 ),
                 "verify_relevancy": async_verify_if_docs_are_relevant(
                     query, 

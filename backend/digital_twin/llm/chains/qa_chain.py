@@ -61,9 +61,8 @@ class BaseQA(BaseChain):
     def run(self, 
             input_str: str, 
             context_docs: Optional[List[InferenceChunk]],
-            add_metadata: bool = False
         ) ->str :
-        formatted_prompt = self.get_filled_prompt(input_str, context_docs, add_metadata)
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return self.llm.predict(formatted_prompt)
     
     @log_function_time()
@@ -71,9 +70,8 @@ class BaseQA(BaseChain):
         self, 
         input_str: str, 
         context_docs: Optional[List[InferenceChunk]],
-        add_metadata: bool = False
     ) -> str:
-        formatted_prompt = self.get_filled_prompt(input_str, context_docs, add_metadata)
+        formatted_prompt = self.get_filled_prompt(input_str, context_docs)
         return await self.llm.apredict(formatted_prompt)
     
 
@@ -101,20 +99,19 @@ class StuffQA(BaseQA):
             template=prompt, input_variables=["context", "question"]
         )
  
-    def format_documents(self, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
+    def format_documents(self, documents: List[InferenceChunk]) -> str:
         """Format the documents for the prompt."""
         formatted_docs = ""
         for ranked_document in documents:
             formatted_docs += f"{DOC_SEP_PAT}\n"
-            if add_metadata:
-                formatted_docs = add_metadata_section(formatted_docs, ranked_document)
+            formatted_docs += add_metadata_section(ranked_document)
             formatted_docs += f"{ranked_document.content}\n"
         return formatted_docs.strip()
     
 
-    def create_prompt(self, question: str, documents: List[InferenceChunk], add_metadata: bool = False) -> str:
+    def create_prompt(self, question: str, documents: List[InferenceChunk]) -> str:
         """Create a formatted prompt with the given question and documents."""
-        context = self.format_documents(documents, add_metadata=add_metadata)
+        context = self.format_documents(documents)
         return self.prompt.format_prompt(
             question=question, context=context
         ).to_string()
@@ -123,13 +120,12 @@ class StuffQA(BaseQA):
             self, 
             input_str: str, 
             context_docs: Optional[List[InferenceChunk]],
-            add_metadata: bool = False
         ) -> str:
         documents = []
         if context_docs:
             for ranked_doc in context_docs:
                 documents.append(ranked_doc)
-                formatted_prompt = self.create_prompt(input_str, documents, add_metadata)
+                formatted_prompt = self.create_prompt(input_str, documents)
                 if not self.tokens_within_limit(formatted_prompt):
                     documents.pop()
                     break

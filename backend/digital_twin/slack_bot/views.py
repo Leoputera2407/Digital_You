@@ -173,17 +173,23 @@ def create_response_command_view(
 def create_selection_command_view(
         past_messages: List[dict[str, any]],
         private_metadata_str: str,
+        in_thread: bool = False
 ) -> dict[str, any]:
     buttons = [
         {
             "type": "button",
             "text": {
                 "type": "plain_text",
-                "text": "Answer This!" if m['thread_ts'] is None else "Go to Thread",
+                "text": "Answer This!" if m['thread_ts'] is None or in_thread else "Go to Thread",
                 "emoji": True
             },
             "style": "primary",  # Make the button green
-            "value": m['message'],  # The text of the message is used as the value of the button
+            "value": json.dumps({
+                "message": m['message'], 
+                "thread_ts": m['thread_ts'],
+                "ts": m['ts'],
+                "in_thread": in_thread,
+            }),  # Store the message and thread_ts as JSON
             "action_id": SELECTION_BUTTON_ACTION_ID 
         }
         for m in past_messages 
@@ -197,12 +203,22 @@ def create_selection_command_view(
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"{m['sender']}: {button['value']}"  # The question is displayed here
+                "text": f"{m['sender']}: {json.loads(button['value'])['message']}"  # The question is displayed here
             },
             "accessory": button
         }
         for button, m in zip_message
     ]
+
+    if in_thread:
+        blocks.insert(0, {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "You're in a thread!",
+                "emoji": True
+            }
+        })
 
     # Add the blocks to the view
     view = {

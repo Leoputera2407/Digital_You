@@ -8,7 +8,6 @@ from digital_twin.utils.timing import log_function_time
 
 logger = setup_logger()
 
-METADATA_END_PAT = "---END OF METADA---"
 NULL_DOC_TOKEN = "?[DOCUMENT]"
 DOC_SEP_PAT = "---NEW DOCUMENT---"
 QUESTION_PAT = "Query:"
