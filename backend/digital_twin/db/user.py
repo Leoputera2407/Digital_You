@@ -80,9 +80,9 @@ async def async_get_organization_admin_info(
     ]
 
     users = [UserByEmail(user_email=user_association.user.email) for user_association in organization.users]
-
     return OrganizationAdminInfo(
-        name=organization.name, 
+        name=organization.name,
+        id=organization.id, 
         whitelisted_email_domain=organization.whitelisted_email_domain,
         pending_invitations=pending_invitations,
         users=users,

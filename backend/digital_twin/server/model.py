@@ -92,7 +92,7 @@ class InvitationBase(BaseModel):
 
 class OrganizationData(BaseModel):
     name: str
-    id: int
+    id: UUID
 
 class OrganizationAdminInfo(OrganizationData):
     whitelisted_email_domain: Optional[str]

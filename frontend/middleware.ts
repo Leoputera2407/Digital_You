@@ -11,8 +11,7 @@ function startsWithExcludedPath(pathname: string): boolean {
     "/settings/admin/connectors/notion/auth/callback",
     "/settings/admin/connectors/linear/auth/callback",
     "/privacy",
-    "/terms"
-
+    "/terms",
   ];
   return excludedPaths.some(excludedPath => pathname.startsWith(excludedPath));
 }

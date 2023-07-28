@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
 IS_DEV = os.environ.get("IS_DEV", "false").lower() == "true" 
 #####################
 # DB Configurations #

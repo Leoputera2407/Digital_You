@@ -4,6 +4,8 @@ import json
 from digital_twin.db.connectors.google_drive import async_upsert_db_google_app_cred
 from digital_twin.db.engine import get_async_session
 from digital_twin.server.model import GoogleAppWebCredentials, GoogleAppCredentials
+from digital_twin.config.app_config import POSTGRES_DB, POSTGRES_HOST
+print(POSTGRES_DB, POSTGRES_HOST)
 
 BUCKET_NAME = "Access Token Bucket"
 BUCKET_SOURCE = "localhost_google_app_credentials.json"

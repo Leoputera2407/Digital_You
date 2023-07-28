@@ -7,14 +7,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/react-hook-form/form";
+import AuthLogo from "@/components/ui/auth-logo";
 import { useSupabase } from "@/lib/context/authProvider";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import AuthLogo from "../../auth-logo";
 
 const OrgCreationSchema = z.object({
   organizationName: z.string().min(2, {
@@ -25,6 +26,7 @@ const OrgCreationSchema = z.object({
 
 export default function CreateOrg() {
   const { user } = useSupabase();
+  const router = useRouter();
   const { publish } = useToast();
   const { axiosInstance } = useAxios();
   const [userDomain, setUserDomain] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function CreateOrg() {
     };
   
     try {
-      const response = await axiosInstance.post("/create-org-and-add-admin", payload);
+      const response = await axiosInstance.post("/api/organization/create-org-and-add-admin", payload);
   
       if (response.data.success) {
         // Publish success toast
@@ -67,6 +69,7 @@ export default function CreateOrg() {
           variant: "success",
           text: "Successfully created organization and added admin!",
         });
+        router.push("/settings");
       } else {
         // Publish error toast
         publish({

@@ -131,6 +131,7 @@ async def verify_org_exists_by_email_domain(
             message="No organization found with that email domain."
         )
     
+    logger.info(f"Organization id is {organization.id}")
     organization_data = OrganizationData(
         name=organization.name,
         id=organization.id,
@@ -141,6 +142,37 @@ async def verify_org_exists_by_email_domain(
         message="Organization found.",
         data=organization_data, 
     )
+
+@router.get("/{organization_id}/verify-user-in-org", response_model=StatusResponse)
+async def verify_if_user_in_org(
+    organization_id: UUID,
+    current_user: User = Depends(current_user),
+    db_session: AsyncSession = Depends(get_async_session_generator),
+) -> StatusResponse:
+    result = await db_session.execute(
+        select(UserOrganizationAssociation)
+        .where(
+            UserOrganizationAssociation.user_id == current_user.id,
+            UserOrganizationAssociation.organization_id == organization_id
+        )
+    )
+    association = result.scalars().first()
+
+    # If the association exists, the user is in the organization.
+    if association is not None:
+        return StatusResponse(
+            success=True,
+            message="User is in the organization."
+        )
+
+    # If the association does not exist, the user is not in the organization.
+    else:
+        return StatusResponse(
+            success=False, 
+            message=f"User is not in the organization with id {organization_id}."
+        )
+    
+
 
 @router.post("/create-org-and-add-admin", response_model=StatusResponse)
 async def create_organization_and_add_admin(
