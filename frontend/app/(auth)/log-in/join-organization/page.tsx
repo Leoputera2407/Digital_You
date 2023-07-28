@@ -2,13 +2,15 @@
 import Authbutton from '@/components/ui/authButton';
 import { useAxios } from '@/lib/hooks/useAxios';
 import { useToast } from '@/lib/hooks/useToast';
-import { OrganizationData, WhitelistDataResponse } from '@/lib/types';
+import { OrganizationData, StatusResponse, WhitelistDataResponse } from '@/lib/types';
+import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
 export default function WhitelistedOrganizations() {
   const [organizations, setOrganizations] = useState<OrganizationData[]>([]);
   const { axiosInstance } = useAxios();
   const { publish } = useToast();
+  const router = useRouter();
   
   useEffect(() => {
     const fetchOrgs = async () => {
@@ -27,11 +29,22 @@ export default function WhitelistedOrganizations() {
 
   const joinOrganization = async (orgId: string) => {
     try {
-      const joinResponse = await axiosInstance.post(`/api/organization/${orgId}/join-org`);
-      publish({
-        variant: "success",
-        text: joinResponse.data.message || "Successfully joined the organization!",
-      });
+      const response = await axiosInstance.post<StatusResponse>(`/api/organization/${orgId}/join-org`);
+      if (response.data.success) {
+        // Publish success toast
+        publish({
+          variant: "success",
+          text: "Successfully joined organization",
+        });
+        router.push("/settings");
+      } else {
+        publish({
+          variant: "danger",
+          text: response.data.message,
+        });
+      }
+
+
     } catch (error) {
       publish({
         variant: "danger",

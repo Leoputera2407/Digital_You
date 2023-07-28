@@ -11,6 +11,7 @@ import AuthLogo from "@/components/ui/auth-logo";
 import { useSupabase } from "@/lib/context/authProvider";
 import { useAxios } from "@/lib/hooks/useAxios";
 import { useToast } from "@/lib/hooks/useToast";
+import { StatusResponse } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -61,7 +62,7 @@ export default function CreateOrg() {
     };
   
     try {
-      const response = await axiosInstance.post("/api/organization/create-org-and-add-admin", payload);
+      const response = await axiosInstance.post<StatusResponse>("/api/organization/create-org-and-add-admin", payload);
   
       if (response.data.success) {
         // Publish success toast
