@@ -29,6 +29,7 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
       .then((response) => {
         if (response.data.success) {
           setHasOrganization(true);
+          // This is to help deal with cases where there are re-direction
           const fullPath = `${pathname}?${searchParams.toString()}`;
           router.push(fullPath)
         } else {
