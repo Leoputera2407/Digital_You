@@ -28,6 +28,7 @@ from digital_twin.db.user import (
     get_organization_by_id,
     async_get_user_org_assocations,
     async_get_organization_admin_info,
+    async_get_invitation_by_user_and_org,
 )
 from digital_twin.db.engine import (
     get_session,
@@ -87,7 +88,7 @@ async def get_whitelisted_org(
     domain = current_user.email.split('@')[-1]
 
     result = await db_session.execute(select(Organization))
-    organizations: List[Organization] = result.scalars().all()
+    organizations: List[Organization] = result.scalars().unique().all()
 
     whitelisted_orgs = []
 
@@ -298,6 +299,16 @@ async def user_join_org(
         organization_id=organization_id,
         role=UserRole.BASIC 
     )
+
+    invitation = await async_get_invitation_by_user_and_org(
+        db_session, 
+        current_user.email, 
+        organization_id
+    )
+    # If inviation exists, change the status of the invitation to ACCEPTED
+    if invitation:
+        invitation.status = InvitationStatus.ACCEPTED
+        db_session.add(invitation)
 
     # Add the new association to the session and commit
     db_session.add(user_org_association)
