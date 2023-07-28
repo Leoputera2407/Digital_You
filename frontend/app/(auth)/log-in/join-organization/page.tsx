@@ -13,7 +13,7 @@ export default function WhitelistedOrganizations() {
   useEffect(() => {
     const fetchOrgs = async () => {
       try {
-        const response = await axiosInstance.get<WhitelistDataResponse>('/whitelisted-orgs');
+        const response = await axiosInstance.get<WhitelistDataResponse>('/api/organization/whitelisted-orgs');
         setOrganizations(response.data.data);
       } catch (err) {
         publish({
@@ -27,7 +27,7 @@ export default function WhitelistedOrganizations() {
 
   const joinOrganization = async (orgId: string) => {
     try {
-      const joinResponse = await axiosInstance.post(`/${orgId}/join-org`);
+      const joinResponse = await axiosInstance.post(`/api/organization/${orgId}/join-org`);
       publish({
         variant: "success",
         text: joinResponse.data.message || "Successfully joined the organization!",
