@@ -131,10 +131,9 @@ async def verify_org_exists_by_email_domain(
             message="No organization found with that email domain."
         )
     
-    logger.info(f"Organization id is {organization.id}")
     organization_data = OrganizationData(
         name=organization.name,
-        id=organization.id,
+        id=organization.id, 
     )
 
     return StatusResponse(
