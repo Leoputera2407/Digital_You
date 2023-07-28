@@ -112,7 +112,9 @@ async def async_get_user_by_email(
     session: AsyncSession, 
     user_email: str
 ) -> Optional[User]:
-    result = await session.execute(select(User).where(User.email == user_email))
+    result = await session.execute(
+        select(User).options(joinedload(User.organizations)).where(User.email == user_email)
+    )
     user = result.scalars().first()
     return user
 
