@@ -9,6 +9,8 @@ import AuthProvider from "@/lib/context/authProvider";
 import { OrganizationProvider } from "@/lib/context/orgProvider";
 import { ToastProvider } from "../components/ui/Toast";
 
+import { PHProvider } from './providers';
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -17,7 +19,7 @@ const inter = Inter({
 
 export const metadata = {
   title: "Prosona",
-  description: "Empowering Knwoledge Workers",
+  description: "Empowering Knowledge Workers",
 };
 
 const RootLayout = async ({
@@ -34,6 +36,7 @@ const RootLayout = async ({
   } = await supabase.auth.getSession();
   return (
     <html lang="en">
+      <PHProvider>
       <body
         className={`${inter.variable} font-inter antialiased bg-slate-900 text-slate-100 tracking-tight`}
       >
@@ -50,6 +53,7 @@ const RootLayout = async ({
           <Analytics />
         </AuthProvider>
       </body>
+      </PHProvider>
     </html>
   );
 };
