@@ -22,7 +22,6 @@ export default function Header() {
 
   useEffect(() => {
     let url = new URL(window.location.href);
-    console.log("url is ", url);
     let searchParams = new URLSearchParams(url.search);
     let error = searchParams.get("error");
     let errorDescription = searchParams.get("error_description");
@@ -31,7 +30,6 @@ export default function Header() {
       error === "server_error" &&
       errorDescription === "Database error saving new user"
     ) {
-      console.log("went here");
       publish({
         variant: "danger",
         text: "Error: Please sign up with your work email",

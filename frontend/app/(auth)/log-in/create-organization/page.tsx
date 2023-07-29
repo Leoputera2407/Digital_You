@@ -22,7 +22,7 @@ const OrgCreationSchema = z.object({
   organizationName: z.string().min(2, {
     message: "Organization name must be at least 2 characters.",
   }),
-  userList: z.string(),
+  userList: z.string().or(z.literal("")),
 });
 
 export default function CreateOrg() {
@@ -44,9 +44,8 @@ export default function CreateOrg() {
   }, [user]);
 
   async function onSubmit(data: z.infer<typeof OrgCreationSchema>) {
-    const userList = data.userList.split(',').map((user) => user.trim());
-  
-    const isValid = userList.every((user) => user.endsWith(`@${userDomain}`));
+    const userList = data.userList ? data.userList.split(',').map((user) => user.trim()) : [];
+    const isValid = userList.length ? userList.every((user) => user.endsWith(`@${userDomain}`)) : true;
   
     if (!isValid) {
       form.setError("userList", {
