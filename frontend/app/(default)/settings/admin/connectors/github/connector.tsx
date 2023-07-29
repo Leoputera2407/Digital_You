@@ -486,7 +486,7 @@ const GithubConnector: React.FC<GithubConnectorProps> = ({
           <div className="animate-spin mr-2">
             <FaSpinner className="h-5 w-5 text-white" />
           </div>
-        ) : githubPublicCredential === undefined &&
+        ) : githubPublicCredential === undefined ||
           (githubConnectorIndexingStatuses === undefined ||
             githubConnectorIndexingStatuses.length === 0) ? (
           <InitialConnectForm

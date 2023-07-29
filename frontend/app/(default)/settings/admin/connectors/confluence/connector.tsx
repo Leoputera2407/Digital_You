@@ -285,7 +285,7 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
             <div className="animate-spin mr-2">
               <FaSpinner className="h-5 w-5 text-white" />
             </div>
-          ) : (confluencePublicCredential === undefined &&
+          ) : (confluencePublicCredential === undefined ||
             confluenceConnectorIndexingStatus === undefined) ||
             confluenceConnector === undefined ? (
             <InitialConnectForm
