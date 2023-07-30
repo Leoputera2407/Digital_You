@@ -8,7 +8,7 @@ from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
 from digital_twin.connectors.linear.model import LinearTeam
 from digital_twin.indexdb.interface import IndexDBFilter
-from digital_twin.db.model import Connector, IndexingStatus, UserRole
+from digital_twin.db.model import User, Connector, IndexingStatus, UserRole
 
 DataT = TypeVar("DataT")
 
@@ -98,6 +98,11 @@ class OrganizationData(BaseModel):
     name: str
     id: UUID
 
+class SlackUserDataResponse(BaseModel):
+    slack_user_name: str
+    slack_user_email: str
+    slack_team_name: str
+
 class OrganizationAdminInfo(OrganizationData):
     whitelisted_email_domain: Optional[str]
     pending_invitations: List[InvitationBase]
@@ -144,6 +149,7 @@ class ConnectorSnapshot(ConnectorBase):
             created_at=connector.created_at,
             updated_at=connector.updated_at,
             disabled=connector.disabled,
+            user=connector.user,
         )
 
 class ConnectorIndexingStatus(BaseModel):

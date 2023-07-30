@@ -31,11 +31,20 @@ export interface OrganizationData {
   name: string;
 };
 
+export interface SlackIntegrationUserData {
+  slack_user_name: string;
+  slack_user_email: string;
+  slack_team_name: string;
+}
+
 export interface StatusResponse {
   success: boolean;
   message: string;
 }
 
+export interface SlackIntergrationUserResponse extends StatusResponse {
+  data: SlackIntegrationUserData | null;
+}
 export interface WhitelistDataResponse extends StatusResponse {
   data: OrganizationData[];
 };

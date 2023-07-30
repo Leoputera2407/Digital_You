@@ -122,7 +122,7 @@ class RephraseChain(BasePersonalityChain):
 
         % YOUR TASK\n
         Please rephrase the answer denotated in %DOCUMENT START% and %DOCUMENT END% with the provided conversation style.
-        If {NULL_DOC_TOKEN} or none of the documents are relevant to the question, please respond "I'm not sure" or ask clarify questions in the same style as the owner would.
+        If {NULL_DOC_TOKEN} is present inside %DOCUMENT START% and %DOCUMENT END%, please respond "I'm not sure" or ask clarify questions in the same style as the owner would.
         Never mention that you're a AI, you're to impersonate {{slack_user_id}} and has opinions as the owner would.
         Also, never use any information from the Owners Example Interaction, they're just a reference so you understood the owner' conversation style better.
         % End of YOUR TASK\n\n

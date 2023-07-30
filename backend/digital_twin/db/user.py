@@ -4,6 +4,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 
 from digital_twin.db.model import (
     SlackUser, 
@@ -14,16 +15,22 @@ from digital_twin.db.model import (
     InvitationStatus,
     SlackOrganizationAssociation,
 )
-from digital_twin.utils.logging import (
-    setup_logger, 
-    log_sqlalchemy_error,
-    async_log_sqlalchemy_error,
-)
 from digital_twin.server.model import (
     InvitationBase,
     OrganizationAdminInfo,
     UserAdminData
 )
+from digital_twin.db.error import (
+    DatabaseError,
+    SlackUserAlreadyExistsError,
+    SlackOrgNotFoundError,
+)
+from digital_twin.utils.logging import (
+    setup_logger, 
+    log_sqlalchemy_error,
+    async_log_sqlalchemy_error,
+)
+
 
 logger = setup_logger()
 
@@ -110,6 +117,15 @@ def get_user_by_email(
     user_email: str
 ) -> Optional[User]:
     user = session.query(User).filter(User.email == user_email).first()
+    return user
+
+@log_sqlalchemy_error(logger)
+def get_user_by_id(
+    session: Session, 
+    user_id: UUID
+) -> Optional[User]:
+    result = session.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
     return user
 
 @async_log_sqlalchemy_error(logger)
@@ -246,6 +262,23 @@ async def async_get_slack_user(
     )
     return result.scalars().first()
 
+
+@async_log_sqlalchemy_error(logger)
+async def async_get_slack_user_by_email(
+    session: AsyncSession,
+    slack_user_email: str,
+) -> Optional[SlackUser]:
+    result = await session.execute(
+        select(SlackUser)
+        .options(
+            joinedload(SlackUser.slack_organization_association).joinedload(SlackOrganizationAssociation.organization)
+        )
+        .where(
+            SlackUser.slack_user_email == slack_user_email
+        )
+    )
+    return result.scalars().first()
+
 @log_sqlalchemy_error(logger)
 def insert_slack_user(
     session: Session, 
@@ -275,41 +308,51 @@ async def find_slack_association_by_team_id(
 async def async_insert_slack_user(
     session: AsyncSession, 
     slack_user_id: str, 
-    team_id: str, 
+    team_id: str,
     db_user_id: UUID,
-    slack_user_token: str
-) -> Optional[SlackUser]:
+    slack_user_token: str,
+    slack_display_name: str,
+    slack_user_email: str,
+    slack_team_name: str,
+) -> SlackUser | DatabaseError:
     slack_org_association = await find_slack_association_by_team_id(
         session,
         team_id
     )
 
     if not slack_org_association:
-        logger.error(f"No SlackOrganizationAssociation found for team_id {team_id}")
-        return None
-    
-    slack_user = SlackUser(
-        slack_user_id=slack_user_id,
-        team_id=team_id,
-        user_id=db_user_id,
-        slack_organization_association_id=slack_org_association.id,
-        slack_user_token=slack_user_token,
-    )
-    session.add(slack_user)
-    await session.commit()
-    await session.refresh(slack_user)
+        logger.error(f"No SlackOrganizationAssociation found for workspace {slack_team_name}")
+        return SlackOrgNotFoundError(slack_team_name=slack_team_name)
+    try:
+        slack_user = SlackUser(
+            slack_user_id=slack_user_id,
+            team_id=team_id,
+            user_id=db_user_id,
+            slack_organization_association_id=slack_org_association.id,
+            slack_user_token=slack_user_token,
+            slack_user_email=slack_user_email,
+            slack_display_name=slack_display_name,
+        )
+        session.add(slack_user)
+        await session.commit()
+        await session.refresh(slack_user)
+    except IntegrityError:
+        logger.error("A Slack user with this team ID and email already exists.")
+        return SlackUserAlreadyExistsError(slack_team_name=slack_team_name, slack_user_email=slack_user_email)
     return slack_user
 
 @async_log_sqlalchemy_error(logger)
 async def async_upsert_org_to_slack_team(
         session: AsyncSession, 
         team_id: str, 
-        organization_id: UUID
+        organization_id: UUID,
+        slack_team_name: str,
 ) -> None:
     # Postgres specific upsert
     upsert_stmt = insert(SlackOrganizationAssociation).values(
         team_id=team_id, 
-        organization_id=organization_id
+        organization_id=organization_id,
+        team_name=slack_team_name,
     )
     do_update_stmt = upsert_stmt.on_conflict_do_update(
         index_elements=['team_id', 'organization_id'], # Notice the change here

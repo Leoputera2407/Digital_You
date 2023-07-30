@@ -36,7 +36,9 @@ from digital_twin.db.user import (
 from digital_twin.db.engine import get_async_session
 from digital_twin.llm.chains.personality_chain import ShuffleChain, PERSONALITY_MODEL_SETTINGS
 from digital_twin.slack_bot.views import (
-    get_view,
+    create_general_text_command_view,
+    create_response_command_view,
+    create_selection_command_view,
     ERROR_TEXT,
     MODAL_RESPONSE_CALLBACK_ID,
     EDIT_BUTTON_ACTION_ID,
@@ -56,7 +58,7 @@ from digital_twin.db.model import SlackUser, SlackIntegration
 from digital_twin.db.engine import get_async_session_generator
 from digital_twin.db.user import (
     async_get_slack_user, 
-    async_get_user_by_email,
+    async_get_slack_user_by_email,
     async_get_organization_id_from_team_id,
 )
 
@@ -274,11 +276,7 @@ async def set_user_info(
             # Wierd edge-case, just in case we get a bad payload
             raise ValueError(f'Error while verifying the slack token')
         
-        if 'command' in payload:
-            trigger_id = payload['trigger_id']
-            loading_view = get_view("text_command_modal", text=LOADING_TEXT)
-            response = await client.views_open(trigger_id=trigger_id, view=loading_view)
-            context["view_id"] = response["view"]["id"]
+
         async with get_async_session() as async_db_session: 
             # Look up user in our db using their Slack user ID
             organization_id = await async_get_organization_id_from_team_id(
@@ -288,20 +286,25 @@ async def set_user_info(
             if not organization_id:
                 return BoltResponse(
                     status=200,
-                    body="Your Slack Workspace is not associated to any Organization. Please contant your administrator.",
+                    body="Prosona is not enabled for this workspace. Please contact your administrator.",
                 )
-            slack_user: SlackUser = await async_get_slack_user(async_db_session, slack_user_id, team_id)
+            
+            slack_user_info = await client.users_info(user=slack_user_id)
+            slack_user_email = slack_user_info.get('user', {}).get('profile', {}).get('email', None) 
+            if not slack_user_email:
+                raise ValueError(f'Cannot find email for slack user')
+            slack_user: SlackUser = await async_get_slack_user_by_email(async_db_session, slack_user_email)
             if slack_user is None:
-                slack_user_info = await client.users_info(user=slack_user_id)
-                slack_user_email = slack_user_info.get('user', {}).get('profile', {}).get('email', None) 
-                if not slack_user_email:
-                    raise ValueError(f'Cannot find email for slack user')
-                db_user: User = await async_get_user_by_email(async_db_session, slack_user_email)
-                if not db_user:
-                    return BoltResponse(
-                        status=200,
-                        body=f"<@{slack_user_id}> You're almost there, your company is signed up for Prosona. Please sign up here <{WEB_DOMAIN} | Prosona Website> using your work email"
-                    )
+                return BoltResponse(
+                    status=200,
+                    body=f"<@{slack_user_id}> You're almost there! Please sign in <{WEB_DOMAIN} | here> and integrate to Slack to start using Prosona"
+                ) 
+            if 'command' in payload:
+                trigger_id = payload['trigger_id']
+                loading_view = create_general_text_command_view(text=LOADING_TEXT)
+                response = await client.views_open(trigger_id=trigger_id, view=loading_view)
+                context["view_id"] = response["view"]["id"]
+            
             context["DB_USER_ID"] = slack_user.user_id
             context["SLACK_USER_TOKEN"] = slack_user.slack_user_token
             context["ORGANIZATION_ID"] = organization_id
@@ -395,8 +398,7 @@ async def handle_shuffle_click(
         processed_response = format_openai_to_slack(response)
         private_metadata['rephrased_response'] = processed_response
         private_metadata_str = json.dumps(private_metadata)
-        response_view = get_view(
-            "response_command_modal", 
+        response_view = create_response_command_view( 
             private_metadata_str=private_metadata_str, 
             is_using_default_conversation_style=private_metadata['is_using_default_conversation_style'],
             is_rephrasing_stage=True,
@@ -406,7 +408,7 @@ async def handle_shuffle_click(
         await client.views_update(view_id=view_id, view=response_view)
     except Exception as e:
         logger.error(f"Error in shuffle click: {e}")
-        error_view = get_view("text_command_modal", text=ERROR_TEXT)
+        error_view = create_general_text_command_view(text=ERROR_TEXT)
         await client.views_update(view_id=view_id, view=error_view)
         
 
@@ -422,8 +424,7 @@ async def handle_edit_response(
         view_id = body['container']['view_id']
         private_metadata = body['view']['private_metadata']        
         metadata_dict = json.loads(private_metadata)
-        response_view = get_view(
-            "response_command_modal", 
+        response_view = create_response_command_view(
             private_metadata_str=private_metadata, 
             is_using_default_conversation_style=metadata_dict['is_using_default_conversation_style'],
             is_rephrasing_stage=True,
@@ -434,7 +435,7 @@ async def handle_edit_response(
         await client.views_update(view_id=view_id, view=response_view)
     except Exception as e:
         logger.error(f"Error in edit response: {e}")
-        error_view = get_view("text_command_modal", text=ERROR_TEXT)
+        error_view = create_general_text_command_view(text=ERROR_TEXT)
         await client.views_update(view_id=view_id, view=error_view)
 
 
@@ -446,7 +447,7 @@ async def handle_selection_button(
 ) -> None:
     await ack()
     view_id = body['container']['view_id']
-    loading_view = get_view("text_command_modal", text=LOADING_TEXT)
+    loading_view = create_general_text_command_view(text=LOADING_TEXT)
     await client.views_update(view_id=view_id, view=loading_view)
 
     slack_user_id = body['user']['id']
@@ -487,8 +488,7 @@ async def handle_selection_button(
         remaining_messages = past_messages[1:]
         latest_5_remaining_messages = remaining_messages[-5:]
         messages_to_select  = [parent_message] + latest_5_remaining_messages
-        selection_view = get_view(
-            "selection_command_modal", 
+        selection_view = create_selection_command_view( 
             past_messages=messages_to_select,
             private_metadata_str=private_metadata,
             in_thread=True,

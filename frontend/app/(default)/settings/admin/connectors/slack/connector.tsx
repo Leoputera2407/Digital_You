@@ -73,10 +73,7 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
     let status = searchParams.get("status");
     let errorMessage = searchParams.get("error_message");
 
-    async function deleteAndRefresh(slackConnector: Connector<any>) {
-      // delete connector
-      await handleDeleteConnector(slackConnector.id, true);
-
+    async function refresh() {
       // remove query parameters from URL
       const location = window.location;
       const cleanUrl = `${location.protocol}//${location.host}${location.pathname}`;
@@ -94,9 +91,9 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
         variant: "danger",
         text: "Failed to connect to Slack: " + errorMessage,
       });
-      deleteAndRefresh(slackConnector);
+      refresh();
     }
-  }, [slackConnector]);
+  }, []);
   return (
     <Collapsible
       open={isOpen}
@@ -118,7 +115,7 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
                     {slackConnector.connector_specific_config.workspace}
                   </span>
                 </Badge>
-                <span className="text-xs text-gray-400">Test out Prosona in your slack with /prosona</span>
+                <span className="text-xs text-gray-400">Integrate to Slack to start using /prosona</span>
               </div>
             )}
         </div>

@@ -2,11 +2,11 @@ import Logo from './logo'
 
 export default function Footer() {
   return (
-    <footer>
+    <footer className="w-full">
       <div className="max-w-6xl pb-5 mx-auto px-4 sm:px-6">
           {/* 1st block */}
           <div className="sm:col-span-12 lg:col-span-4 order-1 lg:order-none">
-            <div className="h-full flex flex-col sm:flex-row lg:flex-col justify-between items-center">
+            <div className="h-full flex flex-col justify-between items-center">
               <div className="mb-4 sm:mb-0 text-center">
                 <div className="mb-4 flex justify-center">
                   <Logo />

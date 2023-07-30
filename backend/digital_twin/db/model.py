@@ -118,7 +118,6 @@ class Organization(Base):
     
 class User(Base):
     __tablename__ = "users"
-
     # TODO: Supabase doesn't expose their auth.users schema, so we can't put a reference it as a foreign key
     # This is handled in the handle_new_users() trigger that can be found in the Supabase UI
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
@@ -137,6 +136,11 @@ class User(Base):
 
     slack_users: Mapped[List["SlackUser"]] = relationship(
         "SlackUser",
+        back_populates="user",
+        lazy="joined",
+    )
+    connectors: Mapped[List["Connector"]] = relationship(
+        "Connector",
         back_populates="user",
         lazy="joined",
     )
@@ -218,7 +222,11 @@ class Connector(Base):
     )
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
     organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
-
+    user_id: Mapped[UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
+    user: Mapped[User] = relationship(
+        "User", 
+        back_populates="connectors"
+    )
     organization: Mapped[Organization] = relationship(
                 "Organization", 
                 back_populates="connectors"
@@ -322,8 +330,12 @@ class IndexAttempt(Base):
 
 class SlackUser(Base):
     __tablename__ = 'slack_users'
+    __table_args__ = (
+        UniqueConstraint('team_id', 'slack_user_email', name='_team_id_slack_user_email_uc'),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     team_id: Mapped[str] = mapped_column(String)
+    slack_user_email: Mapped[str] = mapped_column(String)
     slack_user_id: Mapped[str] = mapped_column(String)
     slack_display_name: Mapped[str | None] = mapped_column(String, nullable=True)
     conversation_style: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -352,6 +364,7 @@ class SlackOrganizationAssociation(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     team_id: Mapped[str] = mapped_column(String)
     organization_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('organizations.id'))
+    team_name: Mapped[str] = mapped_column(String)
     slack_users: Mapped[List["SlackUser"]] = relationship("SlackUser", back_populates="slack_organization_association") 
     organization: Mapped[Organization] = relationship("Organization", back_populates="slack_organization_associations")
 

@@ -35,7 +35,8 @@ from digital_twin.db.engine import (
     get_async_session_generator,
 )
 from digital_twin.db.async_slack_bot import async_get_associated_slack_user
-
+from digital_twin.indexdb.qdrant.indexing import create_collection as create_qdrant_collection
+from digital_twin.indexdb.typesense.store import create_typesense_collection
 from digital_twin.server.model import (
     UserByEmail,
     StatusResponse,
@@ -45,7 +46,9 @@ from digital_twin.server.model import (
     OrganizationData,
     OrganizationUpdateInfoRequest,
     OrganizationCreateRequest,
+    SlackUserDataResponse,
 )
+from digital_twin.utils.collection_key import get_unique_collection_keys
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
@@ -171,8 +174,6 @@ async def verify_if_user_in_org(
             success=False, 
             message=f"User is not in the organization with id {organization_id}."
         )
-    
-
 
 @router.post("/create-org-and-add-admin", response_model=StatusResponse)
 async def create_organization_and_add_admin(
@@ -183,14 +184,26 @@ async def create_organization_and_add_admin(
 
     # First, get the domain from the current user's email
     email_domain = current_user.email.split('@')[-1]
-    
+    typesense_collection_key, qdrant_collection_key = get_unique_collection_keys()
     # Then, create a new organization
     new_org = Organization(
         id=str(uuid4()),
         name=org_data.name,
         whitelisted_email_domain=email_domain,
-        # add any other necessary attributes here
+        typesense_collection_key=typesense_collection_key,
+        qdrant_collection_key=qdrant_collection_key,
     )
+
+    # Next, create the typesense and qdrant collections
+    try:
+        create_qdrant_collection(collection_name=qdrant_collection_key)
+        create_typesense_collection(collection_name=typesense_collection_key)
+    except Exception as e:
+        logger.error(f"Error creating collection: {e} for organization: {new_org.id}")
+        return StatusResponse(
+            success=False, 
+            message="Internal error. Please contact Prosona"
+        )
 
     # Next, add the current user as an admin of the new organization
     user_org_association = UserOrganizationAssociation(
@@ -482,15 +495,26 @@ async def update_admin_organization_info(
         message="Organization information successfully updated.",
     )
 
-@router.get("/{organization_id}/verify-slack-users")
-async def verify_if_user_has_associated_slack_users(
+@router.get("/{organization_id}/get-slack-users")
+async def get_associated_slack_users(
     organization_id: UUID,
     user: User = Depends(current_user),
     db_session: AsyncSession = Depends(get_async_session_generator),
-) -> StatusResponse:
+) -> StatusResponse[SlackUserDataResponse]:
     slack_user = await async_get_associated_slack_user(db_session, user.id, organization_id)
     
     if slack_user is None:
-        return StatusResponse(success=False, message="No associated Slack user found.")
+        return StatusResponse(
+            success=False, 
+            message="No associated Slack user found."
+        )
 
-    return StatusResponse(success=True, message="Associated Slack user found.")
+    return StatusResponse(
+        success=True, 
+        message="Associated Slack user found.",
+        data=SlackUserDataResponse(
+            slack_team_name=slack_user.slack_organization_association.team_name,
+            slack_user_name=slack_user.slack_display_name,
+            slack_user_email=slack_user.slack_user_email,
+        )
+    )

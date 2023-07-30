@@ -33,34 +33,7 @@ from digital_twin.indexdb.typesense.store import TypesenseIndex
 from digital_twin.utils.indexing_pipeline import build_indexing_pipeline
 from digital_twin.utils.logging import setup_logger
 
-
 logger = setup_logger()
-def create_collections_if_not_exist(
-        qdrant_collection_name: str, 
-        typesense_collection_name: str
-) -> None:
-    from digital_twin.indexdb.qdrant.indexing import (
-        create_collection,
-        list_collections,
-    )
-    from digital_twin.indexdb.typesense.store import (
-        check_typesense_collection_exist,
-        create_typesense_collection,
-    )
-    
-    if qdrant_collection_name not in {
-        collection.name for collection in list_collections().collections
-    }:
-        logger.info(
-            f"Creating collection with name: {qdrant_collection_name}"
-        )
-        create_collection(collection_name=qdrant_collection_name)
-    
-    if not check_typesense_collection_exist(typesense_collection_name):
-        logger.info(
-            f"Creating Typesense collection with name: {typesense_collection_name}"
-        )
-        create_typesense_collection(collection_name=typesense_collection_name)
 
 def should_change_to_polling_connector(
     connector: Connector
@@ -237,11 +210,6 @@ def run_indexing_jobs(db_session: Session) -> None:
             else:
                 # Event types cannot be handled by a background type, leave these untouched
                 continue
-
-            create_collections_if_not_exist(
-                qdrant_collection_name=org_qdrant_collection,
-                typesense_collection_name=org_typesense_collection,
-            )
 
             document_ids: list[str] = []
             for doc_batch in doc_batch_generator:

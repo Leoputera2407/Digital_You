@@ -11,7 +11,12 @@ from slack_sdk.web.async_client import AsyncWebClient
 
 from digital_twin.config.app_config import MIN_CHAT_PAIRS_THRESHOLD
 from digital_twin.slack_bot.personality import async_handle_user_conversation_style, async_rephrase_response
-from digital_twin.slack_bot.views import get_view,  ERROR_TEXT
+from digital_twin.slack_bot.views import (
+    create_selection_command_view, 
+    create_response_command_view, 
+    create_general_text_command_view,
+    ERROR_TEXT,
+)
 from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
 from digital_twin.qa import async_get_default_backend_qa_model
 from digital_twin.db.async_slack_bot import async_get_chat_pairs
@@ -50,34 +55,6 @@ async def async_gather_preprocess_tasks(
         if isinstance(result, Exception):
             raise Exception(f"Error in {task_name} coroutine: {result}")
     return results
-
-
-def temp_solution_create_collection_if_not_exist(
-        qdrant_collection_name: str, 
-        typesense_collection_name: str
-) -> None:
-    from digital_twin.indexdb.qdrant.indexing import (
-        create_collection,
-        list_collections,
-    )
-    from digital_twin.indexdb.typesense.store import (
-        check_typesense_collection_exist,
-        create_typesense_collection,
-    )
-    
-    if qdrant_collection_name not in {
-        collection.name for collection in list_collections().collections
-    }:
-        logger.info(
-            f"Creating collection with name: {qdrant_collection_name}"
-        )
-        create_collection(collection_name=qdrant_collection_name)
-    
-    if not check_typesense_collection_exist(typesense_collection_name):
-        logger.info(
-            f"Creating Typesense collection with name: {typesense_collection_name}"
-        )
-        create_typesense_collection(collection_name=typesense_collection_name)
 
 async def qa_and_response(
     query: str,
@@ -119,8 +96,6 @@ async def qa_and_response(
     if len(slack_chat_pairs) < MIN_CHAT_PAIRS_THRESHOLD:
         is_using_default_conversation_style = True
     
-    temp_solution_create_collection_if_not_exist(qdrant_collection_name, typesense_collection_name)
-
     ranked_chunks, _ = await async_retrieve_hybrid_reranked_documents(
         query = query,
         user_id = None, # This mean it'll retrieve all public docs (which only that now)
@@ -136,8 +111,7 @@ async def qa_and_response(
                 "response": "Cannot find any relevant documents. Please ask a different question!"
             }
         ) 
-        display_doc_view = get_view(
-                "response_command_modal", 
+        display_doc_view = create_response_command_view( 
                 private_metadata_str=private_metadata_str,
                 is_using_default_conversation_style=is_using_default_conversation_style,
                 is_rephrasing_stage=False,
@@ -151,8 +125,7 @@ async def qa_and_response(
             "response": "Synthezing AI generated response..."
         }
     ) 
-    display_doc_view = get_view(
-            "response_command_modal", 
+    display_doc_view = create_response_command_view(
             private_metadata_str=private_metadata_str,
             is_using_default_conversation_style=is_using_default_conversation_style,
             is_rephrasing_stage=False,
@@ -176,8 +149,7 @@ async def qa_and_response(
             "confidence_score": confidence_score,
         }
     )
-    response_view = get_view(
-        "response_command_modal", 
+    response_view = create_response_command_view(
         private_metadata_str=private_metadata_str, 
         is_using_default_conversation_style=is_using_default_conversation_style,
         is_rephrasing_stage=True,
@@ -206,8 +178,7 @@ async def qa_and_response(
             'ts': thread_ts if thread_ts else ts,
         }
     )
-    response_view = get_view(
-        "response_command_modal",
+    response_view = create_response_command_view(
         private_metadata_str=private_metadata_str,
         is_using_default_conversation_style=is_using_default_conversation_style,
         is_rephrasing_stage=True,
@@ -247,8 +218,7 @@ async def handle_prosona_command(
             "channel_id": channel_id,
         })
         # Create the selection modal view and open it
-        selection_view = get_view(
-            "selection_command_modal", 
+        selection_view = create_selection_command_view(
             past_messages=past_messages,
             private_metadata_str=private_metadata_str,
             in_thread=False,
@@ -257,6 +227,6 @@ async def handle_prosona_command(
         return
     except Exception as e:
         logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
-        error_view = get_view("text_command_modal", text=ERROR_TEXT)
+        error_view = create_general_text_command_view("text_command_modal", text=ERROR_TEXT)
         await client.views_update(view_id=view_id, view=error_view)
         return

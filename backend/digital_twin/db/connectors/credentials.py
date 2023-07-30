@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -60,9 +60,9 @@ def fetch_credentials(
 
 @async_log_sqlalchemy_error(logger)
 async def async_fetch_credentials(
-    user: User | None,
     organization_id: int,
     db_session: AsyncSession,
+    user: User | None = None,
 ) -> list[Credential]:
     stmt = select(Credential)
     if user:
@@ -165,7 +165,7 @@ async def async_create_credential(
     user: User,
     organization_id: int,
     db_session: AsyncSession,
-) -> ObjectCreationIdResponse:
+) -> Optional[ObjectCreationIdResponse]:
     credential = Credential(
         credential_json=credential_data.credential_json,
         user_id=user.id if user else None,
@@ -174,8 +174,8 @@ async def async_create_credential(
     )
     db_session.add(credential)
     await db_session.commit()
-
     return ObjectCreationIdResponse(id=credential.id)
+
 
 @log_sqlalchemy_error(logger)
 def update_credential(

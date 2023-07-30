@@ -19,6 +19,7 @@ from digital_twin.server.model import (
     # GoogleAppWebCredentials,
     ObjectCreationIdResponse,
     StatusResponse,
+    ConnectorBase,
 )
 from digital_twin.db.model import User
 
@@ -49,6 +50,7 @@ from digital_twin.db.connectors.connector_credential_pair import (
 from digital_twin.db.connectors.connectors import (
     async_fetch_connector_by_id_and_org,
     async_fetch_connectors,
+    async_create_connector,
 )
 from digital_twin.db.connectors.credentials import (
     async_fetch_credentials,
@@ -58,6 +60,8 @@ from digital_twin.db.connectors.credentials import (
     async_fetch_credential_by_id_and_org,
     mask_credential_dict,
 )
+from digital_twin.utils.logging import setup_logger
+logger = setup_logger()
 
 router = APIRouter(prefix="/connector")
 
@@ -293,6 +297,22 @@ async def linear_callback(
 
     return StatusResponse(success=True, message="Updated Linear access tokens")
 
+@router.post("/{organization_id}/create", response_model=ObjectCreationIdResponse)
+async def create_personal_connector_from_model(
+    connector_info: ConnectorBase,
+    organization_id: UUID,
+    user: User = Depends(current_user),
+    db_session: AsyncSession = Depends(get_async_session_generator),
+) -> ObjectCreationIdResponse:
+    try:
+        return await async_create_connector(
+            connector_info, 
+            organization_id,
+            db_session,
+            user_id=user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{organization_id}/list", response_model=list[ConnectorSnapshot])
 async def get_connectors(
@@ -309,16 +329,16 @@ async def get_connectors(
     ]
 
 @router.get("/{organization_id}/credential")
-async def get_credentials(
+async def get_personal_credentials(
     organization_id: UUID,
     user: User = Depends(current_user),
     db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> list[CredentialSnapshot]:
     credentials = await async_fetch_credentials(
-        user, 
         organization_id,
         db_session,
-    )
+        user=user,
+    )    
     return [
         CredentialSnapshot(
             id=credential.id,

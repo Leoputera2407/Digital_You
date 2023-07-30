@@ -20,7 +20,7 @@ from digital_twin.llm.chains.personality_chain import (
     NULL_DOC_TOKEN,
     PERSONALITY_MODEL_SETTINGS
 ) 
-from digital_twin.slack_bot.views import get_view, PERSONALITY_TEXT
+from digital_twin.slack_bot.views import create_general_text_command_view, PERSONALITY_TEXT
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
 from digital_twin.utils.logging import setup_logger
 
@@ -91,8 +91,7 @@ async def async_handle_user_conversation_style(
         )
         if conversation_style is None or \
             (updated_at is not None and (datetime.now(timezone.utc) - updated_at).days >= SLACK_DAYS_TO_RESCRAPE):
-            personality_view = get_view(
-                "text_command_modal", 
+            personality_view = create_general_text_command_view(
                 text=PERSONALITY_TEXT,
             )
             await client.views_update(view_id=view_id, view=personality_view)

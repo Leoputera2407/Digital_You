@@ -80,7 +80,7 @@ const NotionConnector: React.FC<NotionConnectorProps> = ({
     );
 
     const connectorBase: ConnectorBase<NotionConfig> = {
-      name: "NotionConnector",
+      name: `NotionConnector-${notionWorkspace.name}`,
       input_type: "load_state",
       source: "notion",
       connector_specific_config: {

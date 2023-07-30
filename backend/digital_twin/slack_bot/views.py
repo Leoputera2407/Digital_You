@@ -10,20 +10,6 @@ SHUFFLE_BUTTON_ACTION_ID ="shuffle_response"
 SELECTION_BUTTON_ACTION_ID ="selection_response"
 EDIT_BLOCK_ID = "edit_block"
 
-
-def get_view(view_type: str, **kwargs):
-    views = {
-        "text_command_modal": create_general_text_command_view,
-        "selection_command_modal": create_selection_command_view,
-        "response_command_modal": create_response_command_view,
-    }
-
-    if view_type not in views:
-        raise ValueError(f"Unknown view type: {view_type}")
-
-    return views[view_type](**kwargs)
-
-
 def create_general_text_command_view(text: str) -> None:
     return {
         "type": "modal",

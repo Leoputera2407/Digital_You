@@ -32,7 +32,7 @@ export const useConnectorData = <T>(organization_id: string | null | undefined):
     isLoading: isCredentialsLoading,
     error: isCredentialsError,
   } = useSWR<Credential<T>[]>(
-    organization_id ? `/api/connector/${organization_id}/credential` : null,
+    organization_id ? `/api/connector/admin/${organization_id}/admin-credential` : null,
     (url) => fetcher(url, axiosInstance),
   );
   const {

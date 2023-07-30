@@ -39,6 +39,7 @@ from digital_twin.db.connectors.connectors import (
 from digital_twin.db.connectors.connector_credential_pair import (
     async_add_credential_to_connector,
 )
+from digital_twin.db.error import SlackUserAlreadyExistsError, SlackOrgNotFoundError
 from digital_twin.server.model import StatusResponse, ConnectorBase, CredentialBase
 from digital_twin.utils.logging import setup_logger
 logger = setup_logger()
@@ -134,11 +135,12 @@ async def associate_slack_user_with_db_user(
     slack_user_token = installation.user_token
     slack_user_info = await async_get_user_info(admin_slack_user_id, slack_token)
     slack_user_email = slack_user_info.get('profile', {}).get('email', None)
-    if prosona_user is None or slack_user_email is None or slack_user_email != prosona_user.email:
+    slack_display_name = slack_user_info.get('real_name')
+    if prosona_user is None or slack_user_email is None:
         return SlackResponseStatus(
             success=False,
             status_code=400,
-            error_message="slack_user_email_not_found. Please ensure that your prosona email is the same as your slack account's email",
+            error_message="slack_user_email_not_found. Please contact admin.",
             redirect_url=redirect_url,
         )
 
@@ -148,13 +150,17 @@ async def associate_slack_user_with_db_user(
             admin_slack_team_id,
             db_user_id=prosona_user.id,
             slack_user_token=slack_user_token,
+            slack_display_name=slack_display_name,
+            slack_user_email=slack_user_email,
+            slack_team_name=installation.team_name,
     )
 
-    if res is None:
+    if isinstance(res, SlackUserAlreadyExistsError) \
+        or isinstance(res, SlackOrgNotFoundError):
         return SlackResponseStatus(
             success=False,
             status_code=400,
-            error_message="failed_to_insert_slack_user. Please contact admin",
+            error_message=res.error_message,
             redirect_url=redirect_url,
         )
 
@@ -212,7 +218,7 @@ async def handle_credential_and_connector(
         disabled=True,
     )
     await async_create_connector(
-        connector_data= connector_data,
+        connector_data=connector_data,
         organization_id=prosona_org_id,
         db_session=db_session,
     )
@@ -240,7 +246,6 @@ async def handle_credential_and_connector(
         user=user,
         organization_id=prosona_org_id,
     )
-
     return link_resp
 
 
@@ -324,27 +329,26 @@ async def custom_handle_slack_oauth_redirect(
             session=db_session,
             team_id=installation.team_id,
             organization_id=prosona_org_id,
+            slack_team_name=installation.team_name,
         )
+    if slack_integration_type == SlackIntegration.USER:
+        # We need to associate slack_user installer 
+        # with our DB user, and we do so by looking up the email
+        associate_result = await associate_slack_user_with_db_user(
+            redirect_url=default_redirect_url,
+            installation=installation,
+            prosona_user=prosona_user,
+            prosona_org_id=prosona_org_id,
+            db_session=db_session,
+        )
+        if isinstance(associate_result, SlackResponseStatus):
+            return associate_result
 
-    # We need to associate slack_user installer 
-    # with our DB user, and we do so by looking up the email
-    associate_result = await associate_slack_user_with_db_user(
-        redirect_url=default_redirect_url,
-        installation=installation,
-        prosona_user=prosona_user,
-        prosona_org_id=prosona_org_id,
-        db_session=db_session,
-    )
-    if isinstance(associate_result, SlackResponseStatus):
-        return associate_result
-
-    user = associate_result["user"]
-    slack_token = associate_result["slack_token"]
     if slack_integration_type == SlackIntegration.CONNECTOR:
         # Add credentials for the admin slack user
         handle_link_res = await handle_credential_and_connector(
-            user=user,
-            slack_token=slack_token,
+            user=prosona_user,
+            slack_token=installation.bot_token,
             slack_team_name=installation.team_name,
             prosona_org_id=prosona_org_id,
             db_session=db_session,

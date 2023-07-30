@@ -19,10 +19,15 @@ from digital_twin.server.model import (
     GithubTestRequest,
     LinearOrganizationSnapshot,
     NotionWorkspaceSnapshot,
+    CredentialSnapshot,
 )
 from digital_twin.db.model import (
     Credential,
     User,
+)
+from digital_twin.db.connectors.credentials import (
+    async_fetch_credentials,
+    mask_credential_dict,
 )
 from digital_twin.connectors.google_drive.connector_auth import (
     DB_CREDENTIALS_DICT_KEY,
@@ -129,9 +134,31 @@ async def get_connector_indexing_status(
         )
 
     return indexing_statuses
+@router.get("/{organization_id}/admin-credential")
+async def get_admin_credentials(
+    organization_id: UUID,
+    _: User = Depends(current_admin_for_org),
+    db_session: AsyncSession = Depends(get_async_session_generator),
+) -> list[CredentialSnapshot]:
+    credentials = await async_fetch_credentials(
+        organization_id,
+        db_session,
+    )    
+    return [
+        CredentialSnapshot(
+            id=credential.id,
+            credential_json=mask_credential_dict(credential.credential_json),
+            user_id=str(credential.user_id),
+            public_doc=credential.public_doc,
+            created_at=credential.created_at,
+            updated_at=credential.updated_at,
+        )
+        for credential in credentials
+    ]
+
 
 @router.post("/{organization_id}/create", response_model=ObjectCreationIdResponse)
-async def create_connector_from_model(
+async def admin_create_connector_from_model(
     connector_info: ConnectorBase,
     organization_id: UUID,
     _: User = Depends(current_admin_for_org),

@@ -161,15 +161,11 @@ export default function ProfileFormPage() {
                 <FormLabel className="text-white">
                   Whitelisted E-mail Domain
                 </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Your whitelisted e-mail domain"
-                    {...field}
-                  />
-                </FormControl>
+                <div className="py-2 px-3 rounded text-white">
+                  {field.value}
+                </div>{" "}
                 <FormDescription>
-                  Allow any user with an e-mail from the specified domain to
-                  auto join this workspace
+                  Users with the specified domain can join this workspace.
                 </FormDescription>
                 <FormMessage color={error && "red"}>
                   {error?.message}
@@ -228,26 +224,32 @@ export default function ProfileFormPage() {
           key={member.email}
           className="flex justify-between items-center bg-slate-900 rounded-[inherit] z-20 overflow-hidden p-3 rounded-lg shadow my-2 border border-gray-100 border-opacity-20"
         >
-          <div className="flex">
-            <p
-              className={`font-semibold text-slate-400 ${
-                member.isPending ? "text-gray-400" : "text-white"
-              }`}
-            >
-              {member.email}
-              {member.isPending && (
-                <span className="italic text-gray-500"> (Pending)</span>
+          <div className="flex flex-col">
+            <div className="flex items-center">
+              <p
+                className={`font-semibold text-slate-400 ${
+                  member.isPending ? "text-gray-400" : "text-white"
+                }`}
+              >
+                {member.email}
+              </p>
+              {user?.id === member.user_id && (
+                <Badge className="bg-orange-200 text-orange-800 ml-1">
+                  <span>You</span>
+                </Badge>
               )}
-            </p>
-            {user?.id === member.user_id && (
-              <Badge className="bg-orange-200 text-orange-800 ml-2">
-                <span>You</span>
-              </Badge>
+            </div>
+            {member.isPending ? (
+              <span className="italic text-gray-500"> (Pending)</span>
+            ) : (
+              <span className="italic text-white text-md">
+                Role: {member.user_role}
+              </span>
             )}
           </div>
           {user?.id !== member.user_id && (
             <div className="space-x-2">
-              {!member.isPending && member.user_role === UserRole.ADMIN && (
+              {!member.isPending && member.user_role === UserRole.BASIC && (
                 <Authbutton
                   onClick={() => onPromoteClick(member.email)}
                   className="inline-flex items-center justify-center text-sm bg-purple-500 hover:bg-purple-600 px-6 py-2 rounded shadow text-white text-center"

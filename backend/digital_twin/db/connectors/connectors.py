@@ -1,4 +1,4 @@
-from typing import cast
+from typing import cast, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -126,10 +126,11 @@ def create_connector(
     connector_data: ConnectorBase,
     organization_id: UUID,
     db_session: Session,
+    user_id: UUID| None = None,
 ) -> ObjectCreationIdResponse:
     if organization_id is None:
         raise ValueError("Organization ID must be provided.")
-    
+   
     if connector_by_name_exists_in_org(
         connector_data.name, 
         organization_id,
@@ -147,6 +148,7 @@ def create_connector(
         refresh_freq=connector_data.refresh_freq,
         disabled=connector_data.disabled,
         organization_id=organization_id,
+        user_id=user_id,
     )
     db_session.add(connector)
     db_session.commit()
@@ -158,7 +160,8 @@ async def async_create_connector(
     connector_data: ConnectorBase,
     organization_id: UUID,
     db_session: AsyncSession,
-) -> ObjectCreationIdResponse:
+    user_id: UUID| None = None,
+) -> Optional[ObjectCreationIdResponse]:
     if organization_id is None:
         raise ValueError("Organization ID must be provided.")
     
@@ -179,12 +182,11 @@ async def async_create_connector(
         refresh_freq=connector_data.refresh_freq,
         disabled=connector_data.disabled,
         organization_id=organization_id,
+        user_id=user_id,
     )
     db_session.add(connector)
     await db_session.commit()
-
     return ObjectCreationIdResponse(id=connector.id)
-
 
 @log_sqlalchemy_error(logger)
 def update_connector(
@@ -218,8 +220,6 @@ def update_connector(
     connector.connector_specific_config = connector_data.connector_specific_config
     connector.refresh_freq = connector_data.refresh_freq
     connector.disabled = connector_data.disabled
-    connector.organization_id = organization_id
-
     db_session.commit()
     return connector
 
@@ -255,8 +255,6 @@ async def async_update_connector(
     connector.connector_specific_config = connector_data.connector_specific_config
     connector.refresh_freq = connector_data.refresh_freq
     connector.disabled = connector_data.disabled
-    connector.organization_id = organization_id
-
     await db_session.commit()
     await db_session.refresh(connector)
 

@@ -41,7 +41,6 @@ from digital_twin.utils.clients import get_typesense_client
 from digital_twin.utils.logging import setup_logger
 
 
-
 logger = setup_logger()
 
 
