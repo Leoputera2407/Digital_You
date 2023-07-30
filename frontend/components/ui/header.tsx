@@ -32,7 +32,7 @@ export default function Header() {
     ) {
       publish({
         variant: "danger",
-        text: "Error: Please sign up with your work email",
+        text: "Error: Account does not exist. Please sign up for the beta waitlist",
       });
       Refresh();
     }
