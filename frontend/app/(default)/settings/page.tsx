@@ -64,7 +64,7 @@ export default function SlackConnectionPage() {
     data: connectorsData,
     isLoading: isConnectorsLoading,
     error: isConnectorsError,
-  } = useSWR<Connector<T>[]>(
+  } = useSWR<Connector<any>[]>(
     shouldFetch ? `/api/connector/${currentOrganization?.id}/list` : null,
     (url) => fetcher(url, axiosInstance)
   );
