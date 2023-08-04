@@ -3,7 +3,7 @@ import Authbutton from '@/components/ui/authButton';
 import { useAxios } from '@/lib/hooks/useAxios';
 import { useToast } from '@/lib/hooks/useToast';
 import { OrganizationData, StatusResponse, WhitelistDataResponse } from '@/lib/types';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function WhitelistedOrganizations() {

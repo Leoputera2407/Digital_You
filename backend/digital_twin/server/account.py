@@ -485,10 +485,11 @@ async def update_admin_organization_info(
 
     if update_info.name is not None:
         organization.name = update_info.name
+    """ TODO: White-list domain shouldn't be allowed to change for now.
     if update_info.whitelisted_email_domain is not None:
         organization.whitelisted_email_domain = update_info.whitelisted_email_domain
-    
-    db_session.commit()
+    """
+    await db_session.commit()
 
     return StatusResponse(
         success=True,

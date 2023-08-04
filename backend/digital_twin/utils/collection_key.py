@@ -8,7 +8,7 @@ def get_unique_collection_keys() -> Tuple[str, str]:
     typesense_collection_key = str(uuid4())
     qdrant_collection_key = str(uuid4())
 
-    while typesense_collection_key in check_typesense_collection_exist(typesense_collection_key):
+    while check_typesense_collection_exist(typesense_collection_key):  # Keep generating keys while the key exists
         typesense_collection_key = str(uuid4())
 
     while qdrant_collection_key in [collection.name for collection in qdrant_list_collections().collections]:

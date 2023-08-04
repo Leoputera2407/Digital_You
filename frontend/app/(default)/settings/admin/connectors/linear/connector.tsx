@@ -3,9 +3,9 @@ import { ConnectorStatus } from "@/components/ui/Connector/ConnectorStatus";
 import AuthButton from "@/components/ui/authButton";
 import { Badge } from "@/components/ui/badge";
 import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { LinearIcon } from "@/components/ui/icon";
 import { fetchLinearOrgAndTeam } from "@/lib/connectors";
@@ -13,13 +13,13 @@ import { useAxios } from "@/lib/hooks/useAxios";
 import { useConnectorData } from "@/lib/hooks/useConnectorData";
 import { useConnectorsOps } from "@/lib/hooks/useConnectorOps";
 import {
-    AnyCredentialJson,
-    Connector,
-    ConnectorBase,
-    ConnectorIndexingStatus,
-    Credential,
-    LinearConfig,
-    OrganizationAssociationBase,
+  AnyCredentialJson,
+  Connector,
+  ConnectorBase,
+  ConnectorIndexingStatus,
+  Credential,
+  LinearConfig,
+  OrganizationAssociationBase,
 } from "@/lib/types";
 import { ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
@@ -82,7 +82,6 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
   };
 
   const handleCreateLinkConnector = async (credentialId: number) => {
-    console.log(" went to handleCreateLinkConnector");
     if (!currentOrganization) {
       throw new Error("No current organization!");
     }
@@ -96,7 +95,6 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
       currentOrganization?.id,
       linearPublicCredential?.id
     );
-    console.log("Successfully fetched linearOrgAndTeams");
 
     let currentTeam: {
       id: string;
@@ -158,6 +156,8 @@ const LinearConnector: React.FC<LinearConnectorProps> = ({
           <span>Linear</span>
           {linearConnectorsInfo &&
             linearConnectorsInfo.length > 0 &&
+            !isConnectorCredentialLoading &&
+            linearPublicCredential &&
             linearConnectorIndexingStatuses &&
             linearConnectorIndexingStatuses.length > 0 && (
               <Badge className="bg-orange-200 text-orange-800">

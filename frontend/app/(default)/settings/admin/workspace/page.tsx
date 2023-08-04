@@ -33,9 +33,19 @@ const orgUpdateFormSchema = z.object({
   }),
 });
 
-const inviteUserFormSchema = z.object({
-  inviteEmail: z.string().email(),
-});
+function useInviteUserFormSchema(whitelistedDomain: string | undefined) {
+  return z.object({
+    inviteEmail: z.string().email().refine(
+      value => {
+        const domain = value.split('@')[1];
+        return whitelistedDomain ? whitelistedDomain.includes(domain) : false;
+      },
+      {
+        message: "Email domain not whitelisted. Please use a whitelisted domain.",
+      }
+    ),
+  });
+}
 
 function countPendingInvitationsAndMembers(
   adminOrgInfo: OrganizationAdminInfo | undefined
@@ -83,6 +93,7 @@ export default function ProfileFormPage() {
   const { numInvitations, numMembers } =
     countPendingInvitationsAndMembers(adminOrgInfo);
   const combinedUserList = combineMembersAndPendingInvitations(adminOrgInfo);
+  const inviteUserFormSchema = useInviteUserFormSchema(adminOrgInfo?.whitelisted_email_domain);  
   const orgForm = useForm<z.infer<typeof orgUpdateFormSchema>>({
     resolver: zodResolver(orgUpdateFormSchema),
   });
@@ -90,6 +101,7 @@ export default function ProfileFormPage() {
   const inviteUserForm = useForm<z.infer<typeof inviteUserFormSchema>>({
     resolver: zodResolver(inviteUserFormSchema),
   });
+
 
   useEffect(() => {
     orgForm.setValue("organizationName", adminOrgInfo?.name || "");
@@ -103,8 +115,8 @@ export default function ProfileFormPage() {
     values: z.infer<typeof orgUpdateFormSchema>
   ) {
     await handleUpdateAdminOrganizationInfo(
+      values.organizationName,
       values.emailDomain,
-      values.organizationName
     );
   }
 
@@ -183,10 +195,10 @@ export default function ProfileFormPage() {
           </div>
         </form>
       </Form>
-      <Separator />
+      <Separator />      
       <Form {...inviteUserForm}>
         <form
-          onSubmit={inviteUserForm.handleSubmit(onAddUserSubmit)}
+         onSubmit={inviteUserForm.handleSubmit(onAddUserSubmit)}
           className="space-y-4"
         >
           <h2 className="text-md font-medium text-white">Workspace Members</h2>
@@ -196,12 +208,15 @@ export default function ProfileFormPage() {
           <FormField
             control={inviteUserForm.control}
             name="inviteEmail"
-            render={({ field }) => (
+            render={({ field,  fieldState: { error } }) => (
               <FormItem>
                 <FormLabel className="text-white">Invite by Email</FormLabel>
                 <FormControl>
                   <Input placeholder="Email to invite" {...field} />
                 </FormControl>
+                <FormMessage className="text-red-500" >
+                  {error?.message}
+                </FormMessage>
                 <div className="flex justify-end">
                   <Authbutton
                     type="submit"

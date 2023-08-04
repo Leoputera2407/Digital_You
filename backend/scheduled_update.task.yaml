@@ -57,4 +57,4 @@ docker:
 
 # The maximum number of seconds the task should take before being timed out.
 # Default: 3600.
-timeout: 5400
+timeout: 21600

@@ -41,7 +41,7 @@ def mask_credential_dict(
 @log_sqlalchemy_error(logger)
 def fetch_credentials(
     user: User | None,
-    organization_id: int,
+    organization_id: UUID,
     db_session: Session,
 ) -> list[Credential]:
     stmt = select(Credential)
@@ -58,23 +58,22 @@ def fetch_credentials(
     results = db_session.scalars(stmt).unique()
     return list(results.all())
 
-@async_log_sqlalchemy_error(logger)
 async def async_fetch_credentials(
     organization_id: int,
     db_session: AsyncSession,
     user: User | None = None,
 ) -> list[Credential]:
-    stmt = select(Credential)
+    stmt = select(Credential).where(Credential.organization_id == organization_id)
+    
     if user:
         stmt = stmt.where(
-            and_(
-                or_(
-                    Credential.user_id == user.id, 
-                    Credential.user_id.is_(None)
-                ),
-                Credential.organization_id == organization_id
+            or_(
+                Credential.user_id == user.id, 
+                Credential.user_id.is_(None)
             )
         )
+    else:
+        stmt = stmt.where(Credential.user_id.is_(None))
     results = await db_session.scalars(stmt)
     return list(results.unique().all())
 

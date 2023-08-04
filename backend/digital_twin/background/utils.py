@@ -1,5 +1,5 @@
-
 import time
+from uuid import UUID
 from sqlalchemy.orm import Session
 
 from digital_twin.connectors.factory import instantiate_connector, CONNECTOR_MAP
@@ -59,8 +59,16 @@ def should_create_new_indexing(
     time_since_index = current_db_time - last_index.updated_at
     return time_since_index.total_seconds() >= connector.refresh_freq
 
-def create_indexing_jobs(db_session: Session, is_daemon:bool=True) -> None:
-    connectors = fetch_connectors(db_session, disabled_status=False)
+def create_indexing_jobs(
+        db_session: Session, 
+        is_daemon:bool=True, 
+        organization_id:UUID | None=None
+) -> None:
+    connectors = fetch_connectors(
+        db_session, 
+        disabled_status=False,
+        organization_id=organization_id
+    )
     for connector in connectors:
         in_progress_indexing_attempts = get_inprogress_index_attempts(
             connector.id, db_session
@@ -132,8 +140,18 @@ def create_indexing_jobs(db_session: Session, is_daemon:bool=True) -> None:
             )
 
 
-def run_indexing_jobs(db_session: Session) -> None:
+def run_indexing_jobs(db_session: Session, organization_id: UUID | None = None) -> None:
+    
     new_indexing_attempts = get_not_started_index_attempts(db_session)
+
+    if organization_id:
+        connectors = fetch_connectors(
+            db_session, 
+            disabled_status=False,
+            organization_id=organization_id
+        )
+        new_indexing_attempts = [attempt for attempt in new_indexing_attempts if attempt.connector in connectors]
+    
     logger.info(f"Found {len(new_indexing_attempts)} new indexing tasks.")
     for attempt in new_indexing_attempts:
         logger.info(

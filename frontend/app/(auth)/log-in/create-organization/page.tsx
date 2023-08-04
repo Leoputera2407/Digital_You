@@ -22,7 +22,7 @@ const OrgCreationSchema = z.object({
   organizationName: z.string().min(2, {
     message: "Organization name must be at least 2 characters.",
   }),
-  userList: z.string().or(z.literal("")),
+  userList: z.string().optional(),
 });
 
 export default function CreateOrg() {

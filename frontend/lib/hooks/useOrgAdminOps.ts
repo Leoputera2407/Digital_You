@@ -205,7 +205,8 @@ export function useOrgAdminOps(
       const validOrganizationId = verifyValidParamString({
         param: organizationId,
         errorText: "Organization ID is undefined",
-      });      const updateInfo: OrganizationUpdateInfo = {
+      });      
+      const updateInfo: OrganizationUpdateInfo = {
         name: organizationName,
         whitelisted_email_domain: whitelistedEmailDomain,
       };
