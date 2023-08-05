@@ -59,7 +59,6 @@ export default function SlackConnectionPage() {
     useState<SlackIntergrationUserResponse | null>(null);
   const slackErrorPublishedRef = useRef(false);
 
-
   const {
     data: connectorsData,
     isLoading: isConnectorsLoading,
@@ -83,14 +82,13 @@ export default function SlackConnectionPage() {
     }
   }, [data, mutate]);
 
-
   useEffect(() => {
     let url = new URL(window.location.href);
     let searchParams = new URLSearchParams(url.search);
     let connectorType = searchParams.get("connector_type");
     let status = searchParams.get("status");
     let errorMessage = searchParams.get("error_message");
-    
+
     async function refresh() {
       // remove query parameters from URL
       const location = window.location;
@@ -98,11 +96,7 @@ export default function SlackConnectionPage() {
       window.history.pushState({}, "", cleanUrl);
     }
 
-    if (
-      connectorType === "slack" &&
-      status &&
-      errorMessage
-    ) {
+    if (connectorType === "slack" && status && errorMessage) {
       slackErrorPublishedRef.current = true;
       publish({
         variant: "danger",
@@ -146,6 +140,7 @@ export default function SlackConnectionPage() {
   );
 
   const workspaceName = slackConnector?.connector_specific_config.workspace;
+  console.log("fetchedData ", fetchedData)
 
   const content = isLoading ? (
     <div className="flex justify-center items-center">
@@ -189,14 +184,14 @@ export default function SlackConnectionPage() {
     ) : (
       <>
         <h3 className="text-lg font-medium mb-2">Connect to Slack!</h3>
-        <p className="text-sm text-muted-foreground mb-4">
+        <div className="text-sm text-muted-foreground mb-4">
           Your admin has enabled Prosona for{" "}
           <Badge className="bg-orange-200 text-orange-800">
             {workspaceName}
           </Badge>
           <br />
           You're almost there! Click the button below to start using Prosona.
-        </p>
+        </div>
         <AuthButton
           className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded shadow mb-4"
           isLoading={isConnectingToSlack}

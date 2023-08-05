@@ -3,6 +3,7 @@ from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from slack_sdk.web.async_client import AsyncWebClient
+from slack_bolt.async_app import AsyncBoltContext
 
 from digital_twin.config.app_config import (
     NUM_SLACK_CHAT_PAIRS_TO_SHOW,
@@ -21,7 +22,7 @@ from digital_twin.llm.chains.personality_chain import (
     PERSONALITY_MODEL_SETTINGS
 ) 
 from digital_twin.slack_bot.views import create_general_text_command_view, PERSONALITY_TEXT
-from digital_twin.slack_bot.scrape import scrape_and_store_chat_history
+from digital_twin.slack_bot.scrape import scrape_and_store_chat_history_from_dm
 from digital_twin.utils.logging import setup_logger
 
 
@@ -78,7 +79,8 @@ async def async_generate_and_store_user_or_default_conversation_style(
 
 async def async_handle_user_conversation_style(
         db_session: AsyncSession,
-        client: AsyncWebClient, 
+        client: AsyncWebClient,
+        context: AsyncBoltContext, 
         slack_user_id: str, 
         team_id: str,
         view_id: str,
@@ -95,11 +97,12 @@ async def async_handle_user_conversation_style(
                 text=PERSONALITY_TEXT,
             )
             await client.views_update(view_id=view_id, view=personality_view)
-            _, chat_pairs = await scrape_and_store_chat_history(
+            _, chat_pairs = await scrape_and_store_chat_history_from_dm(
                 db_session,
                 slack_user_id,
                 team_id,
-                client
+                client,
+                context,
             )
             conversation_style = await async_generate_and_store_user_or_default_conversation_style(
                 db_session,

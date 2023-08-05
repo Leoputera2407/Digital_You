@@ -94,6 +94,9 @@ const SlackConnector: React.FC<SlackConnectorProps> = ({
       refresh();
     }
   }, []);
+  console.log("slackPublicCredential", slackPublicCredential)
+  console.log("slackConnectorIndexingStatus", slackConnectorIndexingStatus)
+  console.log("slackConnector", slackConnector)
   return (
     <Collapsible
       open={isOpen}

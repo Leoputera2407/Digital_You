@@ -2,17 +2,22 @@ from typing import List, Optional, Dict
 
 from slack_bolt.async_app import AsyncBoltContext
 from slack_sdk.web.async_client import AsyncWebClient
+from digital_twin.slack_bot.defs import ChannelType
 
 async def retrieve_sorted_past_messages(
     client: AsyncWebClient, 
     channel_id: str,
+    context: AsyncBoltContext,
     thread_ts: Optional[str]= None, # Not in thread if None
     limit_scanned_messages: int = 1000,
 ) -> List[Dict[str, str]]:
-    # Join the channel
-    await client.conversations_join(
-        channel=channel_id,
-    )
+    channel_type = context['SLACK_CHANNEL_TYPE']
+     # Join the channel if it's not a direct message
+    if channel_type == ChannelType.PUBLIC_CHANNEL.value:
+        await client.conversations_join(
+            channel=channel_id,
+        )
+
     if thread_ts is not None:
         # Fetch messages from the thread
         messages = await client.conversations_replies(

@@ -297,12 +297,15 @@ def insert_slack_user(
 
 async def find_slack_association_by_team_id(
         session: AsyncSession,
+        prosona_org_id: UUID,
         team_id: str
 ) -> Optional[SlackOrganizationAssociation]:
     result = await session.execute(
-        select(SlackOrganizationAssociation).filter_by(team_id=team_id)
+        select(SlackOrganizationAssociation).filter_by(
+            team_id=team_id, organization_id=prosona_org_id)
     )
     return result.scalars().first()
+
 
 @async_log_sqlalchemy_error(logger)
 async def async_insert_slack_user(
@@ -314,10 +317,12 @@ async def async_insert_slack_user(
     slack_display_name: str,
     slack_user_email: str,
     slack_team_name: str,
+    prosona_org_id: UUID,
 ) -> SlackUser | DatabaseError:
     slack_org_association = await find_slack_association_by_team_id(
-        session,
-        team_id
+        session=session,
+        prosona_org_id=prosona_org_id,
+        team_id=team_id,
     )
 
     if not slack_org_association:

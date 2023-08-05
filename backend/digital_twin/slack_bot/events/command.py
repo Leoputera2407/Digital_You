@@ -40,13 +40,13 @@ logger = setup_logger()
 async def async_gather_preprocess_tasks(
         async_db_session: AsyncSession, 
         client: AsyncWebClient, 
+        context: AsyncBoltContext,
         slack_user_id: str,
         team_id: str, 
         view_id: str,
 ) -> List[str]:
     preprocess_tasks = {
-        "conversation_style": async_handle_user_conversation_style(async_db_session, client, slack_user_id, team_id, view_id),
-        "slack_chat_pairs": async_get_chat_pairs(async_db_session, slack_user_id, team_id),
+        "conversation_style": async_handle_user_conversation_style(async_db_session, client, context, slack_user_id, team_id, view_id),
         "qdrant_collection_name": async_get_qdrant_collection_for_slack(async_db_session, slack_user_id, team_id),
         "typesense_collection_name": async_get_typesense_collection_for_slack(async_db_session, slack_user_id, team_id),
     }
@@ -62,6 +62,7 @@ async def qa_and_response(
     team_id: str,
     view_id: str,
     client: AsyncWebClient,
+    context: AsyncBoltContext,
     slack_user_id: str,
     thread_ts: Optional[str],
     ts: Optional[str],
@@ -84,18 +85,19 @@ async def qa_and_response(
     """
 
     async with get_async_session() as async_db_session:
-        conversation_style, slack_chat_pairs, qdrant_collection_name, typesense_collection_name = await async_gather_preprocess_tasks(
+        conversation_style, qdrant_collection_name, typesense_collection_name = await async_gather_preprocess_tasks(
             async_db_session,
             client,
+            context,
             slack_user_id,
             team_id,
             view_id
         )
+        slack_chat_pairs = await async_get_chat_pairs(async_db_session, slack_user_id, team_id)
 
     is_using_default_conversation_style = False
     if len(slack_chat_pairs) < MIN_CHAT_PAIRS_THRESHOLD:
         is_using_default_conversation_style = True
-    
     ranked_chunks, _ = await async_retrieve_hybrid_reranked_documents(
         query = query,
         user_id = None, # This mean it'll retrieve all public docs (which only that now)
@@ -198,15 +200,22 @@ async def handle_prosona_command(
     await ack()
     slack_user_id = command["user_id"]
     channel_id = command["channel_id"]
+    channel_name = command['channel_name']
     view_id = context["view_id"]
-
     try: 
         # Get the latest message from the channel
         past_messages = await retrieve_sorted_past_messages(
-            client, 
-            channel_id, 
+            client=client, 
+            channel_id=channel_id, 
+            context=context,
             limit_scanned_messages=5,
         )
+        if not past_messages:
+            error_view = create_general_text_command_view(
+                text="Cannot find any messages in the channel. Please try again later!"
+            )
+            await client.views_update(view_id=view_id, view=error_view)
+            return
 
         # NOTE: Due to the async interaction of slack actions, i.e. button clicks,
         # we need to handle the qa in the slack action handler.
@@ -227,6 +236,7 @@ async def handle_prosona_command(
         return
     except Exception as e:
         logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
-        error_view = create_general_text_command_view("text_command_modal", text=ERROR_TEXT)
+        logger.info(f"The view_id is {view_id}")
+        error_view = create_general_text_command_view(text=ERROR_TEXT)
         await client.views_update(view_id=view_id, view=error_view)
         return

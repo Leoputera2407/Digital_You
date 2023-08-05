@@ -57,7 +57,6 @@ from digital_twin.server.model import AuthUrl
 from digital_twin.db.model import SlackUser, SlackIntegration
 from digital_twin.db.engine import get_async_session_generator
 from digital_twin.db.user import (
-    async_get_slack_user, 
     async_get_slack_user_by_email,
     async_get_organization_id_from_team_id,
 )
@@ -69,6 +68,8 @@ from digital_twin.utils.slack import (
     custom_handle_installation,
     format_openai_to_slack,
     format_slack_to_openai,
+    get_slack_channel_type,
+    use_appropriate_token,
 )
 from digital_twin.utils.logging import setup_logger
 
@@ -299,12 +300,23 @@ async def set_user_info(
                     status=200,
                     body=f"<@{slack_user_id}> You're almost there! Please sign in <{WEB_DOMAIN} | here> and integrate to Slack to start using Prosona"
                 ) 
+            channel_type = await get_slack_channel_type(
+                    client=client,
+                    payload=payload,
+                    body=body,
+                    slack_user_token=slack_user.slack_user_token
+                )
+            use_appropriate_token(
+                client=client,
+                channel_type=channel_type,
+                slack_user_token=slack_user.slack_user_token
+            )
             if 'command' in payload:
                 trigger_id = payload['trigger_id']
                 loading_view = create_general_text_command_view(text=LOADING_TEXT)
                 response = await client.views_open(trigger_id=trigger_id, view=loading_view)
                 context["view_id"] = response["view"]["id"]
-            
+            context["SLACK_CHANNEL_TYPE"] = channel_type.value
             context["DB_USER_ID"] = slack_user.user_id
             context["SLACK_USER_TOKEN"] = slack_user.slack_user_token
             context["ORGANIZATION_ID"] = organization_id
@@ -444,6 +456,7 @@ async def handle_selection_button(
     ack: AsyncAck, 
     body: Dict[str, Any],
     client: AsyncWebClient,
+    context: AsyncBoltContext,
 ) -> None:
     await ack()
     view_id = body['container']['view_id']
@@ -473,6 +486,7 @@ async def handle_selection_button(
             team_id=team_id,
             view_id=view_id,
             client=client,
+            context=context,
             thread_ts=thread_ts,
             ts=ts,
         )
@@ -481,6 +495,7 @@ async def handle_selection_button(
         past_messages = await retrieve_sorted_past_messages(
             client, 
             channel_id, 
+            context=context,
             thread_ts=thread_ts,
             limit_scanned_messages=50,
         )

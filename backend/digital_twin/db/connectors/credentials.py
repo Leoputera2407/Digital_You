@@ -67,13 +67,8 @@ async def async_fetch_credentials(
     
     if user:
         stmt = stmt.where(
-            or_(
-                Credential.user_id == user.id, 
-                Credential.user_id.is_(None)
-            )
+            Credential.user_id == user.id,  
         )
-    else:
-        stmt = stmt.where(Credential.user_id.is_(None))
     results = await db_session.scalars(stmt)
     return list(results.unique().all())
 

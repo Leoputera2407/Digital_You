@@ -1,4 +1,5 @@
 import re 
+import json
 import time 
 from uuid import UUID
 from pydantic import BaseModel
@@ -20,6 +21,7 @@ from slack_sdk.oauth.installation_store import Installation
 from slack_bolt.error import BoltError
 from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
 
+from digital_twin.slack_bot.defs import ChannelType
 from digital_twin.config.app_config import WEB_DOMAIN
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
@@ -144,6 +146,7 @@ async def associate_slack_user_with_db_user(
             redirect_url=redirect_url,
         )
 
+
     res = await async_insert_slack_user(
             db_session,
             admin_slack_user_id, 
@@ -153,6 +156,7 @@ async def associate_slack_user_with_db_user(
             slack_display_name=slack_display_name,
             slack_user_email=slack_user_email,
             slack_team_name=installation.team_name,
+            prosona_org_id=prosona_org_id,
     )
 
     if isinstance(res, SlackUserAlreadyExistsError) \
@@ -522,3 +526,52 @@ def format_openai_to_slack(content: str) -> str:
     content = markdown_to_slack(content)
 
     return content
+
+async def get_slack_channel_type(
+        client: AsyncWebClient, 
+        payload: Dict[str, Any], 
+        body: Dict[str, Any], 
+        slack_user_token: str,
+) -> ChannelType:
+    # Check if it's a button action and read channel_id from private_metadata
+    if body.get('type') == 'block_actions' or body.get('type') == 'view_submission':
+        private_metadata = body.get('view', {}).get('private_metadata', '{}')
+        metadata = json.loads(private_metadata)
+        channel_id = metadata.get('channel_id')
+    else:
+        channel_id = payload.get('channel_id')
+
+    if channel_id is None:
+        raise ValueError("channel_id not found. Either a non-button or non-command is called")
+    
+    # Retrieve the bot token from the client
+    bot_token = client.token
+    client.token = slack_user_token
+
+    channel_info = await client.conversations_info(channel=channel_id)
+
+    # Determine the channel type
+    if channel_info["channel"]["is_im"]:
+        channel_type = ChannelType.DM
+    elif channel_info["channel"]["is_mpim"]:
+        channel_type = ChannelType.GROUP_DM
+    elif channel_info["channel"]["is_private"]:
+        channel_type = ChannelType.PRIVATE_CHANNEL
+    elif channel_info["channel"]["is_channel"]:
+        channel_type = ChannelType.PUBLIC_CHANNEL
+    
+    # Switch back to bot_token
+    client.token = bot_token
+
+    return channel_type
+
+def use_appropriate_token(
+    client: AsyncWebClient,
+    channel_type: ChannelType,
+    slack_user_token: str,
+) -> None:
+    if channel_type == ChannelType.DM \
+        or channel_type == ChannelType.GROUP_DM \
+        or channel_type == ChannelType.PRIVATE_CHANNEL:
+        client.token = slack_user_token
+    return

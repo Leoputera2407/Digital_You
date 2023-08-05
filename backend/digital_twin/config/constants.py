@@ -17,20 +17,29 @@ PUBLIC_DOC_PAT = "PUBLIC"
 
 
 SLACK_APP_PERMISSIONS = [
-            "app_mentions:read",
-            "channels:history",
-            "channels:join",
-            "channels:read",
-            "chat:write",
-            "chat:write.customize",
-            "commands",
-            "users.profile:read",
-            "users:read",
-            "groups:read",
-            "users:read.email",
-        ]
+    "app_mentions:read",
+    "channels:history",
+    "channels:join",
+    "channels:read",
+    "chat:write",
+    "chat:write.customize",
+    "commands",
+    "users.profile:read",
+    "users:read",
+    "groups:read",
+    "users:read.email",
+]
 SLACK_USER_SCOPES = [
-    "chat:write"
+    "chat:write",
+    "channels:read",
+    "groups:history",
+    "groups:read",
+    "im:history",
+    "im:read",
+    "mpim:history",
+    "mpim:read",
+    "users:read",
+    "users:read.email",
 ]
 
 DEFAULT_SLACK_CONVERSATION_STYLE="""
