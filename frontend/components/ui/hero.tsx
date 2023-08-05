@@ -75,7 +75,7 @@ const hero_new = (): JSX.Element => {
           clipPath: "inset(0 0 0 0)"
         }}
         className="rounded-2xl max-w-screen-lg shadow-lg dark:shadow-white/25 border dark:border-slate/25 w-full bg-white dark:bg-black"
-        src="https://user-images.githubusercontent.com/34851861/253835923-d98e8240-2621-4d8e-b195-3b9fea5e7608.mp4"
+        src="https://user-images.githubusercontent.com/34851861/258572913-7944c2c6-ae68-4f77-abea-260c9624e838.mp4"
         autoPlay
         muted
         loop
