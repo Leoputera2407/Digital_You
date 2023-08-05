@@ -21,7 +21,7 @@ export default function AboutUs() {
           { /* Section header */}
           <div className="max-w-3xl mx-auto text-center pb-12 md:pb-20">
             <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Who we are</h2>
-            <p className="text-lg text-slate-400">We've set out to solve this problem as it's one of our greatest pain points in the workplace. 
+            <p className="text-lg text-white-400">We've set out to solve this problem as it's one of our greatest pain points in the workplace. 
             We soon realized this personal solution can be scaled to all knowledge workers.
               Our team combines Data Science and Machine Learning experience from leading companies such as  Block, Affirm and Afterpay.
             </p>

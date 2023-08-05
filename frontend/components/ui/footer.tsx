@@ -3,7 +3,7 @@ import Logo from './logo'
 export default function Footer() {
   return (
     <footer className="w-full">
-      <div className="max-w-6xl pb-5 mx-auto px-4 sm:px-6">
+      <div className="max-w-6xl pb-5 pt-5 mx-auto px-4 sm:px-6">
           {/* 1st block */}
           <div className="sm:col-span-12 lg:col-span-4 order-1 lg:order-none">
             <div className="h-full flex flex-col justify-between items-center">
@@ -12,7 +12,7 @@ export default function Footer() {
                   <Logo />
                 </div>
               {/* Social links */}
-              <ul className="flex justify-center">
+              <ul className="flex justify-center pb-2 pt-1">
                 <li>
                   <a className="flex justify-center items-center text-purple-500 hover:text-purple-400 transition duration-150 ease-in-out" href="https://twitter.com/ProsonaAi" aria-label="Twitter">
                     <svg className="w-8 h-8 fill-current" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -21,9 +21,9 @@ export default function Footer() {
                   </a>
                 </li>
               </ul>
-                <div className="text-sm text-slate-300">© Prosona.ai 
-                <span className="text-slate-500">-</span>  
-                <a> All rights reserved. </a> 
+                <div className="text-sm text-slate-300">© Prosona.ai
+                <span className="text-slate-500"> -</span>  
+                <a> All rights reserved </a> 
                 <span className="text-slate-500">-</span>
                     <a href="/terms"> Terms and Conditions </a> 
                     <span className="text-slate-500">-</span>

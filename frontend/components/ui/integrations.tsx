@@ -89,7 +89,7 @@ export default function Integrations() {
           <div className="relative max-w-xs sm:max-w-md mx-auto md:max-w-6xl grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6 mt-10 md:mt-20">
             {/* Top vertical line */}
             <div className="hidden md:block absolute w-0.5 h-8 -top-16 -mt-2 bg-slate-800 left-1/2 -translate-x-1/2" aria-hidden="true" />
-            <div className="relative flex justify-center items-center bg-slate-800 aspect-square p-2" data-aos="fade-up">
+            <div className="relative flex justify-center items-center bg-slate-800 rounded-2xl aspect-square p-2" data-aos="fade-up">
               {/* Inner lines */}
               <div className="hidden md:block absolute inset-0 w-[calc(100%+24px)] h-6 -top-10 left-1/2 -translate-x-1/2" aria-hidden="true">
                 <div className="absolute w-0.5 h-full bg-slate-800 left-1/2 -translate-x-1/2" />
@@ -101,7 +101,7 @@ export default function Integrations() {
                 <Image src={Gdrive} width={46} height={46} alt="Icon 01" />
               </div>
             </div>
-            <div className="relative flex justify-center items-center bg-slate-800 aspect-square p-2" data-aos="fade-up" data-aos-delay="100">
+            <div className="relative flex justify-center items-center bg-slate-800 rounded-2xl aspect-square p-2" data-aos="fade-up" data-aos-delay="100">
               {/* Inner lines */}
               <div className="hidden md:block absolute inset-0 w-[calc(100%+24px)] h-6 -top-10 left-1/2 -translate-x-1/2" aria-hidden="true">
                 <div className="absolute w-0.5 h-full bg-slate-800 left-1/2 -translate-x-1/2" />
@@ -113,7 +113,7 @@ export default function Integrations() {
                 <Image src={Notion} width={46} height={46} alt="Icon 02" />
               </div>
             </div>
-            <div className="relative flex justify-center items-center bg-slate-800 aspect-square p-2" data-aos="fade-up" data-aos-delay="200">
+            <div className="relative flex justify-center items-center bg-slate-800 rounded-2xl aspect-square p-2" data-aos="fade-up" data-aos-delay="200">
               {/* Inner lines */}
               <div className="hidden md:block absolute inset-0 w-[calc(100%+24px)] h-6 -top-10 left-1/2 -translate-x-1/2" aria-hidden="true">
                 <div className="absolute w-0.5 h-full bg-slate-800 left-1/2 -translate-x-1/2" />
@@ -125,7 +125,7 @@ export default function Integrations() {
                 <Image src={Confluence} width={46} height={46} alt="Icon 03" />
               </div>
             </div>
-            <div className="relative flex justify-center items-center bg-slate-800 aspect-square p-2" data-aos="fade-up" data-aos-delay="300">
+            <div className="relative flex justify-center items-center bg-slate-800 rounded-2xl aspect-square p-2" data-aos="fade-up" data-aos-delay="300">
               {/* Inner lines */}
               <div className="hidden md:block absolute inset-0 w-[calc(100%+24px)] h-6 -top-10 left-1/2 -translate-x-1/2" aria-hidden="true">
                 <div className="absolute w-0.5 h-full bg-slate-800 left-1/2 -translate-x-1/2" />
@@ -137,7 +137,7 @@ export default function Integrations() {
                 <Image src={Github} width={46} height={46} alt="Icon 04" />
               </div>
             </div>
-            <div className="relative flex justify-center items-center bg-slate-800 aspect-square p-2" data-aos="fade-up" data-aos-delay="400">
+            <div className="relative flex justify-center items-center bg-slate-800 rounded-2xl aspect-square p-2" data-aos="fade-up" data-aos-delay="400">
               {/* Inner lines */}
               <div className="hidden md:block absolute inset-0 w-[calc(100%+24px)] h-6 -top-10 left-1/2 -translate-x-1/2" aria-hidden="true">
                 <div className="absolute w-0.5 h-full bg-slate-800 left-1/2 -translate-x-1/2" />
@@ -149,7 +149,7 @@ export default function Integrations() {
                 <Image src={Slack} width={46} height={46} alt="Icon 05" />
               </div>
             </div>
-            <div className="relative flex justify-center items-center bg-slate-800 aspect-square p-2" data-aos="fade-up" data-aos-delay="500">
+            <div className="relative flex justify-center items-center bg-slate-800 rounded-2xl aspect-square p-2" data-aos="fade-up" data-aos-delay="500">
               {/* Inner lines */}
               <div className="hidden md:block absolute inset-0 w-[calc(100%+24px)] h-6 -top-10 left-1/2 -translate-x-1/2" aria-hidden="true">
                 <div className="absolute w-0.5 h-full bg-slate-800 left-1/2 -translate-x-1/2" />

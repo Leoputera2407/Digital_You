@@ -53,7 +53,7 @@ const hero_new = (): JSX.Element => {
         <h1 className="text-5xl sm:text-6xl font-bold max-w-lg sm:max-w-xl">
         Empowering Experts, Powering Knowledge. <span className="text-primary">Prosona.</span>
         </h1>
-        <p className="text-base max-w-sm text-gray-500 mb-5 sm:mb-5">
+        <p className="text-base max-w-sm text-white-500 mb-5 sm:mb-5">
         Your co-pilot for intelligent responses in Slack.
         </p>
 
@@ -74,7 +74,7 @@ const hero_new = (): JSX.Element => {
           objectPosition: "center", 
           clipPath: "inset(0 0 0 0)"
         }}
-        className="rounded-md max-w-screen-lg shadow-lg dark:shadow-white/25 border dark:border-white/25 w-full bg-white dark:bg-black"
+        className="rounded-2xl max-w-screen-lg shadow-lg dark:shadow-white/25 border dark:border-slate/25 w-full bg-white dark:bg-black"
         src="https://user-images.githubusercontent.com/34851861/253835923-d98e8240-2621-4d8e-b195-3b9fea5e7608.mp4"
         autoPlay
         muted
