@@ -5,7 +5,7 @@ export const metadata = {
 
 import AboutUs from '@/components/ui/about-us'
 import Cta from '@/components/ui/cta'
-import Features02 from '@/components/ui/features-02'
+import Features from '@/components/ui/features'
 import Hero from '@/components/ui/hero'
 import Integrations from '@/components/ui/integrations'
 import Testimonials from '@/components/ui/testimonials'
@@ -14,7 +14,7 @@ export default function Home() {
   return (
     <>
       <Hero />
-       <Features02 />
+       <Features />
        <Integrations />
       <AboutUs />
       <Testimonials />

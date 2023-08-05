@@ -7,9 +7,9 @@ import "./css/style.css";
 import PostSignInOrganizationCheck from "@/components/ui/postSignIn";
 import AuthProvider from "@/lib/context/authProvider";
 import { OrganizationProvider } from "@/lib/context/orgProvider";
+import { PHProvider } from "@/lib/context/postHogProvider";
 import { ToastProvider } from "../components/ui/Toast";
 
-import { PHProvider } from './providers';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -37,22 +37,22 @@ const RootLayout = async ({
   return (
     <html lang="en">
       <PHProvider>
-      <body
-        className={`${inter.variable} font-inter antialiased bg-slate-900 text-slate-100 tracking-tight`}
-      >
-        <AuthProvider session={session}>
-          <PostSignInOrganizationCheck>
-            <OrganizationProvider>
-              <ToastProvider>
-                <div className="flex flex-col min-h-screen overflow-hidden">
-                  {children}
-                </div>
-              </ToastProvider>
-            </OrganizationProvider>
-          </PostSignInOrganizationCheck>
-          <Analytics />
-        </AuthProvider>
-      </body>
+        <body
+          className={`${inter.variable} font-inter antialiased bg-slate-900 text-slate-100 tracking-tight`}
+        >
+          <AuthProvider session={session}>
+            <PostSignInOrganizationCheck>
+              <OrganizationProvider>
+                <ToastProvider>
+                  <div className="flex flex-col min-h-screen overflow-hidden">
+                    {children}
+                  </div>
+                </ToastProvider>
+              </OrganizationProvider>
+            </PostSignInOrganizationCheck>
+            <Analytics />
+          </AuthProvider>
+        </body>
       </PHProvider>
     </html>
   );
