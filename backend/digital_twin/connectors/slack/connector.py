@@ -22,7 +22,11 @@ from digital_twin.connectors.slack.utils import (
     make_slack_api_rate_limited,
 )
 
-from digital_twin.connectors.model import Document, Section
+from digital_twin.connectors.model import (
+    Document, 
+    Section,
+    ConnectorMissingCredentialError,
+)
 
 from digital_twin.connectors.slack.utils import get_message_link
 from digital_twin.utils.logging import setup_logger
@@ -51,10 +55,12 @@ def get_channel_info(client: WebClient, channel_id: str) -> ChannelType:
     ]
 
 
-def get_channels(client: WebClient) -> list[ChannelType]:
+def get_channels(client: WebClient, exclude_archived: bool = True) -> list[ChannelType]:
     """Get all channels in the workspace"""
     channels: list[dict[str, Any]] = []
-    for result in _make_slack_api_call(client.conversations_list):
+    for result in _make_slack_api_call(
+        client.conversations_list, exclude_archived=exclude_archived
+    ):
         channels.extend(result["channels"])
     return channels
 
@@ -218,7 +224,7 @@ class SlackLoadConnector(LoadConnector):
                                 workspace=workspace,
                                 channel_id=channel["id"],
                             ),
-                            text=format_slack_to_openai(["text"]),
+                            text=format_slack_to_openai(slack_event["text"]),
                         )
                     ],
                     source=matching_doc.source,
@@ -285,17 +291,16 @@ class SlackPollConnector(PollConnector):
         self.client: WebClient | None = None
 
     def load_credentials(self, credentials: dict[str, Any]) -> dict[str, Any] | None:
-        bot_token = credentials["slack_bot_token"]
-        self.client = WebClient(token=bot_token)
+        slack_token = credentials["slack_token"]
+        self.client = WebClient(token=slack_token)
         return None
 
     def poll_source(
         self, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch
     ) -> GenerateDocumentsOutput:
         if self.client is None:
-            raise PermissionError(
-                "Slack Client is not set up, was load_credentials called?"
-            )
+            raise ConnectorMissingCredentialError("Slack")
+
 
         documents: list[Document] = []
         for document in get_all_docs(

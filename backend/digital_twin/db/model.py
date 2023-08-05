@@ -293,9 +293,6 @@ class IndexAttempt(Base):
         nullable=True,
     )
     status: Mapped[IndexingStatus] = mapped_column(Enum(IndexingStatus))
-    document_ids: Mapped[list[str] | None] = mapped_column(
-        postgresql.ARRAY(String()), default=None
-    )  # only filled if status = "complete"
     error_msg: Mapped[str | None] = mapped_column(
         String(), default=None
     )  # only filled if status = "failed"
@@ -321,7 +318,6 @@ class IndexAttempt(Base):
             f"<IndexAttempt(id={self.id!r}, "
             f"connector_id={self.connector_id!r}, "
             f"status={self.status!r}, "
-            f"document_ids={self.document_ids!r}, "
             f"error_msg={self.error_msg!r})>"
             f"created_at={self.created_at!r}, "
             f"updated_at={self.updated_at!r}, "

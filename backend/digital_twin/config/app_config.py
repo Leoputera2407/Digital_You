@@ -106,6 +106,24 @@ NOTION_CLIENT_SECRET=os.environ.get("NOTION_CLIENT_SECRET", "")
 LINEAR_CLIENT_ID=os.environ.get("LINEAR_CLIENT_ID", "")
 LINEAR_CLIENT_SECRET=os.environ.get("LINEAR_CLIENT_SECRET", "")
 
+#####
+# Connector Configs
+#####
+GOOGLE_DRIVE_INCLUDE_SHARED = False
+FILE_CONNECTOR_TMP_STORAGE_PATH = os.environ.get(
+    "FILE_CONNECTOR_TMP_STORAGE_PATH", "/home/file_connector_storage"
+)
+# TODO these should be available for frontend configuration, via advanced options expandable
+WEB_CONNECTOR_IGNORED_CLASSES = os.environ.get(
+    "WEB_CONNECTOR_IGNORED_CLASSES", "sidebar,header,footer"
+).split(",")
+WEB_CONNECTOR_IGNORED_ELEMENTS = os.environ.get(
+    "WEB_CONNECTOR_IGNORED_ELEMENTS", "nav,header,footer,meta,script,style,symbol,aside"
+).split(",")
+WEB_CONNECTOR_OAUTH_CLIENT_ID = os.environ.get("WEB_CONNECTOR_OAUTH_CLIENT_ID")
+WEB_CONNECTOR_OAUTH_CLIENT_SECRET = os.environ.get("WEB_CONNECTOR_OAUTH_CLIENT_SECRET")
+WEB_CONNECTOR_OAUTH_TOKEN_URL = os.environ.get("WEB_CONNECTOR_OAUTH_TOKEN_URL")
+
 #####################
 # QA Config         #
 #####################
@@ -139,10 +157,6 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "your-gmail-password")
 #####################
 COHERE_KEY=os.environ.get("COHERE_KEY", "")
 
-#####################
-# Connector Configs #
-#####################
-GOOGLE_DRIVE_INCLUDE_SHARED = True
 
 #####################
 # PromptLayer      #

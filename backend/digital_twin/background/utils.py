@@ -1,5 +1,6 @@
 import time
 from uuid import UUID
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from digital_twin.connectors.factory import instantiate_connector, CONNECTOR_MAP
@@ -30,7 +31,7 @@ from digital_twin.db.model import Connector, IndexAttempt, IndexingStatus
 from digital_twin.db.user import get_qdrant_collection_by_user_id, get_typesense_collection_by_user_id
 from digital_twin.indexdb.qdrant.store import QdrantVectorDB
 from digital_twin.indexdb.typesense.store import TypesenseIndex
-from digital_twin.utils.indexing_pipeline import build_indexing_pipeline
+from digital_twin.db.indexing_pipeline import build_indexing_pipeline
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
@@ -159,6 +160,14 @@ def run_indexing_jobs(db_session: Session, organization_id: UUID | None = None) 
             f"with config: '{attempt.connector.connector_specific_config}', and "
             f"with credentials: '{[c.credential_id for c in attempt.connector.credentials]}'"
         )
+        run_time = time.time()
+        run_time_str = datetime.utcfromtimestamp(run_time).strftime("%Y-%m-%d %H:%M:%S")
+        logger.info(f"Connector Starting UTC Time: {run_time_str}")
+
+        # "official" timestamp for this run
+        # used for setting time bounds when fetching updates from apps and
+        # is stored in the DB as the last successful run time if this run succeeds
+        run_dt = datetime.fromtimestamp(run_time, tz=timezone.utc)
         mark_attempt_in_progress(attempt, db_session)
 
         db_connector = attempt.connector
@@ -228,18 +237,20 @@ def run_indexing_jobs(db_session: Session, organization_id: UUID | None = None) 
             else:
                 # Event types cannot be handled by a background type, leave these untouched
                 continue
-
-            document_ids: list[str] = []
+            document_count = 0
+            chunk_count = 0
             for doc_batch in doc_batch_generator:
                 index_user_id = (
                     None if db_credential.public_doc else db_credential.user_id
                 )
-                net_doc_change += org_indexing_pipeline(
+                new_docs, total_batch_chunks = org_indexing_pipeline(
                     documents=doc_batch, user_id=index_user_id
                 )
-                document_ids.extend([doc.id for doc in doc_batch])
+                net_doc_change += new_docs
+                chunk_count += total_batch_chunks
+                document_count += len(doc_batch)
 
-            mark_attempt_succeeded(attempt, document_ids, db_session)
+            mark_attempt_succeeded(attempt, db_session)
             backend_update_connector_credential_pair(
                 connector_id=db_connector.id,
                 credential_id=db_credential.id,
@@ -247,11 +258,17 @@ def run_indexing_jobs(db_session: Session, organization_id: UUID | None = None) 
                 net_docs=net_doc_change,
                 db_session=db_session,
             )
-
-            logger.info(f"Indexed {len(document_ids)} documents")
-           
+            logger.info(
+                f"Indexed or updated {document_count} total documents for a total of {chunk_count} chunks"
+            )
+            logger.info(
+                f"Connector successfully finished, elapsed time: {time.time() - run_time} seconds"
+            )           
         except Exception as e:
             logger.exception(f"Indexing job with id {attempt.id} failed due to {e}")
+            logger.info(
+                f"Failed connector elapsed time: {time.time() - run_time} seconds"
+            )
             mark_attempt_failed(attempt, db_session, failure_reason=str(e))
             backend_update_connector_credential_pair(
                 connector_id=db_connector.id,

@@ -1,12 +1,17 @@
 repos:
--   repo: https://github.com/psf/black
+  - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
     - id: black
       language_version: python3.11
 
--   repo: https://github.com/asottile/reorder_python_imports
+  - repo: https://github.com/asottile/reorder_python_imports
     rev: v3.9.0
     hooks:
     - id: reorder-python-imports
-      args: ['--py311-plus']
+      args: ['--py311-plus', '--application-directories=backend/']
+      # need to ignore alembic files, since reorder-python-imports gets confused
+      # and thinks that alembic is a local package since there is a folder
+      # in the backend directory called `alembic`
+      exclude: ^backend/alembic/
+

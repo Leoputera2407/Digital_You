@@ -1,14 +1,29 @@
 import io
-from collections import Counter
-from typing import Any, cast
-from datetime import datetime
-from urllib.parse import urljoin, urlparse
-from playwright.sync_api import sync_playwright
-from PyPDF2 import PdfReader
-
+import re
+import bs4
 import requests
+from typing import Any, Tuple, cast
+from datetime import datetime
 from bs4 import BeautifulSoup
-from digital_twin.config.app_config import INDEX_BATCH_SIZE
+from urllib.parse import urljoin, urlparse
+from oauthlib.oauth2 import BackendApplicationClient
+from playwright.sync_api import (
+    BrowserContext, 
+    Playwright, 
+    sync_playwright,
+)
+from PyPDF2 import PdfReader
+from requests_oauthlib import OAuth2Session  # type:ignore
+
+from digital_twin.config.app_config import (
+    INDEX_BATCH_SIZE,
+    WEB_CONNECTOR_IGNORED_CLASSES,
+    WEB_CONNECTOR_IGNORED_ELEMENTS,
+    WEB_CONNECTOR_OAUTH_CLIENT_ID,
+    WEB_CONNECTOR_OAUTH_CLIENT_SECRET,
+    WEB_CONNECTOR_OAUTH_TOKEN_URL,
+)
+
 from digital_twin.config.constants import DocumentSource, HTML_SEPARATOR
 from digital_twin.connectors.interfaces import GenerateDocumentsOutput, LoadConnector
 from digital_twin.connectors.model import Document, Section
@@ -17,13 +32,13 @@ from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 
-
 def is_valid_url(url: str) -> bool:
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
     except ValueError:
         return False
+
 
 def get_internal_links(
     base_url: str, url: str, soup: BeautifulSoup, should_ignore_pound: bool = True
@@ -39,14 +54,92 @@ def get_internal_links(
 
         if not is_valid_url(href):
             # Relative path handling
-            if url[-1] != "/":
-                url += "/"
             href = urljoin(url, href)
 
         if urlparse(href).netloc == urlparse(url).netloc and base_url in href:
             internal_links.add(href)
     return internal_links
 
+
+def strip_excessive_newlines_and_spaces(document: str) -> str:
+    # collapse repeated spaces into one
+    document = re.sub(r" +", " ", document)
+    # remove trailing spaces
+    document = re.sub(r" +[\n\r]", "\n", document)
+    # remove repeated newlines
+    document = re.sub(r"[\n\r]+", "\n", document)
+    return document.strip()
+
+
+def strip_newlines(document: str) -> str:
+    # HTML might contain newlines which are just whitespaces to a browser
+    return re.sub(r"[\n\r]+", " ", document)
+
+
+def format_document(document: BeautifulSoup) -> str:
+    """Format html to a flat text document.
+
+    The following goals:
+    - Newlines from within the HTML are removed (as browser would ignore them as well).
+    - Repeated newlines/spaces are removed (as browsers would ignore them).
+    - Newlines only before and after headlines and paragraphs or when explicit (br or pre tag)
+    - Table columns/rows are separated by newline
+    - List elements are separated by newline and start with a hyphen
+    """
+    text = ""
+    list_element_start = False
+    verbatim_output = 0
+    for e in document.descendants:
+        verbatim_output -= 1
+        if isinstance(e, bs4.element.NavigableString):
+            if isinstance(e, (bs4.element.Comment, bs4.element.Doctype)):
+                continue
+            element_text = e.text
+            if element_text:
+                if verbatim_output > 0:
+                    text += element_text
+                else:
+                    text += strip_newlines(element_text)
+                list_element_start = False
+        elif isinstance(e, bs4.element.Tag):
+            if e.name in ["p", "div"]:
+                if not list_element_start:
+                    text += "\n"
+            elif e.name in ["br", "h1", "h2", "h3", "h4", "tr", "th", "td"]:
+                text += "\n"
+                list_element_start = False
+            elif e.name == "li":
+                text += "\n- "
+                list_element_start = True
+            elif e.name == "pre":
+                if verbatim_output <= 0:
+                    verbatim_output = len(list(e.childGenerator()))
+    return strip_excessive_newlines_and_spaces(text)
+
+
+def start_playwright() -> Tuple[Playwright, BrowserContext]:
+    playwright = sync_playwright().start()
+    browser = playwright.chromium.launch(headless=True)
+
+    context = browser.new_context()
+
+    if (
+        WEB_CONNECTOR_OAUTH_CLIENT_ID
+        and WEB_CONNECTOR_OAUTH_CLIENT_SECRET
+        and WEB_CONNECTOR_OAUTH_TOKEN_URL
+    ):
+        client = BackendApplicationClient(client_id=WEB_CONNECTOR_OAUTH_CLIENT_ID)
+        oauth = OAuth2Session(client=client)
+        token = oauth.fetch_token(
+            token_url=WEB_CONNECTOR_OAUTH_TOKEN_URL,
+            client_id=WEB_CONNECTOR_OAUTH_CLIENT_ID,
+            client_secret=WEB_CONNECTOR_OAUTH_CLIENT_SECRET,
+        )
+        context.set_extra_http_headers(
+            {"Authorization": "Bearer {}".format(token["access_token"])}
+        )
+
+    return playwright, context
 
 class WebConnector(LoadConnector):
     def __init__(
@@ -71,26 +164,21 @@ class WebConnector(LoadConnector):
         to_visit: list[str] = [self.base_url]
         doc_batch: list[Document] = []
 
-        # Edge case handling user provides HTML without terminating slash (prevents duplicate)
-        # Most sites either redirect no slash to slash or serve same content
-        if self.base_url[-1] != "/":
-            visited_links.add(self.base_url + "/")
-
-        restart_playwright = True
+        playwright, context = start_playwright()
+        restart_playwright = False
         while to_visit:
             current_url = to_visit.pop()
             if current_url in visited_links:
                 continue
             visited_links.add(current_url)
-            logger.info(f"Indexing {current_url}")
+
+            logger.info(f"Visiting {current_url}")
 
             try:
                 current_visit_time = datetime.now().strftime("%B %d, %Y, %H:%M:%S")
 
                 if restart_playwright:
-                    playwright = sync_playwright().start()
-                    browser = playwright.chromium.launch(headless=True)
-                    context = browser.new_context()
+                    playwright, context = start_playwright()
                     restart_playwright = False
 
                 if current_url.split(".")[-1] == "pdf":
@@ -107,7 +195,7 @@ class WebConnector(LoadConnector):
                             sections=[Section(link=current_url, text=page_text)],
                             source=DocumentSource.WEB,
                             semantic_identifier=current_url.split(".")[-1],
-                            metadata={"last_visited": current_visit_time},
+                            metadata={"Time Visited": current_visit_time},
                         )
                     )
                     continue
@@ -135,34 +223,28 @@ class WebConnector(LoadConnector):
                 title = None
                 if title_tag and title_tag.text:
                     title = title_tag.text
+                    title_tag.extract()
 
-                # Heuristics based cleaning
-                for undesired_div in ["sidebar", "header", "footer"]:
+                # Heuristics based cleaning of elements based on css classes
+                for undesired_element in WEB_CONNECTOR_IGNORED_CLASSES:
                     [
                         tag.extract()
                         for tag in soup.find_all(
-                            "div", class_=lambda x: x and undesired_div in x.split()
+                            class_=lambda x: x and undesired_element in x.split()
                         )
                     ]
 
-                for undesired_tag in [
-                    "nav",
-                    "header",
-                    "footer",
-                    "meta",
-                    "script",
-                    "style",
-                ]:
+                for undesired_tag in WEB_CONNECTOR_IGNORED_ELEMENTS:
                     [tag.extract() for tag in soup.find_all(undesired_tag)]
 
-                page_text = soup.get_text(HTML_SEPARATOR)
+                page_text = format_document(soup)
 
                 doc_batch.append(
                     Document(
                         id=current_url,
                         sections=[Section(link=current_url, text=page_text)],
                         source=DocumentSource.WEB,
-                        semantic_identifier=title,
+                        semantic_identifier=title or current_url,
                         metadata={},
                     )
                 )
