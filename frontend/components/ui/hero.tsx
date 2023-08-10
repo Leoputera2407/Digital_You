@@ -51,10 +51,10 @@ const hero_new = (): JSX.Element => {
         className="top-24 -z-0 flex flex-col gap-2 items-center justify-center pt-24"
       >
         <h1 className="text-5xl sm:text-6xl font-bold max-w-lg sm:max-w-xl">
-        Blaze through your Slack and email inbox with <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-100 to-slate-200/60">Prosona.</span>
+        Breeze through your Slack and email inbox with <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-100 to-slate-200/60">Prosona.</span>
         </h1>
         <p className="text-base max-w-sm text-white-500 mb-5 sm:mb-5">
-        Your workplace co-pilot that embodies your context and tone.
+        Crafting precise responses, so you don't have to.
         </p>
 
         <div>
