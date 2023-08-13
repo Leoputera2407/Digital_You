@@ -290,9 +290,10 @@ async def set_user_info(
                 raise ValueError(f"Cannot find email for slack user")
             slack_user: SlackUser = await async_get_slack_user_by_email(async_db_session, slack_user_email)
             if slack_user is None:
+                normalized_domain = WEB_DOMAIN.rstrip("/")
                 return BoltResponse(
                     status=200,
-                    body=f"<@{slack_user_id}> You're almost there! Please sign in <{WEB_DOMAIN} | here> and integrate to Slack to start using Prosona",
+                    body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
                 )
             channel_type = await get_slack_channel_type(
                 client=client,

@@ -18,7 +18,8 @@ def send_user_invitation_email(workspace_name: str, invitee_email: str, token: s
     # TODO: We'll do proper invitation flow later, for now just send them to the landing page
     # link = f"{WEB_DOMAIN}/accept-invitation?token={token}"
     # body = MIMEText(f"Click the following link to accept your invitation: {link}")
-    link = f"{WEB_DOMAIN}"
+    normalized_domain = WEB_DOMAIN.rstrip("/")
+    link = f"{normalized_domain}"
     body = MIMEText(f"Sign up with your work email here: {link}")
     msg.attach(body)
 

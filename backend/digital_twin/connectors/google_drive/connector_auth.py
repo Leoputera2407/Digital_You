@@ -39,7 +39,8 @@ SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
 
 def _build_frontend_google_drive_redirect() -> str:
-    return f"{WEB_DOMAIN}/settings/admin/connectors/google-drive/auth/callback"
+    normalized_domain = WEB_DOMAIN.rstrip("/")
+    return f"{normalized_domain}/settings/admin/connectors/google-drive/auth/callback"
 
 
 def get_drive_tokens(

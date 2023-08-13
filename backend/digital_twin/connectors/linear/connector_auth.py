@@ -21,7 +21,8 @@ API_BASE_URL = "https://api.linear.app"
 
 
 def _build_frontend_linear_redirect() -> str:
-    return f"{WEB_DOMAIN}/settings/admin/connectors/linear/auth/callback"
+    normalized_domain = WEB_DOMAIN.rstrip("/")
+    return f"{normalized_domain}/settings/admin/connectors/linear/auth/callback"
 
 
 async def async_get_auth_url(credential_id: int, db_session: AsyncSession) -> str:

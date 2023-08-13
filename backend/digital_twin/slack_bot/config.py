@@ -8,7 +8,7 @@ from slack_sdk.oauth.installation_store.async_installation_store import AsyncIns
 from slack_sdk.oauth.state_store.async_state_store import AsyncOAuthStateStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.config.app_config import SLACK_CLIENT_ID, SLACK_CLIENT_SECRET
+from digital_twin.config.app_config import SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, WEB_DOMAIN
 from digital_twin.config.constants import SLACK_APP_PERMISSIONS, SLACK_USER_SCOPES
 from digital_twin.db.async_slack_bot import (
     async_consume_slack_state,
@@ -160,6 +160,6 @@ def get_oauth_settings():
             expiration_seconds=120,
             logger=logger,
         ),
-        success_url="{WEB_DOMAIN}/slack/settings",
+        success_url=f"{WEB_DOMAIN.rstrip('/')}/slack/settings",
         logger=logger,
     )

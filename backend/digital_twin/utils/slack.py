@@ -262,7 +262,8 @@ async def custom_handle_slack_oauth_redirect(
     """
     # Steps below are copied over from https://github.com/slackapi/bolt-python/blob/3e5f012767d37eaa01fb0ea55bd6ae364ecf320b/slack_bolt/oauth/async_oauth_flow.py#L215
     # Reason why we have to copy is because we have a custom flow to store and associate installer to admin person.
-    default_redirect_url = f"{WEB_DOMAIN}/settings"
+    normalized_domain = WEB_DOMAIN.rstrip("/")
+    default_redirect_url = f"{normalized_domain}/settings"
     bolt_request: AsyncBoltRequest = to_async_bolt_request(
         req=request,
         body=await request.body(),
@@ -291,7 +292,7 @@ async def custom_handle_slack_oauth_redirect(
             db_session,
         )  # type: ignore
         if slack_integration_type == SlackIntegration.CONNECTOR:
-            default_redirect_url = f"{WEB_DOMAIN}/settings/admin/connectors"
+            default_redirect_url = f"{normalized_domain}/settings/admin/connectors"
         if db_state is None or db_state != state:
             return SlackResponseStatus(
                 success=False,
