@@ -65,6 +65,8 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
     "testing"
   );
   const [testingText, setTestingText] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState<bool>(false);
+
   const { axiosInstance } = useAxios();
 
   const { register, handleSubmit } = useForm<FormValues>();
@@ -105,48 +107,76 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
     }
   };
 
+  const onSubmit = async (data: FormValues) => {
+    if (buttonState === "testing") {
+      await onSubmitTest(data);
+    } else {
+      try {
+        await onSubmitUpsert(data);
+        console.log("Success!");
+        setIsDialogOpen(false);
+      } catch (error: any) {
+        console.error("Error: ", error);
+        setTestingText(`Error! ${error}`);
+      }
+    }
+  };
+
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <AuthButton className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow">
           Connect
         </AuthButton>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <form
-          onSubmit={handleSubmit(
-            buttonState === "testing" ? onSubmitTest : onSubmitUpsert
-          )}
-        >
+      <DialogContent className="bg-black sm:max-w-[425px]">
+        <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Setup Confluence Connector</DialogTitle>
             <DialogDescription>
-              Enter your Confluence User Name and Access Token here. We'll pull
-              all the documentation in from the given Confluence Wiki URL.
+              Enter your Confluence Email and API Token here. We'll pull all the
+              documentation from the given Confluence Wiki URL. To get the API
+              Token, follow this &nbsp;
+              <a
+                href="https://docs.github.com/en/enterprise-server@3.4/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-red-600 underline"
+              >
+                guide
+              </a>
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="UserName" className="text-right">
-                User Name
+                Confluence Email
               </Label>
               <Input
                 id="UserName"
                 {...register("userName")}
                 className="col-span-3"
+                placeholder="your-name@domain.com"
               />
 
               <Label htmlFor="WikiUrl" className="text-right">
                 Wiki URL
               </Label>
+
               <Input
                 id="WikiUrl"
                 {...register("wikiUrl")}
                 className="col-span-3"
+                placeholder="https://your-domain.atlassian.net/wiki/spaces/SPACE_NAME/..."
               />
 
+              <div className="col-start-2 col-span-3">
+                <p className="text-xs text-white pl-4 pt-1 italic">
+                  The URL should include "wiki/spaces/SPACE_NAME".
+                </p>
+              </div>
               <Label htmlFor="AccessTokenValue" className="text-right">
-                Access Token
+                API Token
               </Label>
               <Input
                 id="AccessTokenValue"
@@ -285,8 +315,8 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
             <div className="animate-spin mr-2">
               <FaSpinner className="h-5 w-5 text-white" />
             </div>
-          ) : (confluencePublicCredential === undefined ||
-            confluenceConnectorIndexingStatus === undefined) ||
+          ) : confluencePublicCredential === undefined ||
+            confluenceConnectorIndexingStatus === undefined ||
             confluenceConnector === undefined ? (
             <InitialConnectForm
               onSubmitUpsert={handleConnect}
@@ -308,8 +338,8 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
               isLoading={isLoadingConnectorOps}
             >
               <div className="inline-flex items-center justify-center">
-                  {confluenceConnector!.disabled ? "Enable" : "Disable"}
-                </div>
+                {confluenceConnector!.disabled ? "Enable" : "Disable"}
+              </div>
             </AuthButton>
           )}
         </div>

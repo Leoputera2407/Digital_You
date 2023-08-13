@@ -306,7 +306,7 @@ async def test_confluence_access_token(
             cloud=True,
         )
         # If the token is invalid or we don't have access, this will raise an exception
-        _ = confluence_client.get_user_details_by_username(user_name=confluence_test_info.confluence_username)
+        _ = confluence_client.get_user_details_by_username(username=confluence_test_info.confluence_username)
         return StatusResponse[bool](
             success=True,
             message="Successfully validated Confluence access token.",

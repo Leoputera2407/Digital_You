@@ -169,6 +169,7 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
         ...urlValues,
       })
       .then(() => {
+        console.log("Success!")
         setIsDialogOpen(false); 
       })
       .catch((error: any) => {
@@ -184,7 +185,7 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
           Connect
         </AuthButton>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="bg-black sm:max-w-[425px]">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Setup Github Access Token</DialogTitle>
@@ -431,6 +432,7 @@ const GithubConnector: React.FC<GithubConnectorProps> = ({
       revalidateCredentials();
       revalidateIndexingStatus();
       revalidateConnectors();
+      console.log("went here")
     } catch (error: any) {
       throw new Error("Failed to Enable Connector!");
     }
