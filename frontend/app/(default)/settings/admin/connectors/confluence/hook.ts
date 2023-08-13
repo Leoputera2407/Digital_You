@@ -28,8 +28,8 @@ export interface UseConfluenceConnectorsReturn {
 function isConfluenceCredentialJson(
   credential: Credential<AnyCredentialJson>
 ): credential is Credential<ConfluenceCredentialJson> {
-  return credential.credential_json.hasOwnProperty("confleunce_access_tokens")
-  && credential.credential_json.hasOwnProperty("confleunce_username");
+  return credential.credential_json.hasOwnProperty("confluence_access_token")
+  && credential.credential_json.hasOwnProperty("confluence_username");
 }
 
 export function useConfluenceConnectors({

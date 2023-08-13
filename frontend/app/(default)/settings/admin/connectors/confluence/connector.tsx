@@ -285,7 +285,9 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
       throw new Error("Failed to Connect!");
     }
   };
-
+  console.log("isConfluenceCredentialLinked", isConfluenceCredentialLinked)
+  console.log("confluenceConnectorIndexingStatus", confluenceConnectorIndexingStatus)
+  console.log("confluencePublicCredential", confluencePublicCredential)
   return (
     <Collapsible
       open={isOpen}

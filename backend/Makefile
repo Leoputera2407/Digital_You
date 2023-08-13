@@ -111,3 +111,9 @@ switch-to-pip:
 	@echo "Switching to pip ..."
 	@rm requirements.txt
 	@poetry export -f requirements.txt --without-hashes > requirements.txt
+
+.PHONY: alembic-upgrade-prod
+alembic-upgrade-prod:
+	@echo "Running Alembic migration with ENV set to prod..."
+	@ENV=prod alembic upgrade head
+	@echo "Migration completed and ENV unset."
