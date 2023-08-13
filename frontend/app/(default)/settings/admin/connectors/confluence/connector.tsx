@@ -113,7 +113,6 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
     } else {
       try {
         await onSubmitUpsert(data);
-        console.log("Success!");
         setIsDialogOpen(false);
       } catch (error: any) {
         console.error("Error: ", error);
@@ -285,9 +284,6 @@ const ConfluenceConnector: React.FC<ConfluenceConnectorProps> = ({
       throw new Error("Failed to Connect!");
     }
   };
-  console.log("isConfluenceCredentialLinked", isConfluenceCredentialLinked)
-  console.log("confluenceConnectorIndexingStatus", confluenceConnectorIndexingStatus)
-  console.log("confluencePublicCredential", confluencePublicCredential)
   return (
     <Collapsible
       open={isOpen}

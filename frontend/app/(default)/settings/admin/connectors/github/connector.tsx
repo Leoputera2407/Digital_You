@@ -169,7 +169,6 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
         ...urlValues,
       })
       .then(() => {
-        console.log("Success!")
         setIsDialogOpen(false); 
       })
       .catch((error: any) => {
