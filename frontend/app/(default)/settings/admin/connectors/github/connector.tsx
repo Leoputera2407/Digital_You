@@ -114,6 +114,7 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
     "testing"
   );
   const [testingText, setTestingText] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { axiosInstance } = useAxios();
 
   const { register, handleSubmit } = useForm<InitialFormValues>();
@@ -166,14 +167,18 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
       onSubmitUpsert({
         accessTokenValue: data.accessTokenValue,
         ...urlValues,
-      }).catch((error: any) => {
+      })
+      .then(() => {
+        setIsDialogOpen(false); 
+      })
+      .catch((error: any) => {
         setTestingText(`Error! ${error}`);
       });
     }
   };
 
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <AuthButton className="text-sm bg-purple-500 hover:bg-purple-600 px-4 py-1 rounded shadow">
           Connect
