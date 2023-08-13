@@ -1,6 +1,7 @@
+from typing import Optional
+
 from langchain import PromptTemplate
 from langchain.base_language import BaseLanguageModel
-from typing import Optional
 
 from digital_twin.llm.interface import get_seleted_model_n_context_len
 from digital_twin.utils.logging import setup_logger
@@ -15,6 +16,7 @@ ANSWER_PAT = "Answer:"
 QUOTE_PAT = "Quote:"
 STOP_PAT = "[STOP]"
 UNCERTAIN_PAT = "?[STOP]"
+
 
 class BaseChain:
     """
@@ -46,16 +48,3 @@ class BaseChain:
         """Check if the number of tokens is within the allowed limit."""
         num_tokens_in_prompt = self.llm.get_num_tokens(formatted_prompt)
         return num_tokens_in_prompt <= get_seleted_model_n_context_len() - self.llm.dict()["max_tokens"]
-    
-    def get_filled_prompt(self, **kwargs) -> str:
-        raise NotImplementedError("This method should be overridden in subclasses.")
-
-    @log_function_time()
-    def run(self, query: str, **kwargs) -> str:
-        formatted_prompt = self.get_filled_prompt(query, **kwargs)
-        return self.llm.predict(formatted_prompt)
-    
-    @log_function_time()
-    async def async_run(self, query: str, **kwargs) -> str:
-        formatted_prompt = self.get_filled_prompt(query, **kwargs)
-        return await self.llm.apredict(formatted_prompt)

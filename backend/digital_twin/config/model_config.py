@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from enum import Enum
+
+from pydantic import BaseModel, Field
 
 
 class ModelInfo(BaseModel):
@@ -24,9 +25,7 @@ class SupportedModelType(Enum):
     @property
     def n_context_len(self):
         return self.value.n_context_len
-    
+
     @property
     def platform(self):
         return self.value.platform
-
-

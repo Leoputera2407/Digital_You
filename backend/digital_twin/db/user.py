@@ -1,68 +1,56 @@
-from typing import Optional, List
+from typing import List, Optional, Sequence
 from uuid import UUID
-from sqlalchemy import select, and_
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session, joinedload
 
+from digital_twin.db.error import DatabaseError, SlackOrgNotFoundError, SlackUserAlreadyExistsError
 from digital_twin.db.model import (
-    SlackUser, 
-    User, 
-    UserOrganizationAssociation,
-    Organization,
     Invitation,
     InvitationStatus,
+    Organization,
     SlackOrganizationAssociation,
+    SlackUser,
+    User,
+    UserOrganizationAssociation,
 )
-from digital_twin.server.model import (
-    InvitationBase,
-    OrganizationAdminInfo,
-    UserAdminData
-)
-from digital_twin.db.error import (
-    DatabaseError,
-    SlackUserAlreadyExistsError,
-    SlackOrgNotFoundError,
-)
-from digital_twin.utils.logging import (
-    setup_logger, 
-    log_sqlalchemy_error,
-    async_log_sqlalchemy_error,
-)
-
+from digital_twin.server.model import InvitationBase, OrganizationAdminInfo, UserAdminData
+from digital_twin.utils.logging import async_log_sqlalchemy_error, log_sqlalchemy_error, setup_logger
 
 logger = setup_logger()
 
+
 @log_sqlalchemy_error(logger)
 def get_user_org_by_user_and_org_id(
-        session: Session, 
-        user_id: UUID,
-        organization_id: UUID
+    session: Session, user_id: UUID, organization_id: UUID
 ) -> Optional[UserOrganizationAssociation]:
-    return session.query(
-        UserOrganizationAssociation
-    ).filter(
-        UserOrganizationAssociation.user_id == user_id, 
-        UserOrganizationAssociation.organization_id == organization_id
-    ).first()
+    return (
+        session.query(UserOrganizationAssociation)
+        .filter(
+            UserOrganizationAssociation.user_id == user_id,
+            UserOrganizationAssociation.organization_id == organization_id,
+        )
+        .first()
+    )
+
 
 @async_log_sqlalchemy_error(logger)
 async def async_get_user_org_by_user_and_org_id(
-        session: AsyncSession, 
-        user_id: UUID,
-        organization_id: UUID
+    session: AsyncSession, user_id: UUID, organization_id: UUID
 ) -> Optional[UserOrganizationAssociation]:
     result = await session.execute(
-        select(UserOrganizationAssociation)
-        .where(
+        select(UserOrganizationAssociation).where(
             and_(
-                UserOrganizationAssociation.user_id == user_id, 
-                UserOrganizationAssociation.organization_id == organization_id
+                UserOrganizationAssociation.user_id == user_id,
+                UserOrganizationAssociation.organization_id == organization_id,
             )
         )
     )
     return result.scalars().first()
+
 
 @async_log_sqlalchemy_error(logger)
 async def async_get_organization_admin_info(
@@ -72,8 +60,10 @@ async def async_get_organization_admin_info(
     result = await db_session.execute(
         select(Organization)
         .where(Organization.id == organization_id)
-        .options(joinedload(Organization.users).joinedload(UserOrganizationAssociation.user), 
-                 joinedload(Organization.invitations))
+        .options(
+            joinedload(Organization.users).joinedload(UserOrganizationAssociation.user),
+            joinedload(Organization.invitations),
+        )
     )
 
     organization = result.scalars().unique().one_or_none()
@@ -82,8 +72,9 @@ async def async_get_organization_admin_info(
         return None
 
     pending_invitations = [
-        InvitationBase(email=invitation.invitee_email, status=invitation.status.value) 
-        for invitation in organization.invitations if invitation.status == InvitationStatus.PENDING
+        InvitationBase(email=invitation.invitee_email, status=invitation.status.value)
+        for invitation in organization.invitations
+        if invitation.status == InvitationStatus.PENDING
     ]
 
     users = [
@@ -91,73 +82,61 @@ async def async_get_organization_admin_info(
             user_email=user_association.user.email,
             user_id=user_association.user.id,
             role=user_association.role.value,
-        ) for user_association in organization.users]
+        )
+        for user_association in organization.users
+    ]
     return OrganizationAdminInfo(
         name=organization.name,
-        id=organization.id, 
+        id=organization.id,
         whitelisted_email_domain=organization.whitelisted_email_domain,
         pending_invitations=pending_invitations,
         users=users,
     )
 
-@log_sqlalchemy_error(logger)
-def get_organization_by_id(
-    session: Session, 
-    organization_id: UUID
-) -> Optional[Organization]:
-    return session.query(
-            Organization
-        ).filter(
-            Organization.id == organization_id
-        ).first()
 
 @log_sqlalchemy_error(logger)
-def get_user_by_email(
-    session: Session, 
-    user_email: str
-) -> Optional[User]:
+def get_organization_by_id(session: Session, organization_id: UUID) -> Optional[Organization]:
+    return session.query(Organization).filter(Organization.id == organization_id).first()
+
+
+@log_sqlalchemy_error(logger)
+def get_user_by_email(session: Session, user_email: str) -> Optional[User]:
     user = session.query(User).filter(User.email == user_email).first()
     return user
 
+
 @log_sqlalchemy_error(logger)
-def get_user_by_id(
-    session: Session, 
-    user_id: UUID
-) -> Optional[User]:
+def get_user_by_id(session: Session, user_id: UUID) -> Optional[User]:
     result = session.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     return user
 
+
 @async_log_sqlalchemy_error(logger)
-async def async_get_user_by_email(
-    session: AsyncSession, 
-    user_email: str
-) -> Optional[User]:
+async def async_get_user_by_email(session: AsyncSession, user_email: str) -> Optional[User]:
     result = await session.execute(
         select(User).options(joinedload(User.organizations)).where(User.email == user_email)
     )
     user = result.scalars().first()
     return user
 
+
 @async_log_sqlalchemy_error(logger)
-async def async_get_user_by_id(
-    session: AsyncSession, 
-    user_id:  UUID
-) -> Optional[User]:
+async def async_get_user_by_id(session: AsyncSession, user_id: UUID) -> Optional[User]:
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     return user
+
 
 @log_sqlalchemy_error(logger)
 def get_user_org_assocations(
     user: User,
     db_session: Session,
-) -> List[UserOrganizationAssociation]:
+) -> Sequence[UserOrganizationAssociation]:
     result = db_session.execute(
-        select(UserOrganizationAssociation)
-        .where(UserOrganizationAssociation.user_id == user.id)
+        select(UserOrganizationAssociation).where(UserOrganizationAssociation.user_id == user.id)
     )
-    
+
     associations = result.scalars().all()
 
     if not associations:
@@ -172,19 +151,21 @@ async def async_get_user_org_assocations(
     db_session: AsyncSession,
     organization: Optional[Organization] = None,
 ) -> List[UserOrganizationAssociation]:
-    query = select(UserOrganizationAssociation).options(
-        joinedload(UserOrganizationAssociation.organization)
-        ).where(UserOrganizationAssociation.user_id == user.id)
+    query = (
+        select(UserOrganizationAssociation)
+        .options(joinedload(UserOrganizationAssociation.organization))
+        .where(UserOrganizationAssociation.user_id == user.id)
+    )
 
     if organization is not None:
         query = query.where(UserOrganizationAssociation.organization_id == organization.id)
-        
+
     result = await db_session.execute(query)
 
     if not result:
         return []
 
-    unique_associations = result.scalars().unique() 
+    unique_associations = list(result.scalars().unique())
     return unique_associations
 
 
@@ -200,7 +181,7 @@ async def async_get_user_org_role(
         )
         .where(
             UserOrganizationAssociation.user_id == user.id,
-            UserOrganizationAssociation.organization_id == organization.id
+            UserOrganizationAssociation.organization_id == organization.id,
         )
     )
 
@@ -210,55 +191,46 @@ async def async_get_user_org_role(
 
 
 @log_sqlalchemy_error(logger)
-def is_user_in_organization(
-    session: Session, 
-    user_email: str, 
-    organization_id: UUID
-) -> bool:
+def is_user_in_organization(session: Session, user_email: str, organization_id: UUID) -> bool:
     user = get_user_by_email(session, user_email)
     if not user:
         return False
 
-    user_org_association = session.query(
-        UserOrganizationAssociation
-    ).filter(
-        UserOrganizationAssociation.user_id == user.id, 
-        UserOrganizationAssociation.organization_id == organization_id
-    ).first()
+    user_org_association = (
+        session.query(UserOrganizationAssociation)
+        .filter(
+            UserOrganizationAssociation.user_id == user.id,
+            UserOrganizationAssociation.organization_id == organization_id,
+        )
+        .first()
+    )
 
     return user_org_association is not None
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_get_invitation_by_user_and_org(
-    session: AsyncSession, 
-    user_email: str, 
-    organization_id: UUID
+    session: AsyncSession, user_email: str, organization_id: UUID
 ) -> Optional[Invitation]:
-
     result = await session.execute(
-        select(Invitation)
-        .where(
+        select(Invitation).where(
             Invitation.invitee_email == user_email,
-            Invitation.organization_id == organization_id
+            Invitation.organization_id == organization_id,
         )
     )
     return result.scalars().first()
 
+
 @async_log_sqlalchemy_error(logger)
-async def async_get_slack_user(
-    session: AsyncSession,
-    slack_id: str, 
-    team_id: str
-) -> Optional[SlackUser]:
+async def async_get_slack_user(session: AsyncSession, slack_id: str, team_id: str) -> Optional[SlackUser]:
     result = await session.execute(
         select(SlackUser)
         .options(
-            joinedload(SlackUser.slack_organization_association).joinedload(SlackOrganizationAssociation.organization)
+            joinedload(SlackUser.slack_organization_association).joinedload(
+                SlackOrganizationAssociation.organization
+            )
         )
-        .where(
-            SlackUser.slack_user_id == slack_id, 
-            SlackUser.team_id == team_id
-        )
+        .where(SlackUser.slack_user_id == slack_id, SlackUser.team_id == team_id)
     )
     return result.scalars().first()
 
@@ -271,46 +243,38 @@ async def async_get_slack_user_by_email(
     result = await session.execute(
         select(SlackUser)
         .options(
-            joinedload(SlackUser.slack_organization_association).joinedload(SlackOrganizationAssociation.organization)
+            joinedload(SlackUser.slack_organization_association).joinedload(
+                SlackOrganizationAssociation.organization
+            )
         )
-        .where(
-            SlackUser.slack_user_email == slack_user_email
-        )
+        .where(SlackUser.slack_user_email == slack_user_email)
     )
     return result.scalars().first()
 
+
 @log_sqlalchemy_error(logger)
 def insert_slack_user(
-    session: Session, 
-    slack_user_id: str, 
-    team_id: str, 
-    db_user_id: UUID
+    session: Session, slack_user_id: str, team_id: str, db_user_id: UUID
 ) -> Optional[SlackUser]:
-    slack_user = SlackUser(
-        slack_user_id=slack_user_id,
-        team_id=team_id,
-        user_id=db_user_id
-    )
+    slack_user = SlackUser(slack_user_id=slack_user_id, team_id=team_id, user_id=db_user_id)
     session.add(slack_user)
     session.commit()
     return slack_user
 
+
 async def find_slack_association_by_team_id(
-        session: AsyncSession,
-        prosona_org_id: UUID,
-        team_id: str
+    session: AsyncSession, prosona_org_id: UUID, team_id: str
 ) -> Optional[SlackOrganizationAssociation]:
     result = await session.execute(
-        select(SlackOrganizationAssociation).filter_by(
-            team_id=team_id, organization_id=prosona_org_id)
+        select(SlackOrganizationAssociation).filter_by(team_id=team_id, organization_id=prosona_org_id)
     )
     return result.scalars().first()
 
 
 @async_log_sqlalchemy_error(logger)
 async def async_insert_slack_user(
-    session: AsyncSession, 
-    slack_user_id: str, 
+    session: AsyncSession,
+    slack_user_id: str,
     team_id: str,
     db_user_id: UUID,
     slack_user_token: str,
@@ -346,34 +310,35 @@ async def async_insert_slack_user(
         return SlackUserAlreadyExistsError(slack_team_name=slack_team_name, slack_user_email=slack_user_email)
     return slack_user
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_upsert_org_to_slack_team(
-        session: AsyncSession, 
-        team_id: str, 
-        organization_id: UUID,
-        slack_team_name: str,
+    session: AsyncSession,
+    team_id: str,
+    organization_id: UUID,
+    slack_team_name: str,
 ) -> None:
     # Postgres specific upsert
     upsert_stmt = insert(SlackOrganizationAssociation).values(
-        team_id=team_id, 
+        team_id=team_id,
         organization_id=organization_id,
         team_name=slack_team_name,
     )
     do_update_stmt = upsert_stmt.on_conflict_do_update(
-        index_elements=['team_id', 'organization_id'], # Notice the change here
+        index_elements=["team_id", "organization_id"],  # Notice the change here
         set_=dict(
             organization_id=upsert_stmt.excluded.organization_id,
-            team_id=upsert_stmt.excluded.team_id
-        )
-    )  
+            team_id=upsert_stmt.excluded.team_id,
+        ),
+    )
     await session.execute(do_update_stmt)
     await session.commit()
 
+
 @async_log_sqlalchemy_error(logger)
-async def async_get_organization_id_from_team_id(
-    session: AsyncSession, 
-    team_id: str
-) -> Optional[UUID]:
+async def async_get_organization_id_from_team_id(session: AsyncSession, team_id: str) -> Optional[UUID]:
+    # TODO: This is a failure point if 2 or more different organization is connected to
+    # the same Slack Workspace
     statement = select(SlackOrganizationAssociation.organization_id).where(
         SlackOrganizationAssociation.team_id == team_id
     )
@@ -381,67 +346,55 @@ async def async_get_organization_id_from_team_id(
     org_id = result.scalar_one_or_none()  # This will return None if no result
     return org_id
 
+
 @log_sqlalchemy_error(logger)
-def get_qdrant_collection_by_user_id(
-    session: Session, 
-    user_id: UUID,
-    organization_id: UUID
-) -> Optional[str]:
-    user_org = get_user_org_by_user_and_org_id(
-        session, 
-        user_id,
-        organization_id
-    )
+def get_qdrant_collection_by_user_id(session: Session, user_id: UUID, organization_id: UUID) -> Optional[str]:
+    user_org = get_user_org_by_user_and_org_id(session, user_id, organization_id)
     if user_org and user_org.organization:
         return user_org.organization.get_qdrant_collection_key_str()
     else:
         return None
 
+
 @log_sqlalchemy_error(logger)
 def get_typesense_collection_by_user_id(
-    session: Session, 
+    session: Session,
     user_id: UUID,
     organization_id: UUID,
 ) -> Optional[str]:
-    user_org = get_user_org_by_user_and_org_id(
-        session, 
-        user_id,
-        organization_id
-    )
+    user_org = get_user_org_by_user_and_org_id(session, user_id, organization_id)
     if user_org and user_org.organization:
         return user_org.organization.get_typesense_collection_key_str()
     else:
         return None
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_get_qdrant_collection_for_slack(
-    session: AsyncSession, 
+    session: AsyncSession,
     slack_user_id: str,
     team_id: str,
 ) -> Optional[str]:
-    slack_user = await async_get_slack_user(
-        session, 
-        slack_user_id,
-        team_id
-    )
-    
+    slack_user = await async_get_slack_user(session, slack_user_id, team_id)
+
     if slack_user and slack_user.slack_organization_association.organization:
         return slack_user.slack_organization_association.organization.get_qdrant_collection_key_str()
     else:
         return None
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_get_typesense_collection_for_slack(
-    session: AsyncSession, 
+    session: AsyncSession,
     slack_user_id: str,
     team_id: str,
 ) -> Optional[str]:
     slack_user = await async_get_slack_user(
-        session, 
+        session,
         slack_user_id,
         team_id,
     )
-    
+
     if slack_user and slack_user.slack_organization_association.organization:
         return slack_user.slack_organization_association.organization.get_typesense_collection_key_str()
     else:

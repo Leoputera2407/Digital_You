@@ -1,31 +1,39 @@
+from collections.abc import Generator
 from datetime import datetime
 from typing import Any
-from collections.abc import Generator
 
 from github import Github
 from github.ContentFile import ContentFile
 from github.Repository import Repository
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
 from digital_twin.config.constants import DocumentSource
-from digital_twin.connectors.interfaces import (
-    LoadConnector, 
-    PollConnector,
-    GenerateDocumentsOutput,
-    SecondsSinceUnixEpoch,
-)
 from digital_twin.connectors.github.graphql import GithubGraphQLClient
 from digital_twin.connectors.github.model import PullRequest
+from digital_twin.connectors.interfaces import (
+    GenerateDocumentsOutput,
+    LoadConnector,
+    PollConnector,
+    SecondsSinceUnixEpoch,
+)
 from digital_twin.connectors.model import Document, Section
-from digital_twin.utils.timing import format_timestamp
 from digital_twin.utils.logging import setup_logger
+from digital_twin.utils.timing import format_timestamp
 
 logger = setup_logger()
 DB_CREDENTIALS_DICT_KEY = "github_access_token"
-MARKDOWN_EXT= (".md", ".rst", ".mdx", ".mkd", ".mdwn", ".mdown", ".mdtxt", ".mdtext", ".markdown")
-
+MARKDOWN_EXT = (
+    ".md",
+    ".rst",
+    ".mdx",
+    ".mkd",
+    ".mdwn",
+    ".mdown",
+    ".mdtxt",
+    ".mdtext",
+    ".markdown",
+)
 
 
 def to_timestamp(date_str: str) -> SecondsSinceUnixEpoch:
@@ -33,7 +41,7 @@ def to_timestamp(date_str: str) -> SecondsSinceUnixEpoch:
     Convert a RFC 1123 date-time string to a timestamp.
     """
     # Convert the RFC 1123 date-time string to a datetime object.
-    datetime_obj = datetime.strptime(date_str, '%a, %d %b %Y %H:%M:%S GMT')
+    datetime_obj = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S GMT")
 
     # Convert the datetime object to a timestamp.
     timestamp = datetime.timestamp(datetime_obj)
@@ -45,29 +53,28 @@ def to_timestamp(date_str: str) -> SecondsSinceUnixEpoch:
 def get_pr_batches(
     graphql_client: GithubGraphQLClient,
     repo: Repository,
-    state_filter: str = 'all',
+    state_filter: str = "all",
     batch_size: int = INDEX_BATCH_SIZE,
     time_range_start: SecondsSinceUnixEpoch | None = None,
     time_range_end: SecondsSinceUnixEpoch | None = None,
 ) -> Generator[list[PullRequest], None, None]:
+    owner, repo_name = repo.full_name.split("/")
 
-    owner, repo_name = repo.full_name.split('/')
-    
     # fetch pull request data with GraphQL
     pull_requests_data = graphql_client.get_pull_request_data(
-        owner, 
-        repo_name, 
-        state_filter, 
-        time_range_start=time_range_start, 
-        time_range_end=time_range_end
+        owner,
+        repo_name,
+        state_filter,
+        time_range_start=time_range_start,
+        time_range_end=time_range_end,
     )
-    
+
     for i in range(0, len(pull_requests_data), batch_size):
-        yield pull_requests_data[i: i + batch_size]
+        yield pull_requests_data[i : i + batch_size]
 
 
 def get_markdown_and_code_contents(
-    repo: Repository
+    repo: Repository,
 ) -> tuple[list[ContentFile], list[ContentFile]]:
     contents = repo.get_contents("")
     md_files = []
@@ -82,8 +89,9 @@ def get_markdown_and_code_contents(
             code_files.append(file_content)
     return md_files, code_files
 
+
 def get_markdown_text_in_batches(
-    contents: list[ContentFile], 
+    contents: list[ContentFile],
     batch_size: int = INDEX_BATCH_SIZE,
     time_range_start: SecondsSinceUnixEpoch | None = None,
     time_range_end: SecondsSinceUnixEpoch | None = None,
@@ -94,7 +102,8 @@ def get_markdown_text_in_batches(
         contents = [file for file in contents if to_timestamp(file.last_modified) <= time_range_end]
 
     for i in range(0, len(contents), batch_size):
-        yield contents[i: i + batch_size]
+        yield contents[i : i + batch_size]
+
 
 class GithubConnector(LoadConnector, PollConnector):
     def __init__(
@@ -122,23 +131,19 @@ class GithubConnector(LoadConnector, PollConnector):
         time_range_end: SecondsSinceUnixEpoch | None = None,
     ) -> GenerateDocumentsOutput:
         if self.github_client is None:
-            raise PermissionError(
-                "Github Client is not set up, was load_credentials called?"
-            )
+            raise PermissionError("Github Client is not set up, was load_credentials called?")
         if self.github_graphql_client is None:
-            raise PermissionError(
-                "Github GraphQL Client is not set up, was load_credentials called?"
-            )
+            raise PermissionError("Github GraphQL Client is not set up, was load_credentials called?")
 
         repo = self.github_client.get_repo(f"{self.repo_owner}/{self.repo_name}")
 
         for pr_batch in get_pr_batches(
             graphql_client=self.github_graphql_client,
-            repo=repo, 
+            repo=repo,
             state_filter=self.state_filter,
-            batch_size=self.batch_size, 
-            time_range_start=time_range_start, 
-            time_range_end=time_range_end
+            batch_size=self.batch_size,
+            time_range_start=time_range_start,
+            time_range_end=time_range_end,
         ):
             doc_batch = []
             for pull_request in pr_batch:
@@ -146,9 +151,7 @@ class GithubConnector(LoadConnector, PollConnector):
                 doc_batch.append(
                     Document(
                         id=pull_request.html_url,
-                        sections=[
-                            Section(link=pull_request.html_url, text=full_context)
-                        ],
+                        sections=[Section(link=pull_request.html_url, text=full_context)],
                         source=DocumentSource.GITHUB,
                         semantic_identifier=pull_request.title,
                         metadata={
@@ -170,8 +173,10 @@ class GithubConnector(LoadConnector, PollConnector):
 
         # TODO: For now, we won't index the code files
         md_contents, _ = get_markdown_and_code_contents(repo)
-        
-        for content_batch in get_markdown_text_in_batches(md_contents, self.batch_size, time_range_start, time_range_end):
+
+        for content_batch in get_markdown_text_in_batches(
+            md_contents, self.batch_size, time_range_start, time_range_end
+        ):
             doc_batch = []
             for content in content_batch:
                 if content.path.lower().endswith(MARKDOWN_EXT):
@@ -202,4 +207,3 @@ class GithubConnector(LoadConnector, PollConnector):
         self, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch
     ) -> GenerateDocumentsOutput:
         yield from self._fetch_docs_from_github(start, end)
-

@@ -1,60 +1,60 @@
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
+
+from slack_bolt.async_app import AsyncBoltContext
 from slack_sdk.web.async_client import AsyncWebClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from slack_bolt.async_app import AsyncBoltContext
 
-from digital_twin.slack_bot.defs import ChannelType
+from digital_twin.config.app_config import MIN_CHAT_PAIRS_THRESHOLD, MIN_SCRAPED_THRESHOLD
 from digital_twin.db.async_slack_bot import async_update_chat_pairs
-from digital_twin.config.app_config import MIN_SCRAPED_THRESHOLD, MIN_CHAT_PAIRS_THRESHOLD
+from digital_twin.slack_bot.defs import ChannelType
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 
-def validate_target_users(
-        target_users: Optional[List[str]], 
-        slack_user_id: str
-) -> None:
+
+def validate_target_users(target_users: Optional[List[str]], slack_user_id: str) -> None:
     if target_users is not None:
         if slack_user_id in target_users and len(target_users) == 1:
             raise ValueError("target_users cannot only contain the slack_user_id")
 
-def is_interacted_with_target(
-        user: str, 
-        target_users: Optional[List[str]],
-        slack_user_id: str
-) -> bool:
+
+def is_interacted_with_target(user: str, target_users: Optional[List[str]], slack_user_id: str) -> bool:
     return target_users is None or user in target_users or user == slack_user_id
 
+
 def is_user_message(message):
-    required_keys = ['client_msg_id', 'type', 'text', 'user', 'ts']
-    
+    required_keys = ["client_msg_id", "type", "text", "user", "ts"]
+
     return (
-        message.get('type') == 'message' and
-        all(key in message for key in required_keys) and
-        message.get('blocks') and
-        len(message['blocks']) > 0 and
-        message['blocks'][0].get('type') == 'rich_text' and
-        message['blocks'][0].get('elements') and
-        len(message['blocks'][0]['elements']) > 0 and
-        message['blocks'][0]['elements'][0].get('type') == 'rich_text_section'
+        message.get("type") == "message"
+        and all(key in message for key in required_keys)
+        and message.get("blocks")
+        and len(message["blocks"]) > 0
+        and message["blocks"][0].get("type") == "rich_text"
+        and message["blocks"][0].get("elements")
+        and len(message["blocks"][0]["elements"]) > 0
+        and message["blocks"][0]["elements"][0].get("type") == "rich_text_section"
     )
 
+
 async def join_user_channels(
-        slack_user_id: str, 
-        client: AsyncWebClient,
-        channel_types: Optional[List[ChannelType]] = None
+    slack_user_id: str,
+    client: AsyncWebClient,
+    channel_types: Optional[List[ChannelType]] = None,
 ) -> List[str]:
     if channel_types is None:
         raise ValueError("channel_types must be provided")
 
     types_to_include = ",".join(channel_type.value for channel_type in channel_types)
     # Get the list of channels where the user is a member
-    response = await client.users_conversations(user=slack_user_id, types=types_to_include, exclude_archived=True)
+    response = await client.users_conversations(
+        user=slack_user_id, types=types_to_include, exclude_archived=True
+    )
     channel_ids = []
     for channel in response["channels"]:
-        if "is_im" in channel and channel["is_im"]: # If it's a DM, no need to join
+        if "is_im" in channel and channel["is_im"]:  # If it's a DM, no need to join
             channel_ids.append(channel["id"])
         else:
             # Join the channel if it's not a DM
@@ -62,6 +62,7 @@ async def join_user_channels(
             channel_ids.append(channel["id"])
 
     return channel_ids
+
 
 async def _scrape(
     client: AsyncWebClient,
@@ -73,7 +74,7 @@ async def _scrape(
     cutoff_days: int = 365,
 ) -> Tuple[List[str], List[Tuple[str, str]]]:
     """
-    Scrape the user's past interactions in Slack threads and store them in the Supabase database. 
+    Scrape the user's past interactions in Slack threads and store them in the Supabase database.
     We'll only see `contiguous` interactions between slack_user_id and target_users.
     If target_users is None, then slack_user_id and all other users are considered.
     Caveat -- We only scrape messages inside threads, and not messages in channels.
@@ -89,7 +90,7 @@ async def _scrape(
 
     Returns:
         Tuple[List[str], List[Tuple[str, str]]]: A tuple of two lists: `contiguous_chat_transcript` and `chat_pairs`.
-        - `contiguous_chat_transcript`: A list of strings representing contiguous chat interactions between `slack_user_id` and `target_users`. 
+        - `contiguous_chat_transcript`: A list of strings representing contiguous chat interactions between `slack_user_id` and `target_users`.
         If `target_users` is `None`, the interactions are between `slack_user_id` and any other user.
         - `chat_pairs`: A list of tuples where each tuple represents a pair of chat messages. The first message in the pair is from a target user (or any user if `target_users` is `None`), and the second message is a response from `slack_user_id`.
 
@@ -125,8 +126,8 @@ async def _scrape(
     """
     # To avoid circular imports
     from digital_twin.utils.slack import format_slack_to_openai
-    
-    #cutoff = (datetime.now(timezone.utc) - timedelta(days=cutoff_days)).timestamp()
+
+    # cutoff = (datetime.now(timezone.utc) - timedelta(days=cutoff_days)).timestamp()
     chat_transcript: List[str] = []
     chat_pairs: List[Tuple[str, str]] = []
     last_input = ""
@@ -158,7 +159,9 @@ async def _scrape(
             # Handle threaded messages (for both DMs and regular channels)
             for message in messages:
                 if "reply_count" in message and message["reply_count"] > 0:
-                    thread_result = await client.conversations_replies(channel=channel_id, ts=message["ts"], limit=1000)
+                    thread_result = await client.conversations_replies(
+                        channel=channel_id, ts=message["ts"], limit=1000
+                    )
                     thread_messages = thread_result["messages"]
 
                     for thread_message in thread_messages:
@@ -179,63 +182,66 @@ async def _scrape(
             cursor = result["response_metadata"]["next_cursor"]
     # shuffle, so ordering doesn't matter
     random.shuffle(chat_pairs)
-    return chat_transcript, chat_pairs  
+    return chat_transcript, chat_pairs
+
 
 async def scrape_and_store_chat_history_from_channels(
-        db_session: AsyncSession,
-        slack_user_id: str,
-        team_id: str,
-        client: AsyncWebClient,
-        num_channels: Optional[int] = None,
-        target_channels: Optional[List[str]] = None,
-        target_users: Optional[List[str]] = None,
-        min_transcript_length: int = MIN_SCRAPED_THRESHOLD,
-        min_chat_pairs_len: int = MIN_CHAT_PAIRS_THRESHOLD,
-        cutoff_days: int = 365
-) -> Optional[Tuple[List[str], List[Tuple[str, str]]]]:
+    db_session: AsyncSession,
+    slack_user_id: str,
+    team_id: str,
+    client: AsyncWebClient,
+    num_channels: Optional[int] = None,
+    target_channels: Optional[List[str]] = None,
+    target_users: Optional[List[str]] = None,
+    min_transcript_length: int = MIN_SCRAPED_THRESHOLD,
+    min_chat_pairs_len: int = MIN_CHAT_PAIRS_THRESHOLD,
+    cutoff_days: int = 365,
+) -> Tuple[List[str] | None, List[Tuple[str, str]] | None]:
     validate_target_users(target_users, slack_user_id)
     channel_ids = await join_user_channels(
-        slack_user_id, 
+        slack_user_id,
         client,
         channel_types=[ChannelType.PUBLIC_CHANNEL],
     )
     if target_channels is not None:
-        channel_ids = [
-            channel_id for channel_id in channel_ids 
-            if channel_id in target_channels
-        ]
+        channel_ids = [channel_id for channel_id in channel_ids if channel_id in target_channels]
     if num_channels is not None:
-        channel_ids = channel_ids[:num_channels] 
+        channel_ids = channel_ids[:num_channels]
     chat_transcript, chat_pairs = await _scrape(
-        client=client, 
-        channel_ids=channel_ids, 
-        target_users=target_users, 
-        slack_user_id=slack_user_id, 
-        num_messages=1000, 
-        cutoff_days=cutoff_days, 
-        is_dm=False
+        client=client,
+        channel_ids=channel_ids,
+        target_users=target_users,
+        slack_user_id=slack_user_id,
+        num_messages=1000,
+        cutoff_days=cutoff_days,
+        is_dm=False,
     )
 
     if len(chat_transcript) < min_transcript_length or len(chat_pairs) < min_chat_pairs_len:
-        logger.info(f"Chat history for {slack_user_id} is too short. Chat_transcript: {len(chat_transcript)}, Chat_pairs: {len(chat_pairs)}")
+        logger.info(
+            f"Chat history for {slack_user_id} is too short. Chat_transcript: {len(chat_transcript)}, Chat_pairs: {len(chat_pairs)}"
+        )
         return None, None
-    slack_user = await async_update_chat_pairs(db_session, chat_transcript, chat_pairs, slack_user_id, team_id)
+    slack_user = await async_update_chat_pairs(
+        db_session, chat_transcript, chat_pairs, slack_user_id, team_id
+    )
     if slack_user is None:
         logger.info(f"Failed to update chat history for {slack_user_id}.")
         return None, None
     return chat_transcript, chat_pairs
 
+
 async def scrape_and_store_chat_history_from_dm(
-        db_session: AsyncSession,
-        slack_user_id: str,
-        team_id: str,
-        client: AsyncWebClient,
-        context: AsyncBoltContext,
-        target_users: Optional[List[str]] = None,
-        min_transcript_length: int = MIN_SCRAPED_THRESHOLD,
-        min_chat_pairs_len: int = MIN_CHAT_PAIRS_THRESHOLD,
-        cutoff_days: int = 365
-) -> Optional[Tuple[List[str], List[Tuple[str, str]]]]:
+    db_session: AsyncSession,
+    slack_user_id: str,
+    team_id: str,
+    client: AsyncWebClient,
+    context: AsyncBoltContext,
+    target_users: Optional[List[str]] = None,
+    min_transcript_length: int = MIN_SCRAPED_THRESHOLD,
+    min_chat_pairs_len: int = MIN_CHAT_PAIRS_THRESHOLD,
+    cutoff_days: int = 365,
+) -> Tuple[List[str] | None, List[Tuple[str, str]] | None]:
     # We need to ensure that we use slack_user_token
     # to scrape the DMs
     default_token = client.token
@@ -243,29 +249,33 @@ async def scrape_and_store_chat_history_from_dm(
 
     validate_target_users(target_users, slack_user_id)
     channel_ids = await join_user_channels(
-        slack_user_id, 
+        slack_user_id,
         client,
         channel_types=[ChannelType.DM],
-    ) 
+    )
     chat_transcript, chat_pairs = await _scrape(
-        client=client, 
-        channel_ids=channel_ids, 
-        target_users=target_users, 
-        slack_user_id=slack_user_id, 
-        num_messages=50, 
-        cutoff_days=cutoff_days, 
-        is_dm=True
+        client=client,
+        channel_ids=channel_ids,
+        target_users=target_users,
+        slack_user_id=slack_user_id,
+        num_messages=50,
+        cutoff_days=cutoff_days,
+        is_dm=True,
     )
 
     if len(chat_transcript) < min_transcript_length or len(chat_pairs) < min_chat_pairs_len:
-        logger.info(f"Chat history for {slack_user_id} is too short. Chat_transcript: {len(chat_transcript)}, Chat_pairs: {len(chat_pairs)}")
+        logger.info(
+            f"Chat history for {slack_user_id} is too short. Chat_transcript: {len(chat_transcript)}, Chat_pairs: {len(chat_pairs)}"
+        )
         return None, None
-    
-    slack_user = await async_update_chat_pairs(db_session, chat_transcript, chat_pairs, slack_user_id, team_id)
-    
+
+    slack_user = await async_update_chat_pairs(
+        db_session, chat_transcript, chat_pairs, slack_user_id, team_id
+    )
+
     # Switch back to default token
     client.token = default_token
-    
+
     if slack_user is None:
         logger.info(f"Failed to update chat history for {slack_user_id}.")
         return None, None

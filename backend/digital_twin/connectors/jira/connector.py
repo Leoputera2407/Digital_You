@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
-from jira import JIRA
-from jira.resources import Issue
 from typing import Any
 from urllib.parse import urlparse
+
+from jira import JIRA
+from jira.resources import Issue
 
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
 from digital_twin.config.constants import DocumentSource
@@ -17,6 +18,7 @@ from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 PROJECT_URL_PAT = "projects"
+
 
 # One big assumption is that the url will contain "projects"
 # This is generally true for Jira Cloud, as is in Affirm.
@@ -60,9 +62,7 @@ def fetch_jira_issues_batch(
         semantic_rep = (
             f"Jira Ticket Summary: {jira.fields.summary}\n"
             f"Description: {jira.fields.description}\n"
-            + "\n".join(
-                [f"Comment: {comment.body}" for comment in jira.fields.comment.comments]
-            )
+            + "\n".join([f"Comment: {comment.body}" for comment in jira.fields.comment.comments])
         )
 
         page_url = f"{jira_client.client_info()}/browse/{jira.key}"
@@ -97,9 +97,7 @@ class JiraConnector(LoadConnector, PollConnector):
 
     def load_from_state(self) -> GenerateDocumentsOutput:
         if self.jira_client is None:
-            raise PermissionError(
-                "Jira Client is not set up, was load_credentials called?"
-            )
+            raise PermissionError("Jira Client is not set up, was load_credentials called?")
 
         start_ind = 0
         while True:
@@ -121,16 +119,10 @@ class JiraConnector(LoadConnector, PollConnector):
         self, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch
     ) -> GenerateDocumentsOutput:
         if self.jira_client is None:
-            raise PermissionError(
-                "Jira Client is not set up, was load_credentials called?"
-            )
+            raise PermissionError("Jira Client is not set up, was load_credentials called?")
 
-        start_date_str = datetime.fromtimestamp(start, tz=timezone.utc).strftime(
-            "%Y-%m-%d %H:%M"
-        )
-        end_date_str = datetime.fromtimestamp(end, tz=timezone.utc).strftime(
-            "%Y-%m-%d %H:%M"
-        )
+        start_date_str = datetime.fromtimestamp(start, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
+        end_date_str = datetime.fromtimestamp(end, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
 
         jql = (
             f"project = {self.jira_project} AND "

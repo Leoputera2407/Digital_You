@@ -1,27 +1,30 @@
 from collections import defaultdict
-from typing import Optional, Union, List
-from langchain.embeddings.base import Embeddings
+from typing import Dict, List, Optional, Union, cast
+
 from langchain.embeddings import OpenAIEmbeddings
-from sentence_transformers import SentenceTransformer
+from langchain.embeddings.base import Embeddings
 from sentence_transformers import CrossEncoder  # type: ignore
+from sentence_transformers import SentenceTransformer
 
-from digital_twin.config.app_config import MINI_CHUNK_SIZE, EMBEDDING_OPENAI_API_KEY
+from digital_twin.config.app_config import EMBEDDING_OPENAI_API_KEY, MINI_CHUNK_SIZE
 from digital_twin.indexdb.chunking.models import InferenceChunk
-
 
 _EMBED_MODEL: Optional[Embeddings | SentenceTransformer] = None
 
+
 def chunks_to_search_docs(chunks: list[InferenceChunk] | None):
     from digital_twin.server.model import SearchDoc
+
     search_docs = (
         [
             SearchDoc(
-                semantic_identifier=chunk.semantic_identifier if chunk.semantic_identifier else '',
+                semantic_identifier=chunk.semantic_identifier if chunk.semantic_identifier else "",
                 link=chunk.source_links.get(0) if chunk.source_links else None,
                 blurb=chunk.blurb,
                 source_type=chunk.source_type,
             )
             for chunk in chunks
+            if chunk.semantic_identifier
         ]
         if chunks
         else []
@@ -29,9 +32,7 @@ def chunks_to_search_docs(chunks: list[InferenceChunk] | None):
     return search_docs
 
 
-def split_chunk_text_into_mini_chunks(
-    chunk_text: str, mini_chunk_size: int = MINI_CHUNK_SIZE
-) -> list[str]:
+def split_chunk_text_into_mini_chunks(chunk_text: str, mini_chunk_size: int = MINI_CHUNK_SIZE) -> list[str]:
     chunks = []
     start = 0
     separators = [" ", "\n", "\r", "\t"]
@@ -41,9 +42,7 @@ def split_chunk_text_into_mini_chunks(
             end = len(chunk_text)
         else:
             # Find the first separator character after min_chunk_length
-            end_positions = [
-                (chunk_text[start + mini_chunk_size :]).find(sep) for sep in separators
-            ]
+            end_positions = [(chunk_text[start + mini_chunk_size :]).find(sep) for sep in separators]
             # Filter out the not found cases (-1)
             end_positions = [pos for pos in end_positions if pos != -1]
             if not end_positions:
@@ -59,33 +58,30 @@ def split_chunk_text_into_mini_chunks(
     return chunks
 
 
-def get_default_embedding_model(
-    **kwargs
-) -> Union[Embeddings, SentenceTransformer]:
+def get_default_embedding_model(**kwargs) -> Union[Embeddings, SentenceTransformer]:
     """
     In general, we should have control over what embedding to use.
     """
     global _EMBED_MODEL
     if _EMBED_MODEL is None:
-        _EMBED_MODEL = OpenAIEmbeddings(
-            openai_api_key=EMBEDDING_OPENAI_API_KEY
-        )
+        _EMBED_MODEL = OpenAIEmbeddings(openai_api_key=EMBEDDING_OPENAI_API_KEY)
     return _EMBED_MODEL
 
+
 def perform_reciprocal_rank_fusion(
-        semantic_top_chunks: Optional[List[InferenceChunk]], 
-        keyword_top_chunks: Optional[List[InferenceChunk]],
-        keyword_weight: float
-) -> List[InferenceChunk]:
+    semantic_top_chunks: Optional[List[InferenceChunk]],
+    keyword_top_chunks: Optional[List[InferenceChunk]],
+    keyword_weight: float,
+) -> Optional[List[InferenceChunk]]:
     """
     Perform Reciprocal Rank Fusion on search results.
     Note: if one of the search results is None or empty,
              the other search results will be returned.
-    
+
     Combining search results in a rank-aware manner is better than a simple list merge
     https://arxiv.org/pdf/2010.00200.pdf
     https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf
-    
+
     Args:
     semantic_top_chunks (List[InferenceChunk]): List of search results from the semantic search.
     keyword_top_chunks (List[InferenceChunk]): List of search results from the keyword search.
@@ -102,27 +98,31 @@ def perform_reciprocal_rank_fusion(
         return semantic_top_chunks
 
     # Create lists of dicts with document data for RRF.
-    semantic_search_data = [{"id": chunk.document_id, "rank": i, "chunk": chunk} for i, chunk in enumerate(semantic_top_chunks)]
-    keyword_search_data = [{"id": chunk.document_id, "rank": i, "chunk": chunk} for i, chunk in enumerate(keyword_top_chunks)]
-    
+    semantic_search_data = [
+        {"id": chunk.document_id, "rank": i, "chunk": chunk} for i, chunk in enumerate(semantic_top_chunks)
+    ]
+    keyword_search_data = [
+        {"id": chunk.document_id, "rank": i, "chunk": chunk} for i, chunk in enumerate(keyword_top_chunks)
+    ]
+
     # Create mapping from id to chunk
     id_to_chunk_map = {chunk.document_id: chunk for chunk in semantic_top_chunks + keyword_top_chunks}
-    
+
     # Perform the Reciprocal Rank Fusion
-    combined_ranks = defaultdict(float)
-    
+    combined_ranks: Dict[str, float] = defaultdict(float)
+
     # Update the RRF scores for documents in keyword_search_data
     for item in semantic_search_data:
-        chunk = item['id']
-        rank = item['rank']
-        combined_ranks[chunk] += keyword_weight / (rank + 1)
-    
+        sem_chunk = cast(str, item["id"])
+        sem_rank = cast(int, item["rank"])
+        combined_ranks[sem_chunk] += keyword_weight / (sem_rank + 1)
+
     # Update the RRF scores for documents in semantic_search_data
     for item in keyword_search_data:
-        chunk = item['id']
-        rank = item['rank']
-        combined_ranks[chunk] += (1 - keyword_weight) / (rank + 1)
-    
+        key_chunk = cast(str, item["id"])
+        key_rank = cast(int, item["rank"])
+        combined_ranks[key_chunk] += (1 - keyword_weight) / (key_rank + 1)
+
     # Sort the combined ranks in descending order
     combined_ranks_sorted = sorted(combined_ranks.items(), key=lambda item: item[1], reverse=True)
 

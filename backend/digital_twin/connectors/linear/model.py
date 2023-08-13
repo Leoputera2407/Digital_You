@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from typing import List, Optional
+
+from pydantic import BaseModel
 
 
 class Person(BaseModel):
@@ -29,7 +30,7 @@ class Issue(BaseModel):
 
     @property
     def label_names(self) -> str:
-        return ','.join([label.name for label in self.labels])
+        return ",".join([label.name for label in self.labels])
 
 
 class LinearTeam(BaseModel):

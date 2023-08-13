@@ -1,44 +1,22 @@
+import asyncio
 import json
 import re
-import asyncio
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    Tuple,
-    Union,
-    AsyncIterable, 
-    Awaitable,
-)
+from collections.abc import AsyncIterable, Awaitable
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 from langchain import PromptTemplate
 from langchain.callbacks import AsyncIteratorCallbackHandler
 
-from digital_twin.config.constants import (
-    BLURB,
-    DOCUMENT_ID,
-    SEMANTIC_IDENTIFIER,
-    SOURCE_LINK,
-    SOURCE_TYPE,
-)
-from digital_twin.llm.interface import get_llm
-from digital_twin.llm.chains.base import (
-    ANSWER_PAT,
-    QUOTE_PAT,
-)
-from digital_twin.llm.chains.qa_chain import (
-    BaseQA,
-    QA_MODEL_SETTINGS,
-)
-from digital_twin.qa.interface import QAModel
-from digital_twin.llm.chains.verify_chain import StuffVerify, VERIFY_MODEL_SETTINGS
+from digital_twin.config.constants import BLURB, DOCUMENT_ID, SEMANTIC_IDENTIFIER, SOURCE_LINK, SOURCE_TYPE
 from digital_twin.indexdb.chunking.models import InferenceChunk
+from digital_twin.llm.chains.base import ANSWER_PAT, QUOTE_PAT
+from digital_twin.llm.chains.qa_chain import QA_MODEL_SETTINGS, BaseQA
+from digital_twin.llm.chains.verify_chain import VERIFY_MODEL_SETTINGS, StuffVerify
+from digital_twin.llm.interface import get_llm
+from digital_twin.qa.interface import QAModel
 from digital_twin.utils.logging import setup_logger
+from digital_twin.utils.text_processing import clean_model_quote, shared_precompare_cleanup
 from digital_twin.utils.timing import log_function_time
-from digital_twin.utils.text_processing import (
-    clean_model_quote,
-    shared_precompare_cleanup,
-)
 
 logger = setup_logger()
 
@@ -50,9 +28,7 @@ def get_json_line(json_dict: dict) -> str:
 def extract_answer_quotes_freeform(
     answer_raw: str,
 ) -> Tuple[Optional[str], Optional[list[str]]]:
-    null_answer_check = (
-        answer_raw.replace(ANSWER_PAT, "").replace(QUOTE_PAT, "").strip()
-    )
+    null_answer_check = answer_raw.replace(ANSWER_PAT, "").replace(QUOTE_PAT, "").strip()
 
     # If model just gives back the uncertainty pattern to signify answer isn't found or nothing at all
     # if null_answer_check == UNCERTAINTY_PAT or not null_answer_check:
@@ -72,9 +48,7 @@ def extract_answer_quotes_freeform(
     )  # Just in case model unreliable
 
     sections = re.split(rf"(?<=\n){QUOTE_PAT}", answer_raw)
-    sections_clean = [
-        str(section).strip() for section in sections if str(section).strip()
-    ]
+    sections_clean = [str(section).strip() for section in sections if str(section).strip()]
     if not sections_clean:
         return None, None
 
@@ -116,9 +90,7 @@ def match_quotes_to_docs(
             if not chunk.source_links:
                 continue
 
-            quote_clean = shared_precompare_cleanup(
-                clean_model_quote(quote, trim_length=prefix_only_length)
-            )
+            quote_clean = shared_precompare_cleanup(clean_model_quote(quote, trim_length=prefix_only_length))
             chunk_clean = shared_precompare_cleanup(chunk.content)
 
             if quote_clean not in chunk_clean:
@@ -155,12 +127,13 @@ def process_answer(
     answer_raw: str, chunks: list[InferenceChunk]
 ) -> tuple[str | None, dict[str, dict[str, str | int | None]] | None]:
     answer, quote_strings = separate_answer_quotes(answer_raw)
-    #logger.info(f"Answer: {answer}")
-    #logger.info(f"Quotes: {quote_strings}")
+    # logger.info(f"Answer: {answer}")
+    # logger.info(f"Quotes: {quote_strings}")
     if not answer or not quote_strings:
         return None, None
     quotes_dict = match_quotes_to_docs(quote_strings, chunks)
     return answer, quotes_dict
+
 
 def stream_answer_end(answer_so_far: str, next_token: str) -> bool:
     next_token = next_token.replace('\\"', "")
@@ -172,41 +145,44 @@ def stream_answer_end(answer_so_far: str, next_token: str) -> bool:
     return False
 
 
-def process_verify_answer(
-    answer_raw: str
-) -> tuple[bool | None, float | None]:
-    
-    def _determine_answerable(answer_str: str | None) -> bool | None:
+def process_verify_answer(answer_raw: str) -> tuple[bool, float]:
+    def _determine_answerable(answer_str: str | None) -> bool:
         if answer_str is None:
-            return None
+            return False
         if "yes" in answer_str.lower():
             return True
         if "no" in answer_str.lower():
             return False
-    
-    def _extract_score(answer_str: str | None) -> float | None:
+        return False
+
+    def _extract_score(answer_str: str | None) -> float:
         if answer_str is None:
-            return None
+            return 0.0
         try:
-            score = re.search('(confidence|score|confidence_score|confidence_scores)\D*(\d+\.\d+)', answer_str)
+            score = re.search(
+                "(confidence|score|confidence_score|confidence_scores)\D*(\d+\.\d+)",
+                answer_str,
+            )
             if score is not None:
                 return float(score.group(2))
             else:
-                return None
+                return 0.0
         except ValueError:
-            return None
+            return 0.0
 
     try:
         model_raw_json: dict[str, str | list[str]] = json.loads(answer_raw)
         answer_dict = {k.lower(): v for k, v in model_raw_json.items()}
-        is_answerable = _determine_answerable(
-            str(answer_dict.get("answerable") or answer_dict.get("answer"))
-        )
-        confidence_score = float(
-            answer_dict.get("confidence") or 
-            answer_dict.get("confidence_score") or 
-            answer_dict.get("confidence_scores") or 
-            answer_dict.get("score")
+        is_answerable = _determine_answerable(str(answer_dict.get("answerable") or answer_dict.get("answer")))
+        keys_to_try = ["confidence", "confidence_score", "confidence_scores", "score"]
+        confidence_score = next(
+            (
+                float(val)
+                for key in keys_to_try
+                for val in [answer_dict.get(key)]
+                if isinstance(val, str) and re.match(r"^-?\d+(?:\.\d+)?$", val)
+            ),
+            0.0,
         )
         return is_answerable, confidence_score
     except ValueError:
@@ -216,25 +192,19 @@ def process_verify_answer(
 
 
 async def async_verify_if_docs_are_relevant(
-        query: str,
-        context_docs: List[InferenceChunk],
+    query: str,
+    context_docs: List[InferenceChunk],
 ) -> tuple[bool, float]:
     verify_chain = StuffVerify(
         llm=get_llm(
-            **VERIFY_MODEL_SETTINGS
+            temperature=VERIFY_MODEL_SETTINGS["temperature"],
+            max_output_tokens=int(VERIFY_MODEL_SETTINGS["max_output_tokens"]),
         ),
     )
-    res = await verify_chain.async_run(
-        query,
-        context_docs=context_docs
-    )
+    res = await verify_chain.async_run(query, context_docs=context_docs)
     is_docs_relevant, confidence_score = process_verify_answer(res)
-    # Return False if is_docs_relevant is None
-    is_docs_relevant = is_docs_relevant if is_docs_relevant is not None else False
-    # Return 0.0 if confidence_score is None
-    confidence_score = confidence_score if confidence_score is not None else 0.0
-
     return is_docs_relevant, confidence_score
+
 
 class QA(QAModel):
     def __init__(
@@ -243,7 +213,8 @@ class QA(QAModel):
     ) -> None:
         # Pick LLM
         self.llm = get_llm(
-            **QA_MODEL_SETTINGS,
+            temperature=QA_MODEL_SETTINGS["temperature"],
+            max_output_tokens=int(QA_MODEL_SETTINGS["max_output_tokens"]),
             model_timeout=model_timeout,
         )
         self.model_timeout = model_timeout
@@ -254,9 +225,7 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-    ) -> Tuple[
-        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
-    ]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, Dict[str, Union[str, int, None]]]]]:
         try:
             qa_system = self._pick_qa_chain(
                 llm=self.llm,
@@ -271,7 +240,6 @@ class QA(QAModel):
 
         answer, quotes_dict = process_answer(model_output, context_docs)
         return answer, quotes_dict
-    
 
     @log_function_time()
     async def async_answer_question(
@@ -279,9 +247,7 @@ class QA(QAModel):
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-    ) -> Tuple[
-        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
-    ]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, Dict[str, Union[str, int, None]]]]]:
         try:
             qa_system = self._pick_qa_chain(
                 llm=self.llm,
@@ -296,7 +262,7 @@ class QA(QAModel):
 
         answer, quotes_dict = process_answer(model_output, context_docs)
         return answer, quotes_dict
-    
+
     @log_function_time()
     async def async_answer_question_and_verify(
         self,
@@ -305,40 +271,38 @@ class QA(QAModel):
         prompt: PromptTemplate = None,
     ) -> Tuple[
         Optional[str],
-        Dict[str, Optional[Dict[str, str | int | None]]],
+        Optional[Dict[str, Optional[Dict[str, str | int | None]]]],
         Optional[bool],
         Optional[float],
     ]:
         """
-        Runs both qa_response and verify chain async.
-        If documents are irrelevant, returns None for answer and quotes_dict
+         Runs both qa_response and verify chain async.
+         If documents are irrelevant, returns None for answer and quotes_dict
 
-       :return Tuple[answer, quotes_dict]
+        :return Tuple[answer, quotes_dict]
         """
+
         async def execute_tasks() -> List[Any]:
             tasks = {
                 "qa_response": self.async_answer_question(
-                    query, 
+                    query,
                     prompt=prompt,
                     context_docs=context_docs,
                 ),
-                "verify_relevancy": async_verify_if_docs_are_relevant(
-                    query, 
-                    context_docs=context_docs
-                )
+                "verify_relevancy": async_verify_if_docs_are_relevant(query, context_docs=context_docs),
             }
             results = await asyncio.gather(*tasks.values(), return_exceptions=True)
             for task_name, result in zip(tasks.keys(), results):
                 if isinstance(result, Exception):
                     raise Exception(f"Error in {task_name} coroutine: {result}")
             return results
-                
+
         # Return the results in the order of the input tasks
         # qa_response is a tuple of (answer, quotes_dict)
         qa_response, relevancy_resp = await execute_tasks()
         answer, quotes_dict = qa_response
         is_docs_relevant, confidence_score = relevancy_resp
-        
+
         return answer, quotes_dict, is_docs_relevant, confidence_score
 
     @log_function_time()
@@ -353,7 +317,8 @@ class QA(QAModel):
             streaming=True,
             callback_handler=[callback],
             model_timeout=self.model_timeout,
-            **QA_MODEL_SETTINGS
+            temperature=QA_MODEL_SETTINGS["temperature"],
+            max_output_tokens=int(QA_MODEL_SETTINGS["max_output_tokens"]),
         )
         qa_system: BaseQA = self._pick_qa_chain(
             llm=self.llm_streaming,
@@ -369,12 +334,10 @@ class QA(QAModel):
             finally:
                 # Signal the aiter to stop.
                 event.set()
-                
 
         # Begin a task that runs in the background.
-        task = asyncio.create_task(wrap_done(
-            qa_system.async_run(query, context_docs),
-            callback.done),
+        task = asyncio.create_task(
+            wrap_done(qa_system.async_run(query, context_docs), callback.done),
         )
 
         # Initialize variables
@@ -390,9 +353,7 @@ class QA(QAModel):
             model_output += event_text
 
             # Check for answer boundaries
-            if not found_answer_start and '{"answer":"' in model_output.replace(
-                " ", ""
-            ).replace("\n", ""):
+            if not found_answer_start and '{"answer":"' in model_output.replace(" ", "").replace("\n", ""):
                 found_answer_start = True
                 continue
 
@@ -410,12 +371,9 @@ class QA(QAModel):
         if answer:
             logger.info(answer)
         else:
-            logger.warning(
-                "Answer extraction from model output failed, most likely no quotes provided"
-            )
+            logger.warning("Answer extraction from model output failed, most likely no quotes provided")
 
         if quotes_dict is None:
             yield get_json_line({})
         else:
             yield get_json_line(quotes_dict)
-    

@@ -1,17 +1,14 @@
 import io
 import re
+from datetime import datetime
+from typing import Any, Tuple, cast
+from urllib.parse import urljoin, urlparse
+
 import bs4
 import requests
-from typing import Any, Tuple, cast
-from datetime import datetime
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
 from oauthlib.oauth2 import BackendApplicationClient
-from playwright.sync_api import (
-    BrowserContext, 
-    Playwright, 
-    sync_playwright,
-)
+from playwright.sync_api import BrowserContext, Playwright, sync_playwright
 from PyPDF2 import PdfReader
 from requests_oauthlib import OAuth2Session  # type:ignore
 
@@ -23,14 +20,13 @@ from digital_twin.config.app_config import (
     WEB_CONNECTOR_OAUTH_CLIENT_SECRET,
     WEB_CONNECTOR_OAUTH_TOKEN_URL,
 )
-
-from digital_twin.config.constants import DocumentSource, HTML_SEPARATOR
+from digital_twin.config.constants import HTML_SEPARATOR, DocumentSource
 from digital_twin.connectors.interfaces import GenerateDocumentsOutput, LoadConnector
 from digital_twin.connectors.model import Document, Section
-
 from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
+
 
 def is_valid_url(url: str) -> bool:
     try:
@@ -123,11 +119,7 @@ def start_playwright() -> Tuple[Playwright, BrowserContext]:
 
     context = browser.new_context()
 
-    if (
-        WEB_CONNECTOR_OAUTH_CLIENT_ID
-        and WEB_CONNECTOR_OAUTH_CLIENT_SECRET
-        and WEB_CONNECTOR_OAUTH_TOKEN_URL
-    ):
+    if WEB_CONNECTOR_OAUTH_CLIENT_ID and WEB_CONNECTOR_OAUTH_CLIENT_SECRET and WEB_CONNECTOR_OAUTH_TOKEN_URL:
         client = BackendApplicationClient(client_id=WEB_CONNECTOR_OAUTH_CLIENT_ID)
         oauth = OAuth2Session(client=client)
         token = oauth.fetch_token(
@@ -135,11 +127,10 @@ def start_playwright() -> Tuple[Playwright, BrowserContext]:
             client_id=WEB_CONNECTOR_OAUTH_CLIENT_ID,
             client_secret=WEB_CONNECTOR_OAUTH_CLIENT_SECRET,
         )
-        context.set_extra_http_headers(
-            {"Authorization": "Bearer {}".format(token["access_token"])}
-        )
+        context.set_extra_http_headers({"Authorization": "Bearer {}".format(token["access_token"])})
 
     return playwright, context
+
 
 class WebConnector(LoadConnector):
     def __init__(
@@ -229,9 +220,7 @@ class WebConnector(LoadConnector):
                 for undesired_element in WEB_CONNECTOR_IGNORED_CLASSES:
                     [
                         tag.extract()
-                        for tag in soup.find_all(
-                            class_=lambda x: x and undesired_element in x.split()
-                        )
+                        for tag in soup.find_all(class_=lambda x: x and undesired_element in x.split())
                     ]
 
                 for undesired_tag in WEB_CONNECTOR_IGNORED_ELEMENTS:

@@ -7,6 +7,7 @@ import {
   Connector,
   ConnectorIndexingStatus,
   Credential,
+  GoogleDriveConfig,
   GoogleDriveCredentialJson,
 } from "@/lib/types";
 import type { Axios, AxiosResponse } from "axios";
@@ -30,12 +31,12 @@ export interface UseGoogleConnectorsReturn {
   isLoading: boolean;
   handleConnect: () => Promise<void>;
   googleDriveConnectorIndexingStatus:
-    | ConnectorIndexingStatus<{}>
+    | ConnectorIndexingStatus<GoogleDriveConfig>
     | undefined;
   googleDrivePublicCredential:
     | Credential<GoogleDriveCredentialJson>
     | undefined;
-  googleDriveConnector: Connector<{}> | undefined;
+  googleDriveConnector: Connector<GoogleDriveConfig> | undefined;
   credentialIsLinked: boolean;
   appCredentialData: { client_id: string } | undefined;
   isAppCredentialLoading: boolean;

@@ -1,18 +1,20 @@
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from slack_bolt.async_app import AsyncBoltContext
 from slack_sdk.web.async_client import AsyncWebClient
+
 from digital_twin.slack_bot.defs import ChannelType
 
+
 async def retrieve_sorted_past_messages(
-    client: AsyncWebClient, 
+    client: AsyncWebClient,
     channel_id: str,
     context: AsyncBoltContext,
-    thread_ts: Optional[str]= None, # Not in thread if None
+    thread_ts: Optional[str] = None,  # Not in thread if None
     limit_scanned_messages: int = 1000,
 ) -> List[Dict[str, str]]:
-    channel_type = context['SLACK_CHANNEL_TYPE']
-     # Join the channel if it's not a direct message
+    channel_type = context["SLACK_CHANNEL_TYPE"]
+    # Join the channel if it's not a direct message
     if channel_type == ChannelType.PUBLIC_CHANNEL.value:
         await client.conversations_join(
             channel=channel_id,
@@ -32,10 +34,10 @@ async def retrieve_sorted_past_messages(
             include_all_metadata=True,
             limit=limit_scanned_messages,
         )
-    
+
     past_messages = messages.get("messages", [])
     # Filter only user messages
-    past_messages = [m for m in past_messages if m.get('subtype') is None]
+    past_messages = [m for m in past_messages if m.get("subtype") is None]
 
     # Sort messages by timestamp, in ascending order
     past_messages.sort(key=lambda m: m["ts"])
@@ -44,14 +46,14 @@ async def retrieve_sorted_past_messages(
     past_messages_dict = []
     for m in past_messages:
         # Get user info
-        user_info = await client.users_info(user=m.get('user'))
-        user_display_name = user_info.get('user', {}).get('profile', {}).get('real_name_normalized', '')
+        user_info = await client.users_info(user=m.get("user"))
+        user_display_name = user_info.get("user", {}).get("profile", {}).get("real_name_normalized", "")
         past_messages_dict.append(
             {
-                'message': m.get('text'), 
-                'thread_ts': m.get('thread_ts'), 
-                'ts': m.get('ts'),
-                'sender': user_display_name
+                "message": m.get("text"),
+                "thread_ts": m.get("thread_ts"),
+                "ts": m.get("ts"),
+                "sender": user_display_name,
             }
         )
 

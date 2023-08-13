@@ -1,82 +1,61 @@
 import json
-from uuid import UUID
 from functools import partial
+from uuid import UUID
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import ResponseHandlingException
-from qdrant_client.http.models.models import UpdateResult, UpdateStatus
-from qdrant_client.models import (
-    CollectionsResponse,
-    Distance,
-    PointStruct,
-    VectorParams,
-)
+from qdrant_client.http.models.models import UpdateResult
+from qdrant_client.models import CollectionsResponse, Distance, PointStruct, VectorParams
 
+from digital_twin.config.app_config import DOC_EMBEDDING_DIM
 from digital_twin.config.constants import (
+    ALLOWED_GROUPS,
+    ALLOWED_USERS,
     BLURB,
     CHUNK_ID,
     CONTENT,
     DOCUMENT_ID,
+    METADATA,
+    PUBLIC_DOC_PAT,
     SECTION_CONTINUATION,
     SEMANTIC_IDENTIFIER,
     SOURCE_LINKS,
     SOURCE_TYPE,
-    PUBLIC_DOC_PAT,
-    ALLOWED_USERS,
-    ALLOWED_GROUPS,
-    METADATA,
 )
-
-from digital_twin.config.app_config import DOC_EMBEDDING_DIM
-
 from digital_twin.indexdb.chunking.models import EmbeddedIndexChunk
-from digital_twin.indexdb.utils import (
-    get_uuid_from_chunk, 
-    update_doc_user_map,
-    DEFAULT_BATCH_SIZE,
-)
-
-
+from digital_twin.indexdb.utils import DEFAULT_BATCH_SIZE, get_uuid_from_chunk, update_doc_user_map
 from digital_twin.utils.clients import get_qdrant_client
 from digital_twin.utils.logging import setup_logger
+
 logger = setup_logger()
 
-def list_collections() -> CollectionsResponse:
+
+def list_qdrant_collections() -> CollectionsResponse:
     return get_qdrant_client().get_collections()
 
 
-def create_collection(
-    collection_name: str, embedding_dim: int = DOC_EMBEDDING_DIM
-) -> None:
+def create_qdrant_collection(collection_name: str, embedding_dim: int = DOC_EMBEDDING_DIM) -> None:
     logger.info(f"Attempting to create collection {collection_name}")
     result = get_qdrant_client().create_collection(
         collection_name=collection_name,
-        vectors_config=VectorParams(
-            size=embedding_dim, distance=Distance.COSINE
-        ),
+        vectors_config=VectorParams(size=embedding_dim, distance=Distance.COSINE),
     )
     if not result:
         raise RuntimeError("Could not create Qdrant collection")
 
 
-def recreate_collection(
-    collection_name: str, embedding_dim: int = DOC_EMBEDDING_DIM
-) -> None:
+def recreate_collection(collection_name: str, embedding_dim: int = DOC_EMBEDDING_DIM) -> None:
     logger.info(f"Attempting to recreate collection {collection_name}")
     result = get_qdrant_client().recreate_collection(
         collection_name=collection_name,
-        vectors_config=VectorParams(
-            size=embedding_dim, distance=Distance.COSINE
-        ),
+        vectors_config=VectorParams(size=embedding_dim, distance=Distance.COSINE),
     )
     if not result:
         raise RuntimeError("Could not create Qdrant collection")
 
 
-def delete_doc_chunks(
-    document_id: str, collection_name: str, q_client: QdrantClient
-) -> None:
+def delete_doc_chunks(document_id: str, collection_name: str, q_client: QdrantClient) -> None:
     q_client.delete(
         collection_name=collection_name,
         points_selector=models.FilterSelector(
@@ -91,28 +70,25 @@ def delete_doc_chunks(
         ),
     )
 
+
 def get_qdrant_document_whitelists(
     doc_chunk_id: str, collection_name: str, q_client: QdrantClient
-) -> tuple[int, list[str], list[str]]:
+) -> tuple[bool, list[str], list[str]]:
+    """Get whether a document is found and the existing whitelists"""
     results = q_client.retrieve(
         collection_name=collection_name,
         ids=[doc_chunk_id],
         with_payload=[ALLOWED_USERS, ALLOWED_GROUPS],
     )
     if len(results) == 0:
-        return 0, [], []
+        return False, [], []
     payload = results[0].payload
     if not payload:
-        raise RuntimeError(
-            "Qdrant Index is corrupted, Document found with no access lists."
-        )
-    return len(results), payload[ALLOWED_USERS], payload[ALLOWED_GROUPS]
+        raise RuntimeError("Qdrant Index is corrupted, Document found with no access lists.")
+    return True, payload[ALLOWED_USERS], payload[ALLOWED_GROUPS]
 
 
-
-def delete_qdrant_doc_chunks(
-    document_id: str, collection_name: str, q_client: QdrantClient
-) -> bool:
+def delete_qdrant_doc_chunks(document_id: str, collection_name: str, q_client: QdrantClient) -> bool:
     q_client.delete(
         collection_name=collection_name,
         points_selector=models.FilterSelector(
@@ -127,6 +103,7 @@ def delete_qdrant_doc_chunks(
         ),
     )
     return True
+
 
 def index_qdrant_chunks(
     chunks: list[EmbeddedIndexChunk],
@@ -195,13 +172,9 @@ def index_qdrant_chunks(
             def upsert() -> UpdateResult | None:
                 for _ in range(5):
                     try:
-                        return q_client.upsert(
-                            collection_name=collection, points=point_struct_batch
-                        )
+                        return q_client.upsert(collection_name=collection, points=point_struct_batch)
                     except ResponseHandlingException as e:
-                        logger.warning(
-                            f"Failed to upsert batch into qdrant due to error: {e}"
-                        )
+                        logger.warning(f"Failed to upsert batch into qdrant due to error: {e}")
                 return None
 
             index_results = upsert()
@@ -211,13 +184,7 @@ def index_qdrant_chunks(
                 f"status: {log_status}"
             )
     else:
-        index_results = q_client.upsert(
-            collection_name=collection, points=point_structs
-        )
-        logger.info(
-            f"Document batch of size {len(point_structs)} indexing status: {index_results.status}"
-        )
+        index_results = q_client.upsert(collection_name=collection, points=point_structs)
+        logger.info(f"Document batch of size {len(point_structs)} indexing status: {index_results.status}")
 
     return len(doc_user_map.keys()) - docs_deleted
-    
-

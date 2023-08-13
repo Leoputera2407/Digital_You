@@ -1,45 +1,31 @@
 import json
-import typesense  # type: ignore
-
-from typesense.exceptions import ObjectNotFound  # type: ignore
 from functools import partial
 from typing import Any
 from uuid import UUID
 
+import typesense  # type: ignore
+from typesense.exceptions import ObjectNotFound  # type: ignore
 
-from digital_twin.config.app_config import TYPESENSE_DEFAULT_COLLECTION, NUM_RETURNED_HITS
+from digital_twin.config.app_config import NUM_RETURNED_HITS, TYPESENSE_DEFAULT_COLLECTION
 from digital_twin.config.constants import (
-    ALLOWED_USERS,
     ALLOWED_GROUPS,
+    ALLOWED_USERS,
     BLURB,
     CHUNK_ID,
     CONTENT,
     DOCUMENT_ID,
+    METADATA,
     PUBLIC_DOC_PAT,
     SECTION_CONTINUATION,
     SEMANTIC_IDENTIFIER,
     SOURCE_LINKS,
     SOURCE_TYPE,
-    METADATA,
 )
-from digital_twin.indexdb.utils import (
-    DEFAULT_BATCH_SIZE, 
-    get_uuid_from_chunk,
-    update_doc_user_map,
-)
-from digital_twin.indexdb.chunking.models import (
-    IndexType,
-    EmbeddedIndexChunk,
-    IndexChunk,
-    InferenceChunk,
-)
-from digital_twin.indexdb.interface import (
-    IndexDBFilter, 
-    KeywordIndex,
-)
+from digital_twin.indexdb.chunking.models import EmbeddedIndexChunk, IndexChunk, IndexType, InferenceChunk
+from digital_twin.indexdb.interface import IndexDBFilter, KeywordIndex
+from digital_twin.indexdb.utils import DEFAULT_BATCH_SIZE, get_uuid_from_chunk, update_doc_user_map
 from digital_twin.utils.clients import get_typesense_client
 from digital_twin.utils.logging import setup_logger
-
 
 logger = setup_logger()
 
@@ -85,21 +71,15 @@ def get_typesense_document_whitelists(
 ) -> tuple[bool, list[str], list[str]]:
     """Returns whether the document already exists and the users/group whitelists"""
     try:
-        document = (
-            ts_client.collections[collection_name].documents[doc_chunk_id].retrieve()
-        )
+        document = ts_client.collections[collection_name].documents[doc_chunk_id].retrieve()
     except ObjectNotFound:
         return False, [], []
     if document[ALLOWED_USERS] is None or document[ALLOWED_GROUPS] is None:
-        raise RuntimeError(
-            "Typesense Index is corrupted, Document found with no access lists."
-        )
+        raise RuntimeError("Typesense Index is corrupted, Document found with no access lists.")
     return True, document[ALLOWED_USERS], document[ALLOWED_GROUPS]
 
 
-def delete_typesense_doc_chunks(
-    document_id: str, collection_name: str, ts_client: typesense.Client
-) -> bool:
+def delete_typesense_doc_chunks(document_id: str, collection_name: str, ts_client: typesense.Client) -> bool:
     doc_id_filter = {"filter_by": f"{DOCUMENT_ID}:'{document_id}'"}
 
     # Typesense doesn't seem to prioritize individual deletions, problem not seen with this approach
@@ -162,30 +142,19 @@ def index_typesense_chunks(
             for x in range(0, len(new_documents), DEFAULT_BATCH_SIZE)
         ]
         for doc_batch in doc_batches:
-            results = ts_client.collections[collection].documents.import_(
-                doc_batch, {"action": "upsert"}
-            )
-            failures = [
-                doc_res["success"]
-                for doc_res in results
-                if doc_res["success"] is not True
-            ]
+            results = ts_client.collections[collection].documents.import_(doc_batch, {"action": "upsert"})
+            failures = [doc_res["success"] for doc_res in results if doc_res["success"] is not True]
             logger.info(
                 f"Indexed {len(doc_batch)} chunks into Typesense collection '{collection}', "
                 f"number failed: {len(failures)}"
             )
     else:
-        [
-            ts_client.collections[collection].documents.upsert(document)
-            for document in new_documents
-        ]
+        [ts_client.collections[collection].documents.upsert(document) for document in new_documents]
 
     return len(doc_user_map.keys()) - docs_deleted
 
 
-def _build_typesense_filters(
-    user_id: UUID | None, filters: list[IndexDBFilter] | None
-) -> str:
+def _build_typesense_filters(user_id: UUID | None, filters: list[IndexDBFilter] | None) -> str:
     filter_str = ""
 
     # Permissions filter
@@ -197,9 +166,7 @@ def _build_typesense_filters(
     # Provided query filters
     if filters:
         for filter_dict in filters:
-            valid_filters = {
-                key: value for key, value in filter_dict.items() if value is not None
-            }
+            valid_filters = {key: value for key, value in filter_dict.items() if value is not None}
             for filter_key, filter_val in valid_filters.items():
                 if isinstance(filter_val, str):
                     filter_str += f"{filter_key}:={filter_val} && "
@@ -251,9 +218,7 @@ class TypesenseIndex(KeywordIndex):
             "exhaustive_search": "true",
         }
 
-        search_results = self.ts_client.collections[self.collection].documents.search(
-            search_query
-        )
+        search_results = self.ts_client.collections[self.collection].documents.search(search_query)
 
         hits = search_results["hits"]
         inference_chunks = [
@@ -261,6 +226,8 @@ class TypesenseIndex(KeywordIndex):
                 hit["document"],
                 hit.get("text_match_info", None),
                 IndexType.TYPESENSE.value,
-            ) for hit in hits]
+            )
+            for hit in hits
+        ]
 
         return inference_chunks

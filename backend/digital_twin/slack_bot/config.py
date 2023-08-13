@@ -1,34 +1,28 @@
-from uuid import uuid4, UUID
-from typing import Optional, Tuple
 from logging import Logger
+from typing import Optional, Tuple
+from uuid import UUID, uuid4
+
+from slack_bolt.oauth.async_oauth_settings import AsyncOAuthSettings
+from slack_sdk.oauth.installation_store import Bot, Installation
+from slack_sdk.oauth.installation_store.async_installation_store import AsyncInstallationStore
+from slack_sdk.oauth.state_store.async_state_store import AsyncOAuthStateStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from slack_sdk.oauth.installation_store import Bot, Installation
-from slack_bolt.oauth.async_oauth_settings import AsyncOAuthSettings
-from slack_sdk.oauth.installation_store.async_installation_store import (
-    AsyncInstallationStore,
-)
-from slack_sdk.oauth.state_store.async_state_store import AsyncOAuthStateStore
-
-
-from digital_twin.config.app_config import (
-    SLACK_CLIENT_ID, 
-    SLACK_CLIENT_SECRET, 
-)
+from digital_twin.config.app_config import SLACK_CLIENT_ID, SLACK_CLIENT_SECRET
 from digital_twin.config.constants import SLACK_APP_PERMISSIONS, SLACK_USER_SCOPES
-
-from digital_twin.utils.logging import setup_logger
-from digital_twin.db.model import SlackIntegration
-from digital_twin.db.engine import get_async_session
 from digital_twin.db.async_slack_bot import (
-    async_save_slack_installation,
-    async_save_slack_bot,
+    async_consume_slack_state,
     async_find_bot_db,
     async_issue_slack_state,
-    async_consume_slack_state,
+    async_save_slack_bot,
+    async_save_slack_installation,
 )
+from digital_twin.db.engine import get_async_session
+from digital_twin.db.model import SlackIntegration
+from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
+
 
 class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
     client_id: str
@@ -46,28 +40,28 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
         return self._logger
 
     async def async_save(
-            self, 
-            installation: Installation,
-            prosona_org_id: UUID,
-            db_session: AsyncSession,
+        self,
+        installation: Installation,
+        prosona_org_id: UUID,
+        db_session: AsyncSession,
     ):
         try:
             await async_save_slack_installation(
-                db_session, 
-                installation, 
+                db_session,
+                installation,
                 prosona_org_id=prosona_org_id,
-                client_id=self.client_id
+                client_id=self.client_id,
             )
             await async_save_slack_bot(
-                db_session, 
-                installation, 
+                db_session,
+                installation,
                 prosona_org_id=prosona_org_id,
                 client_id=self.client_id,
             )
         except Exception as e:
             message = f"Failed to save installation: {installation} - {e}"
             self.logger.warning(message)
-            
+
     async def async_find_bot(
         self,
         *,
@@ -78,13 +72,17 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
         try:
             async with get_async_session() as async_session:
                 bot = await async_find_bot_db(
-                    async_session, enterprise_id, team_id, is_enterprise_install,
+                    async_session,
+                    enterprise_id,
+                    team_id,
+                    is_enterprise_install,
                 )
         except Exception as e:
             message = f"Failed to find bot: {enterprise_id}, {team_id}, {is_enterprise_install} - {e}"
             self.logger.warning(message)
             return None
         return bot
+
 
 class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
     expiration_seconds: int
@@ -103,16 +101,16 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
         return self._logger
 
     async def async_issue(
-            self,
-            prosona_user_id: UUID,
-            prosona_org_id: UUID,
-            slack_integration_type: SlackIntegration,
-            db_session: AsyncSession,
+        self,
+        prosona_user_id: UUID,
+        prosona_org_id: UUID,
+        slack_integration_type: SlackIntegration,
+        db_session: AsyncSession,
     ) -> str:
         state: str = str(uuid4())
         try:
             await async_issue_slack_state(
-                db_session, 
+                db_session,
                 state,
                 prosona_user_id=prosona_user_id,
                 prosona_org_id=prosona_org_id,
@@ -126,19 +124,23 @@ class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
         return state
 
     async def async_consume(
-            self, 
-            state: str,
-            db_session: AsyncSession
-        ) -> Tuple[str, Optional[UUID], Optional[UUID], Optional[SlackIntegration]]:
+        self, state: str, db_session: AsyncSession
+    ) -> Tuple[Optional[str], Optional[UUID], Optional[UUID], Optional[SlackIntegration]] | None:
         try:
-            state, prosona_org_id, prosona_user_id, slack_integration_type = await async_consume_slack_state(
-                db_session, state,
+            (
+                state,
+                prosona_org_id,
+                prosona_user_id,
+                slack_integration_type,
+            ) = await async_consume_slack_state(
+                db_session,
+                state,
             )
             return state, prosona_org_id, prosona_user_id, slack_integration_type
         except Exception as e:
             message = f"Failed to find any persistent data for state: {state} - {e}"
             self.logger.warning(message)
-            return False, None
+            return None, None, None, None
 
 
 def get_oauth_settings():

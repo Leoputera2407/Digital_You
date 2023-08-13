@@ -42,7 +42,7 @@ SLACK_USER_SCOPES = [
     "users:read.email",
 ]
 
-DEFAULT_SLACK_CONVERSATION_STYLE="""
+DEFAULT_SLACK_CONVERSATION_STYLE = """
 The style of conversation is formal, precise, and usually in third person perspective. 
 It uses business jargon and technical language when necessary, and is devoid of slang, 
 abbreviations or colloquialisms. This style is characterized by clear and direct statements, 
@@ -50,6 +50,7 @@ with a courteous and respectful tone. Responses are generally thorough, providin
 information and avoiding ambiguity. This style prioritizes maintaining a serious, business-like 
 tone, even when the other party is more casual.
 """
+
 
 class DocumentSource(str, Enum):
     SLACK = "slack"
@@ -61,6 +62,7 @@ class DocumentSource(str, Enum):
     NOTION = "notion"
     JIRA = "jira"
     LINEAR = "linear"
+
 
 class UserRole(str, Enum):
     BASIC = "basic"

@@ -1,10 +1,13 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, select
 from typing import Optional
-from digital_twin.utils.logging import setup_logger, async_log_sqlalchemy_error
+
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from digital_twin.db.model import CSRFToken
+from digital_twin.utils.logging import async_log_sqlalchemy_error, setup_logger
 
 logger = setup_logger()
+
 
 @async_log_sqlalchemy_error(logger)
 async def async_store_csrf(credential_id: int, csrf: str, db_session: AsyncSession) -> Optional[CSRFToken]:
@@ -23,12 +26,13 @@ async def async_store_csrf(credential_id: int, csrf: str, db_session: AsyncSessi
     await db_session.commit()
     return token
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_consume_csrf(credential_id: int, db_session: AsyncSession) -> Optional[CSRFToken]:
     stmt = (
         select(CSRFToken)
         .where(CSRFToken.credential_id == credential_id)
-        .order_by(CSRFToken.created_at.desc()) 
+        .order_by(CSRFToken.created_at.desc())
     )
     result = await db_session.execute(stmt)
     token = result.scalars().first()
@@ -37,8 +41,7 @@ async def async_consume_csrf(credential_id: int, db_session: AsyncSession) -> Op
         # If token found, delete it and return
         csrf_token = token.csrf_token
         delete_stmt = delete(CSRFToken).where(
-            CSRFToken.credential_id == credential_id,
-            CSRFToken.csrf_token == csrf_token
+            CSRFToken.credential_id == credential_id, CSRFToken.csrf_token == csrf_token
         )
         result = await db_session.execute(delete_stmt)
         await db_session.commit()

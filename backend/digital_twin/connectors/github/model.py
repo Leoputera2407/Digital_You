@@ -8,6 +8,7 @@ class Person(BaseModel):
 class Label(BaseModel):
     name: str
 
+
 class PullRequest(BaseModel):
     title: str
     body: str
@@ -32,12 +33,12 @@ class PullRequest(BaseModel):
 
     @property
     def reviewer_names(self) -> str:
-        return ','.join([reviewer.name for reviewer in self.reviewers])
+        return ",".join([reviewer.name for reviewer in self.reviewers])
 
     @property
     def assignee_names(self) -> str:
-        return ','.join([assignee.name for assignee in self.assignees])
-    
+        return ",".join([assignee.name for assignee in self.assignees])
+
     @property
     def label_names(self) -> str:
-        return ','.join([label.name for label in self.labels])
+        return ",".join([label.name for label in self.labels])

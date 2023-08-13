@@ -1,8 +1,8 @@
-"""add unique constraint v2
+"""remove document_id from connector
 
-Revision ID: a9c1e2ac6640
-Revises: 
-Create Date: 2023-07-14 15:53:56.158346
+Revision ID: 51e90ff88ede
+Revises: 90c27498c973
+Create Date: 2023-08-12 21:28:44.528670
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "a9c1e2ac6640"
-down_revision = None
+revision = "51e90ff88ede"
+down_revision = "90c27498c973"
 branch_labels = None
 depends_on = None
 
@@ -22,18 +22,8 @@ def upgrade() -> None:
         "google_app_credentials",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("credentials_json", sa.String(), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -42,16 +32,10 @@ def upgrade() -> None:
         sa.Column("name", sa.String(), nullable=True),
         sa.Column("whitelisted_email_domain", sa.String(), nullable=True),
         sa.Column(
-            "qdrant_collection_key",
-            sa.UUID(),
-            server_default=sa.text("gen_random_uuid()"),
-            nullable=False,
+            "qdrant_collection_key", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
         ),
         sa.Column(
-            "typesense_collection_key",
-            sa.UUID(),
-            server_default=sa.text("gen_random_uuid()"),
-            nullable=False,
+            "typesense_collection_key", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -89,29 +73,20 @@ def upgrade() -> None:
             sa.Enum("LOAD_STATE", "POLL", "EVENT", name="inputtype", native_enum=False),
             nullable=True,
         ),
-        sa.Column(
-            "connector_specific_config",
-            postgresql.JSONB(astext_type=sa.Text()),
-            nullable=False,
-        ),
+        sa.Column("connector_specific_config", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("refresh_freq", sa.Integer(), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("disabled", sa.Boolean(), nullable=False),
         sa.Column("organization_id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.UUID(), nullable=True),
         sa.ForeignKeyConstraint(
             ["organization_id"],
             ["organizations.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -122,18 +97,8 @@ def upgrade() -> None:
         sa.Column("user_id", sa.UUID(), nullable=True),
         sa.Column("organization_id", sa.UUID(), nullable=True),
         sa.Column("public_doc", sa.Boolean(), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(
             ["organization_id"],
             ["organizations.id"],
@@ -192,10 +157,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        "bots_idx",
-        "slack_bots",
-        ["client_id", "enterprise_id", "team_id", "installed_at"],
-        unique=False,
+        "bots_idx", "slack_bots", ["client_id", "enterprise_id", "team_id", "installed_at"], unique=False
     )
     op.create_table(
         "slack_installations",
@@ -245,6 +207,11 @@ def upgrade() -> None:
         sa.Column("expire_at", sa.DateTime(), nullable=False),
         sa.Column("prosona_organization_id", sa.UUID(), nullable=False),
         sa.Column("prosona_user_id", sa.UUID(), nullable=False),
+        sa.Column(
+            "slack_integration_type",
+            sa.Enum("CONNECTOR", "USER", name="slackintegration", native_enum=False),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(
             ["prosona_organization_id"],
             ["organizations.id"],
@@ -260,6 +227,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("team_id", sa.String(), nullable=False),
         sa.Column("organization_id", sa.UUID(), nullable=False),
+        sa.Column("team_name", sa.String(), nullable=False),
         sa.ForeignKeyConstraint(
             ["organization_id"],
             ["organizations.id"],
@@ -277,12 +245,7 @@ def upgrade() -> None:
             server_default="basic",
             nullable=False,
         ),
-        sa.Column(
-            "joined_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("joined_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(
             ["organization_id"],
             ["organizations.id"],
@@ -319,18 +282,8 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("credential_id", sa.Integer(), nullable=False),
         sa.Column("csrf_token", sa.String(), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(
             ["credential_id"],
             ["credential.id"],
@@ -347,20 +300,9 @@ def upgrade() -> None:
             sa.Enum("NOT_STARTED", "IN_PROGRESS", "SUCCESS", "FAILED", name="indexingstatus"),
             nullable=False,
         ),
-        sa.Column("document_ids", postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column("error_msg", sa.String(), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(
             ["connector_id"],
             ["connector.id"],
@@ -375,25 +317,17 @@ def upgrade() -> None:
         "slack_users",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("team_id", sa.String(), nullable=False),
+        sa.Column("slack_user_email", sa.String(), nullable=False),
         sa.Column("slack_user_id", sa.String(), nullable=False),
         sa.Column("slack_display_name", sa.String(), nullable=True),
         sa.Column("conversation_style", sa.String(), nullable=True),
         sa.Column("contiguous_chat_transcript", sa.String(), nullable=True),
         sa.Column("chat_pairs", sa.String(), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column("slack_organization_association_id", sa.Integer(), nullable=False),
+        sa.Column("slack_user_token", sa.String(), nullable=True),
         sa.ForeignKeyConstraint(
             ["slack_organization_association_id"],
             ["slack_organization_associations.id"],
@@ -403,6 +337,7 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("team_id", "slack_user_email", name="_team_id_slack_user_email_uc"),
     )
     # ### end Alembic commands ###
 

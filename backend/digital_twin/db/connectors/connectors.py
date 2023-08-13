@@ -1,27 +1,19 @@
-from typing import cast, Optional
+from typing import Optional, cast
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import Session, aliased, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.model import InputType
 from digital_twin.db.model import Connector, IndexAttempt
-from digital_twin.server.model import (
-    ConnectorBase,
-    ObjectCreationIdResponse,
-    StatusResponse,
-)
-
-from digital_twin.utils.logging import (
-     setup_logger,
-    log_sqlalchemy_error,
-    async_log_sqlalchemy_error,
-)
+from digital_twin.server.model import ConnectorBase, ObjectCreationIdResponse, StatusResponse
+from digital_twin.utils.logging import async_log_sqlalchemy_error, log_sqlalchemy_error, setup_logger
 
 logger = setup_logger()
+
 
 @log_sqlalchemy_error(logger)
 def fetch_connectors(
@@ -43,6 +35,7 @@ def fetch_connectors(
     results = db_session.scalars(stmt)
     return list(results.all())
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_fetch_connectors(
     db_session: AsyncSession,
@@ -63,24 +56,30 @@ async def async_fetch_connectors(
     results = await db_session.scalars(stmt)
     return list(results.unique().all())
 
+
 @log_sqlalchemy_error(logger)
 def connector_by_name_exists_in_org(
-    connector_name: str, 
+    connector_name: str,
     organization_id: UUID,
     db_session: Session,
 ) -> bool:
-    stmt = select(Connector).where((Connector.name == connector_name) & (Connector.organization_id == organization_id))
+    stmt = select(Connector).where(
+        (Connector.name == connector_name) & (Connector.organization_id == organization_id)
+    )
     result = db_session.execute(stmt)
     connector = result.scalar_one_or_none()
     return connector is not None
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_connector_by_name_exists_in_org(
-    connector_name: str, 
+    connector_name: str,
     organization_id: UUID,
     db_session: AsyncSession,
 ) -> bool:
-    stmt = select(Connector).where((Connector.name == connector_name) & (Connector.organization_id == organization_id))
+    stmt = select(Connector).where(
+        (Connector.name == connector_name) & (Connector.organization_id == organization_id)
+    )
     result = await db_session.execute(stmt)
     connector = result.scalar_one_or_none()
     return connector is not None
@@ -88,7 +87,7 @@ async def async_connector_by_name_exists_in_org(
 
 @log_sqlalchemy_error(logger)
 def fetch_connector_by_id_and_org(
-    connector_id: int, 
+    connector_id: int,
     organization_id: UUID | None,
     db_session: Session,
 ) -> Connector | None:
@@ -101,14 +100,17 @@ def fetch_connector_by_id_and_org(
     connector = result.scalar_one_or_none()
     return connector
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_fetch_connector_by_id_and_org(
-    connector_id: int, 
+    connector_id: int,
     organization_id: UUID | None,
     db_session: AsyncSession,
 ) -> Connector | None:
     try:
-        stmt = select(Connector).options(joinedload(Connector.credentials)).where(Connector.id == connector_id)
+        stmt = (
+            select(Connector).options(joinedload(Connector.credentials)).where(Connector.id == connector_id)
+        )
 
         if organization_id is not None:
             stmt = stmt.where(Connector.organization_id == organization_id)
@@ -120,25 +122,20 @@ async def async_fetch_connector_by_id_and_org(
     except Exception as e:
         logger.error(f"Error executing SQL query: {e}")
         return None
-    
+
+
 @log_sqlalchemy_error(logger)
 def create_connector(
     connector_data: ConnectorBase,
     organization_id: UUID,
     db_session: Session,
-    user_id: UUID| None = None,
+    user_id: UUID | None = None,
 ) -> ObjectCreationIdResponse:
     if organization_id is None:
         raise ValueError("Organization ID must be provided.")
-   
-    if connector_by_name_exists_in_org(
-        connector_data.name, 
-        organization_id,
-        db_session
-    ):
-        raise ValueError(
-            "Connector by this name already exists for this org, duplicate naming not allowed."
-        )
+
+    if connector_by_name_exists_in_org(connector_data.name, organization_id, db_session):
+        raise ValueError("Connector by this name already exists for this org, duplicate naming not allowed.")
 
     connector = Connector(
         name=connector_data.name,
@@ -155,24 +152,19 @@ def create_connector(
 
     return ObjectCreationIdResponse(id=connector.id)
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_create_connector(
     connector_data: ConnectorBase,
     organization_id: UUID,
     db_session: AsyncSession,
-    user_id: UUID| None = None,
+    user_id: UUID | None = None,
 ) -> Optional[ObjectCreationIdResponse]:
     if organization_id is None:
         raise ValueError("Organization ID must be provided.")
-    
-    if await async_connector_by_name_exists_in_org(
-        connector_data.name, 
-        organization_id,
-        db_session
-    ):
-        raise ValueError(
-            "Connector by this name already exists for this org, duplicate naming not allowed."
-        )
+
+    if await async_connector_by_name_exists_in_org(connector_data.name, organization_id, db_session):
+        raise ValueError("Connector by this name already exists for this org, duplicate naming not allowed.")
 
     connector = Connector(
         name=connector_data.name,
@@ -188,6 +180,7 @@ async def async_create_connector(
     await db_session.commit()
     return ObjectCreationIdResponse(id=connector.id)
 
+
 @log_sqlalchemy_error(logger)
 def update_connector(
     connector_id: int,
@@ -197,22 +190,16 @@ def update_connector(
 ) -> Connector | None:
     if organization_id is None:
         raise ValueError("Organization ID must be provided.")
-    connector = fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id,
-        db_session
-    )
+    connector = fetch_connector_by_id_and_org(connector_id, organization_id, db_session)
     if connector is None:
         return None
 
     if connector_data.name != connector.name and connector_by_name_exists_in_org(
-        connector_data.name, 
+        connector_data.name,
         organization_id,
         db_session,
     ):
-        raise ValueError(
-            "Connector by this name already exists for this org, duplicate naming not allowed."
-        )
+        raise ValueError("Connector by this name already exists for this org, duplicate naming not allowed.")
 
     connector.name = connector_data.name
     connector.source = connector_data.source
@@ -223,6 +210,7 @@ def update_connector(
     db_session.commit()
     return connector
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_update_connector(
     connector_id: int,
@@ -232,22 +220,16 @@ async def async_update_connector(
 ) -> Connector | None:
     if organization_id is None:
         raise ValueError("Organization ID must be provided.")
-    connector = await async_fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id,
-        db_session
-    )
+    connector = await async_fetch_connector_by_id_and_org(connector_id, organization_id, db_session)
     if connector is None:
         return None
 
     if connector_data.name != connector.name and await async_connector_by_name_exists_in_org(
-        connector_data.name, 
+        connector_data.name,
         organization_id,
         db_session,
     ):
-        raise ValueError(
-            "Connector by this name already exists for this org, duplicate naming not allowed."
-        )
+        raise ValueError("Connector by this name already exists for this org, duplicate naming not allowed.")
 
     connector.name = connector_data.name
     connector.source = connector_data.source
@@ -269,19 +251,14 @@ def disable_connector(
 ) -> StatusResponse[int]:
     if organization_id is None:
         raise HTTPException(status_code=400, detail="Organization ID must be provided.")
-    connector = fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id,
-        db_session
-    )
+    connector = fetch_connector_by_id_and_org(connector_id, organization_id, db_session)
     if connector is None:
         raise HTTPException(status_code=404, detail="Connector does not exist")
 
     connector.disabled = True
     db_session.commit()
-    return StatusResponse(
-        success=True, message="Connector deleted successfully", data=connector_id
-    )
+    return StatusResponse(success=True, message="Connector deleted successfully", data=connector_id)
+
 
 @log_sqlalchemy_error(logger)
 def backend_disable_connector(
@@ -293,18 +270,16 @@ def backend_disable_connector(
     we want to disable regardless of org_id
     """
     connector = fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id = None,
-        db_session = db_session,
+        connector_id,
+        organization_id=None,
+        db_session=db_session,
     )
     if connector is None:
         raise HTTPException(status_code=404, detail="Connector does not exist")
 
     connector.disabled = True
     db_session.commit()
-    return StatusResponse(
-        success=True, message="Connector deleted successfully", data=connector_id
-    )
+    return StatusResponse(success=True, message="Connector deleted successfully", data=connector_id)
 
 
 @log_sqlalchemy_error(logger)
@@ -315,21 +290,14 @@ def delete_connector(
 ) -> StatusResponse[int]:
     """Currently unused due to foreign key restriction from IndexAttempt
     Use disable_connector instead"""
-    connector = fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id,
-        db_session
-    )
+    connector = fetch_connector_by_id_and_org(connector_id, organization_id, db_session)
     if connector is None:
-        return StatusResponse(
-            success=True, message="Connector was already deleted", data=connector_id
-        )
+        return StatusResponse(success=True, message="Connector was already deleted", data=connector_id)
 
     db_session.delete(connector)
     db_session.commit()
-    return StatusResponse(
-        success=True, message="Connector deleted successfully", data=connector_id
-    )
+    return StatusResponse(success=True, message="Connector deleted successfully", data=connector_id)
+
 
 @async_log_sqlalchemy_error(logger)
 async def async_delete_connector(
@@ -339,21 +307,14 @@ async def async_delete_connector(
 ) -> StatusResponse[int]:
     """Currently unused due to foreign key restriction from IndexAttempt
     Use disable_connector instead"""
-    connector = await async_fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id,
-        db_session
-    )
+    connector = await async_fetch_connector_by_id_and_org(connector_id, organization_id, db_session)
     if connector is None:
-        return StatusResponse(
-            success=True, message="Connector was already deleted", data=connector_id
-        )
+        return StatusResponse(success=True, message="Connector was already deleted", data=connector_id)
 
     await db_session.delete(connector)
     await db_session.commit()
-    return StatusResponse(
-        success=True, message="Connector deleted successfully", data=connector_id
-    )
+    return StatusResponse(success=True, message="Connector deleted successfully", data=connector_id)
+
 
 @log_sqlalchemy_error(logger)
 def get_connector_credential_ids(
@@ -361,15 +322,12 @@ def get_connector_credential_ids(
     organization_id: UUID,
     db_session: Session,
 ) -> list[int]:
-    connector = fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id,
-        db_session
-    )
+    connector = fetch_connector_by_id_and_org(connector_id, organization_id, db_session)
     if connector is None:
         raise ValueError(f"Connector by id {connector_id} does not exist")
 
     return [association.credential.id for association in connector.credentials]
+
 
 @async_log_sqlalchemy_error(logger)
 async def async_get_connector_credential_ids(
@@ -377,15 +335,12 @@ async def async_get_connector_credential_ids(
     organization_id: UUID,
     db_session: AsyncSession,
 ) -> list[int]:
-    connector = await async_fetch_connector_by_id_and_org(
-        connector_id, 
-        organization_id,
-        db_session
-    )
+    connector = await async_fetch_connector_by_id_and_org(connector_id, organization_id, db_session)
     if connector is None:
         raise ValueError(f"Connector by id {connector_id} does not exist")
 
     return [association.credential.id for association in connector.credentials]
+
 
 @log_sqlalchemy_error(logger)
 def fetch_latest_index_attempt_by_connector(
@@ -399,17 +354,13 @@ def fetch_latest_index_attempt_by_connector(
 
     if source:
         connectors = fetch_connectors(
-            db_session, 
-            sources=[source], 
+            db_session,
+            sources=[source],
             organization_id=organization_id,
             disabled_status=False,
         )
     else:
-        connectors = fetch_connectors(
-            db_session, 
-            organization_id=organization_id,
-            disabled_status=False
-        )
+        connectors = fetch_connectors(db_session, organization_id=organization_id, disabled_status=False)
 
     if not connectors:
         return []
@@ -426,6 +377,7 @@ def fetch_latest_index_attempt_by_connector(
             latest_index_attempts.append(latest_index_attempt)
 
     return latest_index_attempts
+
 
 @log_sqlalchemy_error(logger)
 def fetch_latest_index_attempts_by_status(

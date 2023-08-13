@@ -1,20 +1,14 @@
-import smtplib
 import secrets
+import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-
-from digital_twin.config.app_config import (
-    SMTP_SERVER, 
-    SMTP_PORT, 
-    SMTP_USER,
-    SMTP_PASSWORD,
-    WEB_DOMAIN,
-)
+from digital_twin.config.app_config import SMTP_PASSWORD, SMTP_PORT, SMTP_SERVER, SMTP_USER, WEB_DOMAIN
 
 
 def generate_invitation_token(length=30):
     return secrets.token_urlsafe(length)
+
 
 def send_user_invitation_email(workspace_name: str, invitee_email: str, token: str) -> None:
     msg = MIMEMultipart()
@@ -22,8 +16,8 @@ def send_user_invitation_email(workspace_name: str, invitee_email: str, token: s
     msg["From"] = SMTP_USER
     msg["To"] = invitee_email
     # TODO: We'll do proper invitation flow later, for now just send them to the landing page
-    #link = f"{WEB_DOMAIN}/accept-invitation?token={token}"
-    #body = MIMEText(f"Click the following link to accept your invitation: {link}")
+    # link = f"{WEB_DOMAIN}/accept-invitation?token={token}"
+    # body = MIMEText(f"Click the following link to accept your invitation: {link}")
     link = f"{WEB_DOMAIN}"
     body = MIMEText(f"Sign up with your work email here: {link}")
     msg.attach(body)

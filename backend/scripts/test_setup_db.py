@@ -1,23 +1,25 @@
-import requests
 import json
 
+import requests
+
+from digital_twin.config.app_config import POSTGRES_DB, POSTGRES_HOST
 from digital_twin.db.connectors.google_drive import async_upsert_db_google_app_cred
 from digital_twin.db.engine import get_async_session
-from digital_twin.server.model import GoogleAppWebCredentials, GoogleAppCredentials
-from digital_twin.config.app_config import POSTGRES_DB, POSTGRES_HOST
+from digital_twin.server.model import GoogleAppCredentials, GoogleAppWebCredentials
+
 print(POSTGRES_DB, POSTGRES_HOST)
 
 BUCKET_NAME = "Access Token Bucket"
 BUCKET_SOURCE = "localhost_google_app_credentials.json"
-#destination ="./localhost_google_app_credentials.json"
-destination="./localhost_google_app_credentials.json"
+# destination ="./localhost_google_app_credentials.json"
+destination = "./localhost_google_app_credentials.json"
 """
 with open(destination, 'wb+') as f:
   res = supabase.storage.from_(BUCKET_NAME).download(BUCKET_SOURCE)
   f.write(res)
 """
 
-with open(destination, 'r') as f:
+with open(destination, "r") as f:
     credentials = json.load(f)
 
 
@@ -37,20 +39,23 @@ if response.status_code == 200:
 else:
     print(f"Error occurred: {response.text}")
 """
-app_credentials = GoogleAppCredentials(**credentials['web'])
+app_credentials = GoogleAppCredentials(**credentials["web"])
 db_session = get_async_session()
+
+
 async def upsert_db_google_app_cred():
-    return await async_upsert_db_google_app_cred(
-        app_credentials.dict(),
-        db_session
-    )
+    return await async_upsert_db_google_app_cred(app_credentials.dict(), db_session)
+
 
 # You should run your coroutine inside an event loop
 async def main():
     res = await upsert_db_google_app_cred()
+    print("pushed cred to db")
+    return
 
 
 import asyncio
+
 asyncio.run(main())
 """
 # URL of your API

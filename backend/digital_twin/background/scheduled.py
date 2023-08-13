@@ -1,14 +1,17 @@
-import time
 import sys
+import time
 from uuid import UUID
+
 from sqlalchemy.orm import Session
-from digital_twin.db.engine import  get_sqlalchemy_engine
-from digital_twin.utils.logging import setup_logger
+
 from digital_twin.background.utils import create_indexing_jobs, run_indexing_jobs
+from digital_twin.db.engine import get_sqlalchemy_engine
+from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
 
-def batch_update(organization_id:UUID|None= None) -> None:
+
+def batch_update(organization_id: UUID | None = None) -> None:
     engine = get_sqlalchemy_engine()
     start = time.time()
     logger.info(f"Running update, current time: {time.ctime(start)}")

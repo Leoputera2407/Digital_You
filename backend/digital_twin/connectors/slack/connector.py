@@ -3,7 +3,7 @@ import os
 import time
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import cast, Any
+from typing import Any, cast
 
 from slack_sdk import WebClient
 from slack_sdk.web import SlackResponse
@@ -16,22 +16,15 @@ from digital_twin.connectors.interfaces import (
     PollConnector,
     SecondsSinceUnixEpoch,
 )
+from digital_twin.connectors.model import ConnectorMissingCredentialError, Document, Section
 from digital_twin.connectors.slack.utils import (
     UserIdReplacer,
+    get_message_link,
     make_slack_api_call_paginated,
     make_slack_api_rate_limited,
 )
-
-from digital_twin.connectors.model import (
-    Document, 
-    Section,
-    ConnectorMissingCredentialError,
-)
-
-from digital_twin.connectors.slack.utils import get_message_link
 from digital_twin.utils.logging import setup_logger
 from digital_twin.utils.slack import format_slack_to_openai
-
 
 logger = setup_logger()
 
@@ -42,25 +35,19 @@ MessageType = dict[str, Any]
 ThreadType = list[MessageType]
 
 
-def _make_slack_api_call(
-    call: Callable[..., SlackResponse], **kwargs: Any
-) -> list[dict[str, Any]]:
+def _make_slack_api_call(call: Callable[..., SlackResponse], **kwargs: Any) -> list[dict[str, Any]]:
     return make_slack_api_call_paginated(make_slack_api_rate_limited(call))(**kwargs)
 
 
 def get_channel_info(client: WebClient, channel_id: str) -> ChannelType:
     """Get information about a channel. Needed to convert channel ID to channel name"""
-    return _make_slack_api_call(client.conversations_info, channel=channel_id)[0][
-        "channel"
-    ]
+    return _make_slack_api_call(client.conversations_info, channel=channel_id)[0]["channel"]
 
 
 def get_channels(client: WebClient, exclude_archived: bool = True) -> list[ChannelType]:
     """Get all channels in the workspace"""
     channels: list[dict[str, Any]] = []
-    for result in _make_slack_api_call(
-        client.conversations_list, exclude_archived=exclude_archived
-    ):
+    for result in _make_slack_api_call(client.conversations_list, exclude_archived=exclude_archived):
         channels.extend(result["channels"])
     return channels
 
@@ -74,9 +61,7 @@ def get_channel_messages(
     """Get all messages in a channel"""
     # join so that the bot can access messages
     if not channel["is_member"]:
-        client.conversations_join(
-            channel=channel["id"], is_private=channel["is_private"]
-        )
+        client.conversations_join(channel=channel["id"], is_private=channel["is_private"])
 
     for result in _make_slack_api_call(
         client.conversations_history,
@@ -90,9 +75,7 @@ def get_channel_messages(
 def get_thread(client: WebClient, channel_id: str, thread_id: str) -> ThreadType:
     """Get all messages in a thread"""
     threads: list[MessageType] = []
-    for result in _make_slack_api_call(
-        client.conversations_replies, channel=channel_id, ts=thread_id
-    ):
+    for result in _make_slack_api_call(client.conversations_replies, channel=channel_id, ts=thread_id):
         threads.extend(result["messages"])
     return threads
 
@@ -108,11 +91,10 @@ def thread_to_doc(
         id=f"{channel_id}__{thread[0]['ts']}",
         sections=[
             Section(
-                link=get_message_link(
-                    event=m, workspace=workspace, channel_id=channel_id
-                ),
+                link=get_message_link(event=m, workspace=workspace, channel_id=channel_id),
                 text=format_slack_to_openai(
-        user_id_replacer.replace_user_ids_with_names(cast(str, m["text"]))),
+                    user_id_replacer.replace_user_ids_with_names(cast(str, m["text"]))
+                ),
             )
             for m in thread
         ],
@@ -166,12 +148,8 @@ def get_all_docs(
                 filtered_thread: ThreadType | None = None
                 thread_ts = message.get("thread_ts")
                 if thread_ts:
-                    thread = get_thread(
-                        client=client, channel_id=channel["id"], thread_id=thread_ts
-                    )
-                    filtered_thread = [
-                        message for message in thread if not msg_filter_func(message)
-                    ]
+                    thread = get_thread(client=client, channel_id=channel["id"], thread_id=thread_ts)
+                    filtered_thread = [message for message in thread if not msg_filter_func(message)]
                 elif not msg_filter_func(message):
                     filtered_thread = [message]
 
@@ -184,15 +162,11 @@ def get_all_docs(
                         user_id_replacer=user_id_replacer,
                     )
 
-        logger.info(
-            f"Pulled {channel_docs} documents from slack channel {channel['name']}"
-        )
+        logger.info(f"Pulled {channel_docs} documents from slack channel {channel['name']}")
 
 
 class SlackLoadConnector(LoadConnector):
-    def __init__(
-        self, workspace: str, export_path_str: str, batch_size: int = INDEX_BATCH_SIZE
-    ) -> None:
+    def __init__(self, workspace: str, export_path_str: str, batch_size: int = INDEX_BATCH_SIZE) -> None:
         self.workspace = workspace
         self.export_path_str = export_path_str
         self.batch_size = batch_size
@@ -209,10 +183,7 @@ class SlackLoadConnector(LoadConnector):
         matching_doc: Document | None,
         workspace: str,
     ) -> Document | None:
-        if (
-            slack_event["type"] == "message"
-            and slack_event.get("subtype") != "channel_join"
-        ):
+        if slack_event["type"] == "message" and slack_event.get("subtype") != "channel_join":
             if matching_doc:
                 return Document(
                     id=matching_doc.id,
@@ -260,10 +231,7 @@ class SlackLoadConnector(LoadConnector):
         document_batch: dict[str, Document] = {}
         for channel_info in channels:
             channel_dir_path = export_path / cast(str, channel_info["name"])
-            channel_file_paths = [
-                channel_dir_path / file_name
-                for file_name in os.listdir(channel_dir_path)
-            ]
+            channel_file_paths = [channel_dir_path / file_name for file_name in os.listdir(channel_dir_path)]
             for path in channel_file_paths:
                 with open(path) as f:
                     events = cast(list[dict[str, Any]], json.load(f))
@@ -271,9 +239,7 @@ class SlackLoadConnector(LoadConnector):
                     doc = self._process_batch_event(
                         slack_event=slack_event,
                         channel=channel_info,
-                        matching_doc=document_batch.get(
-                            slack_event.get("thread_ts", "")
-                        ),
+                        matching_doc=document_batch.get(slack_event.get("thread_ts", "")),
                         workspace=self.workspace,
                     )
                     if doc:
@@ -300,7 +266,6 @@ class SlackPollConnector(PollConnector):
     ) -> GenerateDocumentsOutput:
         if self.client is None:
             raise ConnectorMissingCredentialError("Slack")
-
 
         documents: list[Document] = []
         for document in get_all_docs(

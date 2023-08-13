@@ -1,15 +1,11 @@
-from typing import Optional, List
-import promptlayer
+from typing import List, Optional
 
-from langchain.llms.base import BaseLanguageModel
+import promptlayer
 from langchain.callbacks import PromptLayerCallbackHandler
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain.llms.base import BaseLanguageModel
 
-from digital_twin.config.app_config import (
-    DEFAULT_MODEL_TYPE,
-    MODEL_API_KEY,
-    PROMPTLAYER_API_KEY,
-)
+from digital_twin.config.app_config import DEFAULT_MODEL_TYPE, MODEL_API_KEY, PROMPTLAYER_API_KEY
 from digital_twin.config.model_config import SupportedModelType
 from digital_twin.utils.logging import setup_logger
 
@@ -20,6 +16,7 @@ promptlayer.api_key = PROMPTLAYER_API_KEY
 
 def get_selected_model_type() -> SupportedModelType:
     return SupportedModelType[DEFAULT_MODEL_TYPE]
+
 
 def get_seleted_model_n_context_len() -> int:
     return get_selected_model_type().n_context_len
@@ -45,6 +42,7 @@ def get_llm(
     callback_handler = callback_handler + COMMON_CALLBACK_HANDLER
     if selected_model_type.name.startswith("gpt"):
         from langchain.chat_models import ChatOpenAI
+
         llm = ChatOpenAI(
             model_name=selected_model_type.name,
             api_key=api_key,
@@ -68,23 +66,24 @@ def get_llm(
             request_timeout=kwargs.get("model_timeout", 10),
         )
     elif selected_model_type.name.startswith("azure"):
-         from langchain.chat_models import AzureChatOpenAI
-         llm = AzureChatOpenAI(
-                openai_api_base="https://prosona.openai.azure.com/",
-                openai_api_version="2023-03-15-preview",
-                deployment_name='35turbo',
-                model="gpt-35-turbo",
-                openai_api_key=api_key,
-                openai_api_type='azure',
-                temperature=temperature,
-                max_tokens=max_output_tokens,
-                streaming=streaming,
-                callbacks=callback_handler,
-                request_timeout=kwargs.get("model_timeout", 10),
-                # We want to use the same encoding as GPT3.5, somehow this error out
-                # when we put `gpt-35-turbo` eventho the mapping is there.
-                tiktoken_model_name="gpt-3.5-turbo"
-            )
+        from langchain.chat_models import AzureChatOpenAI
+
+        llm = AzureChatOpenAI(
+            openai_api_base="https://prosona.openai.azure.com/",
+            openai_api_version="2023-03-15-preview",
+            deployment_name="35turbo",
+            model="gpt-35-turbo",
+            openai_api_key=api_key,
+            openai_api_type="azure",
+            temperature=temperature,
+            max_tokens=max_output_tokens,
+            streaming=streaming,
+            callbacks=callback_handler,
+            request_timeout=kwargs.get("model_timeout", 10),
+            # We want to use the same encoding as GPT3.5, somehow this error out
+            # when we put `gpt-35-turbo` eventho the mapping is there.
+            tiktoken_model_name="gpt-3.5-turbo",
+        )
 
     else:
         raise ValueError(

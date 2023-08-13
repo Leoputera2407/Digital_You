@@ -2,7 +2,7 @@
 # Specific to this project
 **/source_documents
 **/models
-**/test/localhost_google_app_credentials.json
+**/scripts/google_cred*.json
 **/local_noteboook_test
 
 # OSX
@@ -100,9 +100,9 @@
 **/*.sage.py
 
 # Environments
-**/.env
+**/.env.*
 **/.venv
-**/env
+**/env.*
 **/venv
 **/ENV
 **/env.bak

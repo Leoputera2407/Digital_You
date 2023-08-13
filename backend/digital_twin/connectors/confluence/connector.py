@@ -1,24 +1,19 @@
-from collections.abc import Callable
-from collections.abc import Generator
-from datetime import datetime
-from datetime import timezone
+from collections.abc import Callable, Generator
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
 from atlassian import Confluence  # type:ignore
+
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.interfaces import (
-     GenerateDocumentsOutput, 
-     LoadConnector,
-     PollConnector,
-     SecondsSinceUnixEpoch,
+    GenerateDocumentsOutput,
+    LoadConnector,
+    PollConnector,
+    SecondsSinceUnixEpoch,
 )
-from digital_twin.connectors.model import (
-    Document,
-    Section,
-    ConnectorMissingCredentialError,
-)
+from digital_twin.connectors.model import ConnectorMissingCredentialError, Document, Section
 from digital_twin.utils.text_processing import parse_html_page_basic
 
 # Potential Improvements
@@ -29,9 +24,8 @@ from digital_twin.utils.text_processing import parse_html_page_basic
 
 class ConfluenceClientNotSetUpError(PermissionError):
     def __init__(self) -> None:
-        super().__init__(
-            "Confluence Client is not set up, was load_credentials called?"
-        )
+        super().__init__("Confluence Client is not set up, was load_credentials called?")
+
 
 def extract_confluence_keys_from_url(wiki_url: str) -> tuple[str, str]:
     """Sample
@@ -40,17 +34,10 @@ def extract_confluence_keys_from_url(wiki_url: str) -> tuple[str, str]:
     space is 1234abcd
     """
     if ".atlassian.net/wiki/spaces/" not in wiki_url:
-        raise ValueError(
-            "Not a valid Confluence Wiki Link, unable to extract wiki base and space names"
-        )
+        raise ValueError("Not a valid Confluence Wiki Link, unable to extract wiki base and space names")
 
     parsed_url = urlparse(wiki_url)
-    wiki_base = (
-        parsed_url.scheme
-        + "://"
-        + parsed_url.netloc
-        + parsed_url.path.split("/spaces")[0]
-    )
+    wiki_base = parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path.split("/spaces")[0]
     space = parsed_url.path.split("/")[3]
     return wiki_base, space
 
@@ -70,9 +57,7 @@ def _comment_dfs(
             limit=None,
             expand="body.storage.value",
         )
-        comments_str = _comment_dfs(
-            comments_str, child_comment_pages, confluence_client
-        )
+        comments_str = _comment_dfs(comments_str, child_comment_pages, confluence_client)
     return comments_str
 
 
@@ -118,9 +103,7 @@ class ConfluenceConnector(LoadConnector, PollConnector):
 
             if time_filter is None or time_filter(last_modified):
                 page_html = page["body"]["storage"]["value"]
-                page_text = (
-                    page.get("title", "") + "\n" + parse_html_page_basic(page_html)
-                )
+                page_text = page.get("title", "") + "\n" + parse_html_page_basic(page_html)
                 comment_pages = self.confluence_client.get_page_child_by_type(
                     page["id"],
                     type="comment",

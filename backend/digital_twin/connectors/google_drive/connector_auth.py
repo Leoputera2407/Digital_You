@@ -10,27 +10,23 @@ Ouath Flow for Google Drive
 
 """
 import json
-from uuid import UUID
 from typing import cast
 from urllib.parse import ParseResult, parse_qs, urlparse
-from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from google.auth.transport.requests import Request  # type: ignore
 from google.oauth2.credentials import Credentials  # type: ignore
 from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.config.app_config import WEB_DOMAIN
-from digital_twin.db.model import User
+from digital_twin.db.connectors.connectors_auth import async_consume_csrf, async_store_csrf
 from digital_twin.db.connectors.credentials import async_update_credential_json
 from digital_twin.db.connectors.google_drive import (
     async_fetch_db_google_app_creds,
     async_upsert_db_google_app_cred,
 )
-from digital_twin.db.connectors.connectors_auth import (
-    async_consume_csrf,
-    async_store_csrf,
-)
-
+from digital_twin.db.model import User
 from digital_twin.server.model import GoogleAppCredentials
 from digital_twin.utils.logging import setup_logger
 
@@ -73,16 +69,10 @@ def get_drive_tokens(
     return None
 
 
-async def async_verify_csrf(
-        db_session: AsyncSession,
-        credential_id: int,
-        state: str
-    ) -> None:
+async def async_verify_csrf(db_session: AsyncSession, credential_id: int, state: str) -> None:
     csrf_token_obj = await async_consume_csrf(credential_id, db_session)
     if csrf_token_obj.csrf_token != state:
-        raise PermissionError(
-            "State from Google Drive Connector callback does not match expected"
-        )
+        raise PermissionError("State from Google Drive Connector callback does not match expected")
 
 
 async def async_get_auth_url(
@@ -101,16 +91,15 @@ async def async_get_auth_url(
 
     parsed_url = cast(ParseResult, urlparse(auth_url))
     params = parse_qs(parsed_url.query)
+    csrf_token_list = params.get("state")
+    if not csrf_token_list or not isinstance(csrf_token_list[0], str):
+        raise ValueError("No valid CSRF token provided")
 
-    csrf_token = params.get("state", [None])[0]
-    if csrf_token:
-        csrf_token = csrf_token.strip('{}')
-    else:
-        raise ValueError("No CSRF token provided")
+    csrf_token = csrf_token_list[0].strip("{}")
     google_state = await async_store_csrf(credential_id, csrf_token, db_session)
     if not google_state:
         raise Exception("Failed to store google state in db")
-    
+
     return str(auth_url)
 
 
@@ -123,7 +112,7 @@ async def async_update_credential_access_tokens(
 ) -> Credentials | None:
     app_cred = await async_get_google_app_cred(db_session)
     app_cred_dict = app_cred.dict()
-    credential_json = { "web": app_cred_dict }
+    credential_json = {"web": app_cred_dict}
     flow = InstalledAppFlow.from_client_config(
         credential_json,
         scopes=SCOPES,
@@ -146,9 +135,7 @@ async def async_update_credential_access_tokens(
 
 
 # Below are our App's Google Drive Credentials
-async def async_get_google_app_cred(
-    db_session: AsyncSession
-) -> GoogleAppCredentials:
+async def async_get_google_app_cred(db_session: AsyncSession) -> GoogleAppCredentials:
     app_credentials = await async_fetch_db_google_app_creds(db_session)
     if app_credentials is None:
         raise ValueError("Google Drive App Credentials not found")
@@ -157,8 +144,8 @@ async def async_get_google_app_cred(
 
 
 async def async_upsert_google_app_cred(
-        app_credentials: GoogleAppCredentials, 
-        db_session: AsyncSession,
-) -> None:
+    app_credentials: GoogleAppCredentials,
+    db_session: AsyncSession,
+) -> GoogleAppCredentials:
     db_app_credentials = await async_upsert_db_google_app_cred(app_credentials.dict(), db_session)
     return GoogleAppCredentials(**json.loads(db_app_credentials.credentials_json))

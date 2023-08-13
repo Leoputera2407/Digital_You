@@ -1,25 +1,26 @@
 import json
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
+
 from bs4 import BeautifulSoup
 
-from digital_twin.config.constants import DocumentSource, HTML_SEPARATOR
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
+from digital_twin.config.constants import HTML_SEPARATOR, DocumentSource
 from digital_twin.connectors.interfaces import (
-    GenerateDocumentsOutput, 
+    GenerateDocumentsOutput,
     LoadConnector,
     PollConnector,
     SecondsSinceUnixEpoch,
 )
-from digital_twin.connectors.notion.connector_parser import NotionParser
-from digital_twin.connectors.notion.connector_auth import DB_CREDENTIALS_DICT_KEY
-
 from digital_twin.connectors.model import Document, Section
+from digital_twin.connectors.notion.connector_auth import DB_CREDENTIALS_DICT_KEY
+from digital_twin.connectors.notion.connector_parser import NotionParser
 from digital_twin.utils.logging import setup_logger
-
 
 logger = setup_logger()
 
 from datetime import datetime, timezone
+
 
 def parse_html(html_text: str) -> str:
     soup = BeautifulSoup(html_text, "html.parser")
@@ -40,6 +41,7 @@ def parse_html(html_text: str) -> str:
 
     return page_text
 
+
 def to_timestamp(date_str: str) -> SecondsSinceUnixEpoch:
     """
     Convert an ISO 8601 date-time string to a timestamp.
@@ -52,19 +54,20 @@ def to_timestamp(date_str: str) -> SecondsSinceUnixEpoch:
 
     return timestamp
 
+
 def fetch_notion_pages(
     parser: NotionParser,
     time_range_start: SecondsSinceUnixEpoch | None = None,
     time_range_end: SecondsSinceUnixEpoch | None = None,
 ) -> list[dict[str, Any]]:
     if time_range_start is not None or time_range_end is not None:
-        pages = []
+        pages: list[dict[str, Any]] = []
         request_body = {
-            "page_size": 20, # We'll pull the latest 20 pages at a time
+            "page_size": 20,  # We'll pull the latest 20 pages at a time
             "sort": {
                 "direction": "descending",
                 "timestamp": "last_edited_time",
-            }
+            },
         }
         while True:
             batch, next_cursor = parser.notion_search(request_body)
@@ -91,12 +94,13 @@ def fetch_notion_pages(
             all_pages.extend(new_pages)
         return all_pages
 
+
 def get_notion_pages_in_batches(
-    pages: list[dict[str, Any]], 
-    batch_size: int
+    pages: list[dict[str, Any]], batch_size: int
 ) -> Generator[list[dict[str, Any]], None, None]:
     for i in range(0, len(pages), batch_size):
-        yield pages[i: i + batch_size]
+        yield pages[i : i + batch_size]
+
 
 class NotionConnector(LoadConnector, PollConnector):
     def __init__(self, workspace: str, batch_size: int = INDEX_BATCH_SIZE) -> None:
@@ -107,7 +111,7 @@ class NotionConnector(LoadConnector, PollConnector):
     def load_credentials(self, credentials: dict[str, Any]) -> dict[str, Any] | None:
         self.access_token = credentials.get(DB_CREDENTIALS_DICT_KEY)
         return None
-    
+
     def _fetch_docs_from_notion(
         self,
         time_range_start: SecondsSinceUnixEpoch | None = None,
@@ -120,36 +124,32 @@ class NotionConnector(LoadConnector, PollConnector):
         all_pages = fetch_notion_pages(parser, time_range_start, time_range_end)
 
         for page_batch in get_notion_pages_in_batches(all_pages, self.batch_size):
-            batch: list(Document) = []
+            batch: list[Document] = []
             for item in page_batch:
-                object_type = item.get('object')
-                object_id = item.get('id')
-                url = item.get('url')
+                object_type = item.get("object")
+                object_id = str(item.get("id"))
+                url = str(item.get("url"))
 
-                if object_type == 'page':
+                if object_type == "page":
                     blocks = parser.notion_get_blocks(object_id)
                     html = parser.parse_notion_blocks(blocks)
                     properties_metadata = parser.parse_desired_metadata_dict(item)
 
                     html = f"<div>{html}</div>"
-                    batch.append(Document(
-                        id=url,
-                        sections=[
-                            Section(
-                                link=url, 
-                                text=parse_html(html)
-                            )
-                        ],
-                        source=DocumentSource.NOTION,
-                        semantic_identifier=properties_metadata["title"],
-                        metadata={
-                            "updated_at": properties_metadata["last_edited_time"],
-                            "title": properties_metadata["title"],
-                            "created_at": properties_metadata["created_time"],
-                            "created_by": properties_metadata["created_by"],
-                            "last_edited_by": properties_metadata["last_edited_by"],
-                        },
-                    )
+                    batch.append(
+                        Document(
+                            id=url,
+                            sections=[Section(link=url, text=parse_html(html))],
+                            source=DocumentSource.NOTION,
+                            semantic_identifier=properties_metadata["title"],
+                            metadata={
+                                "updated_at": properties_metadata["last_edited_time"],
+                                "title": properties_metadata["title"],
+                                "created_at": properties_metadata["created_time"],
+                                "created_by": properties_metadata["created_by"],
+                                "last_edited_by": properties_metadata["last_edited_by"],
+                            },
+                        )
                     )
             yield batch
 

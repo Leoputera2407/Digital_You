@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 
 from digital_twin.db.engine import translate_db_time_to_server_time
 from digital_twin.db.model import IndexAttempt, IndexingStatus
-
-from digital_twin.utils.logging import setup_logger, log_sqlalchemy_error
+from digital_twin.utils.logging import log_sqlalchemy_error, setup_logger
 
 logger = setup_logger()
+
 
 @log_sqlalchemy_error(logger)
 def create_index_attempt(
@@ -24,6 +24,7 @@ def create_index_attempt(
 
     return new_attempt.id
 
+
 @log_sqlalchemy_error(logger)
 def get_inprogress_index_attempts(
     connector_id: int | None,
@@ -37,12 +38,14 @@ def get_inprogress_index_attempts(
     incomplete_attempts = db_session.scalars(stmt)
     return list(incomplete_attempts.all())
 
+
 @log_sqlalchemy_error(logger)
 def get_not_started_index_attempts(db_session: Session) -> list[IndexAttempt]:
     stmt = select(IndexAttempt)
     stmt = stmt.where(IndexAttempt.status == IndexingStatus.NOT_STARTED)
     new_attempts = db_session.scalars(stmt)
     return list(new_attempts.all())
+
 
 @log_sqlalchemy_error(logger)
 def mark_attempt_in_progress(
@@ -53,16 +56,16 @@ def mark_attempt_in_progress(
     db_session.add(index_attempt)
     db_session.commit()
 
+
 @log_sqlalchemy_error(logger)
 def mark_attempt_succeeded(
     index_attempt: IndexAttempt,
-    docs_indexed: list[str],
     db_session: Session,
 ) -> None:
     index_attempt.status = IndexingStatus.SUCCESS
-    index_attempt.document_ids = docs_indexed
     db_session.add(index_attempt)
     db_session.commit()
+
 
 @log_sqlalchemy_error(logger)
 def mark_attempt_failed(
@@ -72,6 +75,7 @@ def mark_attempt_failed(
     index_attempt.error_msg = failure_reason
     db_session.add(index_attempt)
     db_session.commit()
+
 
 @log_sqlalchemy_error(logger)
 def get_last_successful_attempt(
@@ -88,6 +92,7 @@ def get_last_successful_attempt(
 
     return db_session.execute(stmt).scalars().first()
 
+
 @log_sqlalchemy_error(logger)
 def get_last_successful_attempt_start_time(
     connector_id: int,
@@ -98,7 +103,5 @@ def get_last_successful_attempt_start_time(
     last_indexing = get_last_successful_attempt(connector_id, credential_id, db_session)
     if last_indexing is None:
         return 0.0
-    last_index_start = translate_db_time_to_server_time(
-        last_indexing.created_at, db_session
-    )
+    last_index_start = translate_db_time_to_server_time(last_indexing.created_at, db_session)
     return last_index_start.timestamp()

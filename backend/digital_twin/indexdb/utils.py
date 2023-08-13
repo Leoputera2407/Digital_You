@@ -2,13 +2,8 @@ import uuid
 from collections.abc import Callable
 from copy import deepcopy
 
-from digital_twin.indexdb.chunking.models import (
-    EmbeddedIndexChunk,
-    IndexChunk,
-    InferenceChunk,
-)
 from digital_twin.config.constants import ALLOWED_GROUPS, ALLOWED_USERS
-
+from digital_twin.indexdb.chunking.models import EmbeddedIndexChunk, IndexChunk, InferenceChunk
 
 DEFAULT_BATCH_SIZE = 30
 
@@ -16,17 +11,11 @@ DEFAULT_BATCH_SIZE = 30
 def get_uuid_from_chunk(
     chunk: IndexChunk | EmbeddedIndexChunk | InferenceChunk, mini_chunk_ind: int = 0
 ) -> uuid.UUID:
-    doc_str = (
-        chunk.document_id
-        if isinstance(chunk, InferenceChunk)
-        else chunk.source_document.id
-    )
+    doc_str = chunk.document_id if isinstance(chunk, InferenceChunk) else chunk.source_document.id
     # Web parsing URL duplicate catching
     if doc_str and doc_str[-1] == "/":
         doc_str = doc_str[:-1]
-    unique_identifier_string = "_".join(
-        [doc_str, str(chunk.chunk_id), str(mini_chunk_ind)]
-    )
+    unique_identifier_string = "_".join([doc_str, str(chunk.chunk_id), str(mini_chunk_ind)])
     return uuid.uuid5(uuid.NAMESPACE_X500, unique_identifier_string)
 
 
@@ -45,9 +34,7 @@ def update_doc_user_map(
     first_chunk_uuid = str(get_uuid_from_chunk(chunk))
     document = chunk.source_document
     if document.id not in doc_whitelist_map:
-        first_chunk_found, whitelist_users, whitelist_groups = doc_store_whitelist_fnc(
-            first_chunk_uuid
-        )
+        first_chunk_found, whitelist_users, whitelist_groups = doc_store_whitelist_fnc(first_chunk_uuid)
 
         if not first_chunk_found:
             doc_whitelist_map[document.id] = {

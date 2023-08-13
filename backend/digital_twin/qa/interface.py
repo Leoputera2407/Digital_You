@@ -1,15 +1,16 @@
 import abc
-from collections.abc import Generator
-from typing import Any, Dict, List, Optional, Tuple
+from collections.abc import AsyncIterable
+from typing import Dict, List, Optional, Tuple, Union
 
 from langchain import PromptTemplate
 from langchain.llms.base import BaseLanguageModel
 
+from digital_twin.indexdb.chunking.models import InferenceChunk
 from digital_twin.llm.chains.qa_chain import BaseQA, StuffQA
 from digital_twin.utils.logging import setup_logger
-from digital_twin.indexdb.chunking.models import InferenceChunk
 
 logger = setup_logger()
+
 
 class QAModel:
     def _pick_qa_chain(
@@ -21,29 +22,25 @@ class QAModel:
             llm=llm,
             prompt=prompt,
         )
-      
+
     @abc.abstractmethod
     def answer_question(
         self,
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-    ) -> Tuple[
-        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
-    ]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, Dict[str, Union[str, int, None]]]]]:
         raise NotImplementedError
-    
+
     @abc.abstractmethod
     async def async_answer_question(
         self,
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-    ) -> Tuple[
-        Optional[str], Dict[str, Optional[Dict[str, str | int | None]]]
-    ]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, Dict[str, Union[str, int, None]]]]]:
         raise NotImplementedError
-    
+
     @abc.abstractmethod
     async def async_answer_question_and_verify(
         self,
@@ -51,8 +48,8 @@ class QAModel:
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
     ) -> Tuple[
-        Optional[str], 
-        Dict[str, Optional[Dict[str, str | int | None]]],
+        Optional[str],
+        Optional[Dict[str, Optional[Dict[str, str | int | None]]]],
         Optional[bool],
         Optional[float],
     ]:
@@ -64,5 +61,5 @@ class QAModel:
         query: str,
         context_docs: List[InferenceChunk],
         prompt: PromptTemplate = None,
-    ) -> Generator[Optional[Dict[str, Any]], None, None]:
+    ) -> AsyncIterable[str]:
         raise NotImplementedError

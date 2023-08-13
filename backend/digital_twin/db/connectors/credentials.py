@@ -2,41 +2,31 @@ from typing import Any, Optional
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.expression import or_, and_
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.expression import and_, or_
 
 from digital_twin.db.engine import get_sqlalchemy_engine
 from digital_twin.db.model import Credential, User
 from digital_twin.server.model import CredentialBase, ObjectCreationIdResponse
-
-from digital_twin.utils.logging import (
-    setup_logger, 
-    log_sqlalchemy_error,
-    async_log_sqlalchemy_error,
-)
+from digital_twin.utils.logging import async_log_sqlalchemy_error, log_sqlalchemy_error, setup_logger
 
 logger = setup_logger()
 
 
-def mask_string(
-        sensitive_str: str
-) -> str:
-    return sensitive_str[0:4] + "****" + sensitive_str[-4:] 
+def mask_string(sensitive_str: str) -> str:
+    return sensitive_str[0:4] + "****" + sensitive_str[-4:]
 
 
-def mask_credential_dict(
-        credential_dict: dict[str, Any]
-) -> dict[str, str]:
+def mask_credential_dict(credential_dict: dict[str, Any]) -> dict[str, str]:
     masked_creds = {}
     for key, val in credential_dict.items():
         if not isinstance(val, str):
-            raise ValueError(
-                "Unable to mask credentials of type other than string, cannot process request."
-            )
+            raise ValueError("Unable to mask credentials of type other than string, cannot process request.")
 
         masked_creds[key] = mask_string(val)
     return masked_creds
+
 
 @log_sqlalchemy_error(logger)
 def fetch_credentials(
@@ -48,26 +38,24 @@ def fetch_credentials(
     if user:
         stmt = stmt.where(
             and_(
-                or_(
-                    Credential.user_id == user.id, 
-                    Credential.user_id.is_(None)
-                ),
-                Credential.organization_id == organization_id
+                or_(Credential.user_id == user.id, Credential.user_id.is_(None)),
+                Credential.organization_id == organization_id,
             )
         )
     results = db_session.scalars(stmt).unique()
     return list(results.all())
 
+
 async def async_fetch_credentials(
-    organization_id: int,
+    organization_id: UUID,
     db_session: AsyncSession,
     user: User | None = None,
 ) -> list[Credential]:
     stmt = select(Credential).where(Credential.organization_id == organization_id)
-    
+
     if user:
         stmt = stmt.where(
-            Credential.user_id == user.id,  
+            Credential.user_id == user.id,
         )
     results = await db_session.scalars(stmt)
     return list(results.unique().all())
@@ -76,54 +64,45 @@ async def async_fetch_credentials(
 @log_sqlalchemy_error(logger)
 def fetch_credential_by_id_and_org(
     credential_id: int,
-    user: User | None, 
-    organization_id: UUID | None, 
-    db_session: Session
+    user: User | None,
+    organization_id: UUID | None,
+    db_session: Session,
 ) -> Credential | None:
     stmt = select(Credential).where(
-            Credential.id == credential_id, 
-        )
+        Credential.id == credential_id,
+    )
     if user:
-        stmt = stmt.where(
-            or_(
-                Credential.user_id == user.id, 
-                Credential.user_id.is_(None)
-            )
-        )
+        stmt = stmt.where(or_(Credential.user_id == user.id, Credential.user_id.is_(None)))
     if organization_id:
         stmt = stmt.where(
             or_(
                 Credential.organization_id == organization_id,
-                Credential.organization_id.is_(None)
+                Credential.organization_id.is_(None),
             )
         )
     result = db_session.execute(stmt)
     credential = result.scalars().first()
     return credential
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_fetch_credential_by_id_and_org(
     credential_id: int,
-    user: User | None, 
-    organization_id: UUID | None, 
-    db_session: AsyncSession
+    user: User | None,
+    organization_id: UUID | None,
+    db_session: AsyncSession,
 ) -> Credential | None:
     try:
         stmt = select(Credential).where(
-                Credential.id == credential_id, 
-            )
+            Credential.id == credential_id,
+        )
         if user:
-            stmt = stmt.where(
-                or_(
-                    Credential.user_id == user.id, 
-                    Credential.user_id.is_(None)
-                )
-            )
+            stmt = stmt.where(or_(Credential.user_id == user.id, Credential.user_id.is_(None)))
         if organization_id:
             stmt = stmt.where(
                 or_(
                     Credential.organization_id == organization_id,
-                    Credential.organization_id.is_(None)
+                    Credential.organization_id.is_(None),
                 )
             )
         result = await db_session.execute(stmt)
@@ -153,6 +132,7 @@ def create_credential(
 
     return ObjectCreationIdResponse(id=credential.id)
 
+
 @log_sqlalchemy_error(logger)
 async def async_create_credential(
     credential_data: CredentialBase,
@@ -179,12 +159,7 @@ def update_credential(
     organization_id: int,
     db_session: Session,
 ) -> Credential | None:
-    credential = fetch_credential_by_id_and_org(
-        credential_id, 
-        user, 
-        organization_id,
-        db_session
-    )
+    credential = fetch_credential_by_id_and_org(credential_id, user, organization_id, db_session)
     if credential is None:
         return None
 
@@ -196,6 +171,7 @@ def update_credential(
     db_session.commit()
     return credential
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_update_credential(
     credential_id: int,
@@ -204,12 +180,7 @@ async def async_update_credential(
     organization_id: int,
     db_session: AsyncSession,
 ) -> Credential | None:
-    credential = await async_fetch_credential_by_id_and_org(
-        credential_id, 
-        user, 
-        organization_id,
-        db_session
-    )
+    credential = await async_fetch_credential_by_id_and_org(credential_id, user, organization_id, db_session)
     if credential is None:
         return None
 
@@ -223,6 +194,7 @@ async def async_update_credential(
 
     return credential
 
+
 @log_sqlalchemy_error(logger)
 async def async_update_credential_json(
     credential_id: int,
@@ -231,12 +203,7 @@ async def async_update_credential_json(
     user: User,
     db_session: AsyncSession,
 ) -> Credential | None:
-    credential = await async_fetch_credential_by_id_and_org(
-        credential_id, 
-        user, 
-        organization_id,
-        db_session
-    )
+    credential = await async_fetch_credential_by_id_and_org(credential_id, user, organization_id, db_session)
     if credential is None:
         return None
     credential.credential_json = credential_json
@@ -245,6 +212,7 @@ async def async_update_credential_json(
     await db_session.refresh(credential)
 
     return credential
+
 
 def backend_update_credential_json(
     credential: Credential,
@@ -263,12 +231,7 @@ def delete_credential(
     organization_id: int,
     db_session: Session,
 ) -> None:
-    credential = fetch_credential_by_id_and_org(
-        credential_id,
-        user, 
-        organization_id,
-        db_session
-    )
+    credential = fetch_credential_by_id_and_org(credential_id, user, organization_id, db_session)
     if credential is None:
         raise ValueError(
             f"Credential by provided id {credential_id} does not exist or does not belong to user or organization"
@@ -277,6 +240,7 @@ def delete_credential(
     db_session.delete(credential)
     db_session.commit()
 
+
 @async_log_sqlalchemy_error(logger)
 async def async_delete_credential(
     credential_id: int,
@@ -284,12 +248,7 @@ async def async_delete_credential(
     organization_id: int,
     db_session: AsyncSession,
 ) -> None:
-    credential = await async_fetch_credential_by_id_and_org(
-        credential_id,
-        user, 
-        organization_id,
-        db_session
-    )
+    credential = await async_fetch_credential_by_id_and_org(credential_id, user, organization_id, db_session)
     if credential is None:
         raise ValueError(
             f"Credential by provided id {credential_id} does not exist or does not belong to user or organization"
@@ -297,6 +256,7 @@ async def async_delete_credential(
 
     await db_session.delete(credential)
     await db_session.commit()
+
 
 # TODO: This maybe ok to be removed
 @log_sqlalchemy_error(logger)
@@ -307,23 +267,13 @@ def create_initial_public_credential() -> None:
         "There must exist an empty public credential for data connectors that do not require additional Auth."
     )
     with Session(get_sqlalchemy_engine(), expire_on_commit=False) as db_session:
-        first_credential = fetch_credential_by_id_and_org(
-            public_cred_id, 
-            None, 
-            None,
-            db_session
-        )
+        first_credential = fetch_credential_by_id_and_org(public_cred_id, None, None, db_session)
 
         if first_credential is not None:
-            if (
-                first_credential.credential_json != {}
-                or first_credential.public_doc is False
-            ):
+            if first_credential.credential_json != {} or first_credential.public_doc is False:
                 raise ValueError(error_msg)
             return
 
-        credential = Credential(
-            id=public_cred_id, credential_json={}, user_id=None, public_doc=True
-        )
+        credential = Credential(id=public_cred_id, credential_json={}, user_id=None, public_doc=True)
         db_session.add(credential)
         db_session.commit()

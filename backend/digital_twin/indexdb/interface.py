@@ -1,15 +1,8 @@
 import abc
-from typing import Generic
-from typing import TypeVar
+from typing import Generic, TypeVar
 from uuid import UUID
 
-from digital_twin.indexdb.chunking.models import (
-    BaseChunk,
-    EmbeddedIndexChunk,
-    IndexChunk,
-    InferenceChunk,
-)
-
+from digital_twin.indexdb.chunking.models import BaseChunk, EmbeddedIndexChunk, IndexChunk, InferenceChunk
 
 T = TypeVar("T", bound=BaseChunk)
 IndexDBFilter = dict[str, str | list[str] | None]

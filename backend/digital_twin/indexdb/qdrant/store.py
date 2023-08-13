@@ -1,42 +1,28 @@
 from uuid import UUID
+
 from langchain.embeddings.base import Embeddings
+from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
+from qdrant_client.http.models import FieldCondition, Filter, MatchAny, MatchValue
 
-from qdrant_client.http.exceptions import (
-    ResponseHandlingException,
-    UnexpectedResponse,
+from digital_twin.config.app_config import (
+    NUM_RETURNED_HITS,
+    QDRANT_DEFAULT_COLLECTION,
+    SEARCH_DISTANCE_CUTOFF,
 )
-from qdrant_client.http.models import (
-    FieldCondition,
-    Filter,
-    MatchAny,
-    MatchValue,
-)
-
-from digital_twin.config.app_config import QDRANT_DEFAULT_COLLECTION, NUM_RETURNED_HITS, SEARCH_DISTANCE_CUTOFF
 from digital_twin.config.constants import ALLOWED_USERS, PUBLIC_DOC_PAT
-
-from digital_twin.search.interface import get_default_embedding_model
-from digital_twin.indexdb.utils import get_uuid_from_chunk
-from digital_twin.indexdb.chunking.models import (
-    EmbeddedIndexChunk,
-    InferenceChunk,
-    IndexType,
-)
-from digital_twin.indexdb.interface import (
-    VectorIndexDB, 
-    IndexDBFilter,
-)
+from digital_twin.indexdb.chunking.models import EmbeddedIndexChunk, IndexType, InferenceChunk
+from digital_twin.indexdb.interface import IndexDBFilter, VectorIndexDB
 from digital_twin.indexdb.qdrant.indexing import index_qdrant_chunks
+from digital_twin.indexdb.utils import get_uuid_from_chunk
+from digital_twin.search.interface import get_default_embedding_model
 from digital_twin.utils.clients import get_qdrant_client
-from digital_twin.utils.timing import log_function_time
 from digital_twin.utils.logging import setup_logger
+from digital_twin.utils.timing import log_function_time
 
 logger = setup_logger()
 
 
-def _build_qdrant_filters(
-    user_id: UUID | None, filters: list[IndexDBFilter] | None
-) -> list[FieldCondition]:
+def _build_qdrant_filters(user_id: UUID | None, filters: list[IndexDBFilter] | None) -> list[FieldCondition]:
     filter_conditions: list[FieldCondition] = []
     # Permissions filter
     if user_id:
@@ -57,9 +43,7 @@ def _build_qdrant_filters(
     # Provided query filters
     if filters:
         for filter_dict in filters:
-            valid_filters = {
-                key: value for key, value in filter_dict.items() if value is not None
-            }
+            valid_filters = {key: value for key, value in filter_dict.items() if value is not None}
             for filter_key, filter_val in valid_filters.items():
                 if isinstance(filter_val, str):
                     filter_conditions.append(
@@ -107,13 +91,9 @@ class QdrantVectorDB(VectorIndexDB):
         embedding_model = get_default_embedding_model()
 
         if isinstance(embedding_model, Embeddings):
-            query_embedding = embedding_model.embed_query(
-                query
-            )
+            query_embedding = embedding_model.embed_query(query)
         else:
-            query_embedding = embedding_model.encode(
-                query
-            )  # TODO: make this part of the embedder interface
+            query_embedding = embedding_model.encode(query)  # TODO: make this part of the embedder interface
 
         if not isinstance(query_embedding, list):
             query_embedding = query_embedding.tolist()
@@ -137,21 +117,17 @@ class QdrantVectorDB(VectorIndexDB):
                 if not hits:
                     break
             except ResponseHandlingException as e:
-                logger.exception(
-                    f'Qdrant querying failed due to: "{e}", is Qdrant set up?'
-                )
+                logger.exception(f'Qdrant querying failed due to: "{e}", is Qdrant set up?')
                 break
             except UnexpectedResponse as e:
-                logger.exception(
-                    f'Qdrant querying failed due to: "{e}", has ingestion been run?'
-                )
+                logger.exception(f'Qdrant querying failed due to: "{e}", has ingestion been run?')
                 break
 
             inference_chunks_from_hits = [
                 InferenceChunk.from_dict(
                     hit.payload,
                     score_info={
-                        "score": hit.score, 
+                        "score": hit.score,
                     },
                     index_type=IndexType.QDRANT.value,
                 )
@@ -170,9 +146,7 @@ class QdrantVectorDB(VectorIndexDB):
     def get_from_id(self, object_id: str) -> InferenceChunk | None:
         matches, _ = self.client.scroll(
             collection_name=self.collection,
-            scroll_filter=Filter(
-                must=[FieldCondition(key="id", match=MatchValue(value=object_id))]
-            ),
+            scroll_filter=Filter(must=[FieldCondition(key="id", match=MatchValue(value=object_id))]),
         )
         if not matches:
             return None

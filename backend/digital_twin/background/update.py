@@ -1,10 +1,13 @@
 import time
+
 from sqlalchemy.orm import Session
-from digital_twin.db.engine import  get_sqlalchemy_engine
-from digital_twin.utils.logging import setup_logger
+
 from digital_twin.background.utils import create_indexing_jobs, run_indexing_jobs
+from digital_twin.db.engine import get_sqlalchemy_engine
+from digital_twin.utils.logging import setup_logger
 
 logger = setup_logger()
+
 
 def update_loop(delay: int = 10) -> None:
     engine = get_sqlalchemy_engine()

@@ -136,6 +136,11 @@ export interface GithubConfig {
   repo_name: string;
 }
 
+export interface GoogleDriveConfig {
+  is_public_connector: boolean;
+  folder_paths?: string[];
+}
+
 export interface ConfluenceConfig {
   wiki_page_url: string;
 }

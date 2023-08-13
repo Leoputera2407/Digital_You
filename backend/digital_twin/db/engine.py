@@ -1,6 +1,11 @@
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime, timezone
 
+from sqlalchemy import text
+from sqlalchemy.engine import Engine, create_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.orm import Session
+
 from digital_twin.config.app_config import (
     POSTGRES_DB,
     POSTGRES_HOST,
@@ -8,15 +13,6 @@ from digital_twin.config.app_config import (
     POSTGRES_PORT,
     POSTGRES_USER,
 )
-from sqlalchemy import text
-from sqlalchemy.engine import Engine, create_engine
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession, 
-    create_async_engine,
-)
-from sqlalchemy.orm import Session
-
 
 SYNC_DB_API = "psycopg2"
 ASYNC_DB_API = "asyncpg"
@@ -35,9 +31,7 @@ def get_db_current_time(db_session: Session) -> datetime:
     return result
 
 
-def translate_db_time_to_server_time(
-    db_time: datetime, db_session: Session
-) -> datetime:
+def translate_db_time_to_server_time(db_time: datetime, db_session: Session) -> datetime:
     server_now = datetime.now()
     db_now = get_db_current_time(db_session)
     time_diff = server_now - db_now.astimezone(timezone.utc).replace(tzinfo=None)
@@ -78,9 +72,7 @@ def get_session() -> Generator[Session, None, None]:
 
 
 async def get_async_session_generator() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSession(
-        get_sqlalchemy_async_engine(), expire_on_commit=False
-    ) as async_session:
+    async with AsyncSession(get_sqlalchemy_async_engine(), expire_on_commit=False) as async_session:
         yield async_session
 
 

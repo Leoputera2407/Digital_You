@@ -140,7 +140,6 @@ export default function SlackConnectionPage() {
   );
 
   const workspaceName = slackConnector?.connector_specific_config.workspace;
-  console.log("fetchedData ", fetchedData)
 
   const content = isLoading ? (
     <div className="flex justify-center items-center">

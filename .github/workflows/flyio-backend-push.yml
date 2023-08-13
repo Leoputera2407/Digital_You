@@ -1,0 +1,35 @@
+name: Deploy to Fly
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  deploy:
+    name: Deploy App based on Branch
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      # This step checks out a copy of your repository.
+      - uses: actions/checkout@v2
+
+      # Setup flyctl
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Deploy to production if it's the main branch
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main'
+        run: flyctl deploy --remote-only -a prosona-backend --config fly.production.toml --dockerfile Dockerfile --wait-timeout=1800
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # Deploy to staging if it's the staging branch
+      - name: Deploy to Staging
+        if: github.ref == 'refs/heads/staging'
+        run: flyctl deploy --remote-only -a prosona-backend-staging --config fly.staging.toml --dockerfile Dockerfile --wait-timeout=1800
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

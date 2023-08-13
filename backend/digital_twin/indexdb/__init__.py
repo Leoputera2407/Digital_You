@@ -16,9 +16,7 @@ def get_selected_datastore_cls(
         raise ValueError(f"Invalid Vector DB setting: {vector_db_type}")
 
 
-def create_datastore(
-    collection: str, vector_db_type: str = DEFAULT_VECTOR_STORE
-) -> VectorIndexDB:
+def create_datastore(collection: str, vector_db_type: str = DEFAULT_VECTOR_STORE) -> VectorIndexDB:
     if vector_db_type == "qdrant":
         return QdrantVectorDB(collection=collection)
     else:

@@ -2,12 +2,8 @@ from pathlib import Path
 from typing import Any
 
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
-from digital_twin.connectors.adhoc_upload.utils import (
-    check_file_ext_is_valid,
-    get_file_ext,
-    process_file,
-)
-from digital_twin.connectors.interfaces import LoadConnector, GenerateDocumentsOutput
+from digital_twin.connectors.adhoc_upload.utils import check_file_ext_is_valid, get_file_ext, process_file
+from digital_twin.connectors.interfaces import GenerateDocumentsOutput, LoadConnector
 from digital_twin.connectors.model import Document
 from digital_twin.utils.logging import setup_logger
 

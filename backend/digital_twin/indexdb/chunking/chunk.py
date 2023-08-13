@@ -3,14 +3,10 @@ import re
 from collections.abc import Callable
 from typing import Dict, List
 
-from digital_twin.config.app_config import (
-    BLURB_LENGTH,
-    CHUNK_OVERLAP,
-    CHUNK_SIZE,
-)
+from digital_twin.config.app_config import BLURB_LENGTH, CHUNK_OVERLAP, CHUNK_SIZE
 from digital_twin.connectors.model import Document, Section
-from digital_twin.utils.text_processing import shared_precompare_cleanup
 from digital_twin.indexdb.chunking.models import IndexChunk
+from digital_twin.utils.text_processing import shared_precompare_cleanup
 
 SECTION_SEPARATOR = "\n\n"
 ChunkFunc = Callable[[Document], list[IndexChunk]]
@@ -23,11 +19,7 @@ def extract_blurb(text: str, blurb_len: int) -> str:
     match = re.search(r"[.!?:]", text[blurb_len:])
     max_blub_len = min(2 * blurb_len, len(text))
 
-    end_index = (
-        max_blub_len
-        if match is None
-        else min(blurb_len + match.start() + 1, max_blub_len)
-    )
+    end_index = max_blub_len if match is None else min(blurb_len + match.start() + 1, max_blub_len)
 
     if text[end_index : end_index + 1] not in [" ", "", "\r", "\n"]:
         last_space = text.rfind(" ", 0, end_index)
@@ -147,15 +139,8 @@ def chunk_document(
             continue
 
         # In the case where the whole section is shorter than a chunk, either adding to chunk or start a new one
-        if (
-            current_length + len(SECTION_SEPARATOR) + section_length
-            <= chunk_size
-        ):
-            chunk_text += (
-                SECTION_SEPARATOR + section.text
-                if chunk_text
-                else section.text
-            )
+        if current_length + len(SECTION_SEPARATOR) + section_length <= chunk_size:
+            chunk_text += SECTION_SEPARATOR + section.text if chunk_text else section.text
             link_offsets[curr_offset_len] = section.link
         else:
             chunks.append(

@@ -1,5 +1,4 @@
-from collections.abc import Callable
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from itertools import islice
 from typing import TypeVar
 

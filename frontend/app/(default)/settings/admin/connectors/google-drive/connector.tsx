@@ -10,6 +10,7 @@ import {
   ConnectorBase,
   ConnectorIndexingStatus,
   Credential,
+  GoogleDriveConfig,
   OrganizationAssociationBase,
 } from "@/lib/types";
 import { useState } from "react";
@@ -68,11 +69,13 @@ const GoogleDriveConnector: React.FC<GoogleDriveConnectorProps> = ({
   };
 
   const handleCreateLinkConnector = async () => {
-    const connectorBase: ConnectorBase<{}> = {
+    const connectorBase: ConnectorBase<GoogleDriveConfig> = {
       name: "GoogleDriveConnector",
       input_type: "load_state",
       source: "google_drive",
-      connector_specific_config: {},
+      connector_specific_config: {
+        is_public_connector: true,
+      },
       refresh_freq: 60 * 30, // 30 minutes
       disabled: false,
     };

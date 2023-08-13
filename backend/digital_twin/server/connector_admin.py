@@ -1,58 +1,52 @@
-import requests
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends
+import requests
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.auth.users import current_admin_for_org
-from digital_twin.server.model import (
-    AuthStatus,
-    ConnectorBase,
-    ConnectorIndexingStatus,
-    ConnectorSnapshot,
-    # GoogleAppWebCredentials,
-    ObjectCreationIdResponse,
-    RunConnectorRequest,
-    StatusResponse,
-    ConfluenceTestRequest,
-    GithubTestRequest,
-    LinearOrganizationSnapshot,
-    NotionWorkspaceSnapshot,
-    CredentialSnapshot,
-)
-from digital_twin.db.model import (
-    Credential,
-    User,
-)
-from digital_twin.db.connectors.credentials import (
-    async_fetch_credentials,
-    mask_credential_dict,
-)
 from digital_twin.connectors.google_drive.connector_auth import (
     DB_CREDENTIALS_DICT_KEY,
-    get_drive_tokens,
     async_get_google_app_cred,
-    # async_upsert_google_app_cred,
+    get_drive_tokens,
 )
-from digital_twin.db.connectors.connector_credential_pair import (
-    async_get_connector_credential_pairs
-)
+from digital_twin.connectors.linear.graphql import LinearGraphQLClient
+from digital_twin.db.connectors.connector_credential_pair import async_get_connector_credential_pairs
 from digital_twin.db.connectors.connectors import (
     async_create_connector,
     async_delete_connector,
-    async_update_connector,
     async_get_connector_credential_ids,
+    async_update_connector,
 )
-from digital_twin.connectors.linear.graphql import LinearGraphQLClient
-from digital_twin.db.connectors.credentials import async_fetch_credential_by_id_and_org
-from digital_twin.db.engine import get_async_session_generator
+from digital_twin.db.connectors.credentials import (
+    async_fetch_credential_by_id_and_org,
+    async_fetch_credentials,
+    mask_credential_dict,
+)
 from digital_twin.db.connectors.index_attempt import create_index_attempt
+from digital_twin.db.engine import get_async_session_generator
+from digital_twin.db.model import Credential, User
+from digital_twin.server.model import (
+    AuthStatus,
+    ConfluenceTestRequest,
+    ConnectorBase,
+    ConnectorIndexingStatus,
+    ConnectorSnapshot,
+    CredentialSnapshot,
+    GithubTestRequest,
+    LinearOrganizationSnapshot,
+    NotionWorkspaceSnapshot,
+    ObjectCreationIdResponse,
+    RunConnectorRequest,
+    StatusResponse,
+)
 from digital_twin.utils.logging import setup_logger
 
 router = APIRouter(prefix="/connector/admin")
 
 logger = setup_logger()
+
 
 @router.get("/{organization_id}/google-drive/app-credential")
 async def async_check_google_app_credentials_exist(
@@ -85,6 +79,7 @@ def update_google_app_credentials(
     )
 """
 
+
 @router.get("/{organization_id}/google-drive/check-auth/{credential_id}")
 async def check_drive_tokens(
     organization_id: UUID,
@@ -98,10 +93,7 @@ async def check_drive_tokens(
         organization_id,
         db_session,
     )
-    if (
-        not db_credentials
-        or DB_CREDENTIALS_DICT_KEY not in db_credentials.credential_json
-    ):
+    if not db_credentials or DB_CREDENTIALS_DICT_KEY not in db_credentials.credential_json:
         return AuthStatus(authenticated=False)
     token_json_str = str(db_credentials.credential_json[DB_CREDENTIALS_DICT_KEY])
     google_drive_creds = get_drive_tokens(token_json_str=token_json_str)
@@ -134,6 +126,8 @@ async def get_connector_indexing_status(
         )
 
     return indexing_statuses
+
+
 @router.get("/{organization_id}/admin-credential")
 async def get_admin_credentials(
     organization_id: UUID,
@@ -143,7 +137,7 @@ async def get_admin_credentials(
     credentials = await async_fetch_credentials(
         organization_id,
         db_session,
-    )    
+    )
     return [
         CredentialSnapshot(
             id=credential.id,
@@ -166,7 +160,7 @@ async def admin_create_connector_from_model(
 ) -> ObjectCreationIdResponse:
     try:
         return await async_create_connector(
-            connector_info, 
+            connector_info,
             organization_id,
             db_session,
         )
@@ -183,15 +177,10 @@ async def update_connector_from_model(
     db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> ConnectorSnapshot | StatusResponse[int]:
     updated_connector = await async_update_connector(
-        connector_id, 
-        connector_data, 
-        organization_id,
-        db_session
+        connector_id, connector_data, organization_id, db_session
     )
     if updated_connector is None:
-        raise HTTPException(
-            status_code=404, detail=f"Connector {connector_id} does not exist"
-        )
+        raise HTTPException(status_code=404, detail=f"Connector {connector_id} does not exist")
 
     return ConnectorSnapshot(
         id=updated_connector.id,
@@ -200,13 +189,12 @@ async def update_connector_from_model(
         input_type=updated_connector.input_type,
         connector_specific_config=updated_connector.connector_specific_config,
         refresh_freq=updated_connector.refresh_freq,
-        credential_ids=[
-            association.credential.id for association in updated_connector.credentials
-        ],
+        credential_ids=[association.credential.id for association in updated_connector.credentials],
         created_at=updated_connector.created_at,
         updated_at=updated_connector.updated_at,
         disabled=updated_connector.disabled,
     )
+
 
 @router.delete("/{organization_id}/{connector_id}", response_model=StatusResponse[int])
 async def delete_connector_by_id(
@@ -220,6 +208,7 @@ async def delete_connector_by_id(
         organization_id,
         db_session,
     )
+
 
 @router.post("/{organization_id}/run-once")
 async def connector_run_once(
@@ -269,40 +258,46 @@ async def connector_run_once(
         data=index_attempt_ids,
     )
 
+
 @router.post("/{organization_id}/test-github", response_model=StatusResponse[bool])
 async def test_github_access_token(
     organization_id: UUID,  # type: ignore
-    github_test_info: GithubTestRequest, 
-    _: User = Depends(current_admin_for_org)
+    github_test_info: GithubTestRequest,
+    _: User = Depends(current_admin_for_org),
 ) -> StatusResponse[bool]:
-    from github import (
-            Github, 
-            GithubException, 
-            UnknownObjectException, 
-            BadCredentialsException,
-    )
+    from github import BadCredentialsException, Github, GithubException, UnknownObjectException
+
     try:
         github_client = Github(github_test_info.access_token_value)
         _ = github_client.get_user()
         return StatusResponse(success=True, data=True)
     except UnknownObjectException:
-        return StatusResponse(success=False, message="Invalid repository name or repository owner.", data=False)
+        return StatusResponse(
+            success=False,
+            message="Invalid repository name or repository owner.",
+            data=False,
+        )
     except BadCredentialsException:
         return StatusResponse(success=False, message="Invalid Github access token.", data=False)
     except GithubException as e:
         return StatusResponse(success=False, message=f"An error occurred: {e}", data=False)
     except Exception as e:
-        return StatusResponse(success=False, message=f"Failed to validate Github access token: {str(e)}", data=False)
-    
+        return StatusResponse(
+            success=False,
+            message=f"Failed to validate Github access token: {str(e)}",
+            data=False,
+        )
+
 
 @router.post("/{organization_id}/test-confluence", response_model=StatusResponse[bool])
 async def test_confluence_access_token(
-    organization_id: UUID,  # type: ignore 
+    organization_id: UUID,  # type: ignore
     confluence_test_info: ConfluenceTestRequest,
-    _: User = Depends(current_admin_for_org)
- ) -> StatusResponse[bool]:
+    _: User = Depends(current_admin_for_org),
+) -> StatusResponse[bool]:
     from atlassian import Confluence
     from atlassian.errors import ApiNotFoundError, ApiPermissionError
+
     try:
         confluence_client = Confluence(
             url=confluence_test_info.wiki_page_url,
@@ -311,16 +306,27 @@ async def test_confluence_access_token(
             cloud=True,
         )
         # If the token is invalid or we don't have access, this will raise an exception
-        _ = confluence_client.get_user_details_by_username(
-            user_name=confluence_test_info.confluence_username
+        _ = confluence_client.get_user_details_by_username(user_name=confluence_test_info.confluence_username)
+        return StatusResponse[bool](
+            success=True,
+            message="Successfully validated Confluence access token.",
+            data=True,
         )
-        return StatusResponse[bool](success=True, message="Successfully validated Confluence access token.", data=True)
     except ApiNotFoundError:
         return StatusResponse(success=False, message="Wiki page not found.", data=False)
     except ApiPermissionError:
-        return StatusResponse(success=False, message="Invalid Confluence username or access token.", data=False)
+        return StatusResponse(
+            success=False,
+            message="Invalid Confluence username or access token.",
+            data=False,
+        )
     except Exception as e:
-        return StatusResponse(success=False, message=f"Failed to validate Confluence access token: {str(e)}", data=False)
+        return StatusResponse(
+            success=False,
+            message=f"Failed to validate Confluence access token: {str(e)}",
+            data=False,
+        )
+
 
 @router.get("/{organization_id}/get-linear-org-and-team")
 async def get_linear_org_and_teams(
@@ -330,12 +336,9 @@ async def get_linear_org_and_teams(
     db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> LinearOrganizationSnapshot:
     linear_credential = await async_fetch_credential_by_id_and_org(
-        linear_credential_id, 
-        admin_user, 
-        organization_id,
-        db_session
+        linear_credential_id, admin_user, organization_id, db_session
     )
-    
+
     if linear_credential is None:
         raise HTTPException(
             status_code=404,
@@ -347,7 +350,7 @@ async def get_linear_org_and_teams(
             status_code=401,
             detail="Invalid Linear credential, access_token not found",
         )
-    
+
     try:
         linear_service = LinearGraphQLClient(access_token)
         linear_org_and_teams = linear_service.get_user_organization_and_teams()
@@ -356,7 +359,7 @@ async def get_linear_org_and_teams(
             status_code=500,
             detail=f"Failed to fetch Linear organization and teams: {str(e)}",
         )
-    
+
     return LinearOrganizationSnapshot(
         name=linear_org_and_teams.name,
         teams=linear_org_and_teams.teams,
@@ -370,14 +373,10 @@ async def get_notion_workspace(
     admin_user: User = Depends(current_admin_for_org),
     db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> NotionWorkspaceSnapshot:
-    
     notion_credential = await async_fetch_credential_by_id_and_org(
-        notion_credential_id, 
-        admin_user, 
-        organization_id,
-        db_session
+        notion_credential_id, admin_user, organization_id, db_session
     )
-    
+
     if notion_credential is None:
         raise HTTPException(
             status_code=404,
@@ -389,13 +388,13 @@ async def get_notion_workspace(
             status_code=401,
             detail="Invalid Notion credential, access_token not found",
         )
-    
+
     try:
         # Define your headers
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28"
+            "Notion-Version": "2022-06-28",
         }
 
         # Define your endpoint
@@ -408,14 +407,14 @@ async def get_notion_workspace(
                 status_code=500,
                 detail=f"Failed to fetch Notion workspace: {response.text}",
             )
-        
+
         workspace_data = response.json()
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch Notion workspace: {str(e)}",
         )
-    
+
     return NotionWorkspaceSnapshot(
-        name=workspace_data['bot']['workspace_name'],
+        name=workspace_data["bot"]["workspace_name"],
     )

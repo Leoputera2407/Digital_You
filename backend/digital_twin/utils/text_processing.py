@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+
 from digital_twin.config.constants import HTML_SEPARATOR
 
 

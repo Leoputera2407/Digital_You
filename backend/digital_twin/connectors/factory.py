@@ -3,24 +3,17 @@ from collections.abc import Generator
 from typing import Any, Type
 
 from digital_twin.config.constants import DocumentSource
+from digital_twin.connectors.adhoc_upload.connector import AdhocUploadConnector
+from digital_twin.connectors.confluence.connector import ConfluenceConnector
 from digital_twin.connectors.github.connector import GithubConnector
 from digital_twin.connectors.google_drive.connector import GoogleDriveConnector
-from digital_twin.connectors.slack.connector import SlackLoadConnector, SlackPollConnector
-from digital_twin.connectors.web.connector import WebConnector
-from digital_twin.connectors.confluence.connector import ConfluenceConnector
-from digital_twin.connectors.adhoc_upload.connector import AdhocUploadConnector
-from digital_twin.connectors.notion.connector import NotionConnector
+from digital_twin.connectors.interfaces import BaseConnector, EventConnector, LoadConnector, PollConnector
 from digital_twin.connectors.jira.connector import JiraConnector
 from digital_twin.connectors.linear.connector import LinearConnector
-
-
-from digital_twin.connectors.interfaces import (
-    BaseConnector,
-    EventConnector,
-    LoadConnector,
-    PollConnector,
-)
 from digital_twin.connectors.model import Document, InputType
+from digital_twin.connectors.notion.connector import NotionConnector
+from digital_twin.connectors.slack.connector import SlackLoadConnector, SlackPollConnector
+from digital_twin.connectors.web.connector import WebConnector
 
 _NUM_SECONDS_IN_DAY = 86400
 
@@ -42,6 +35,7 @@ CONNECTOR_MAP = {
     DocumentSource.LINEAR: LinearConnector,
 }
 
+
 def identify_connector_class(
     source: DocumentSource,
     input_type: InputType | None = None,
@@ -62,8 +56,7 @@ def identify_connector_class(
 
     if any(
         [
-            input_type == InputType.LOAD_STATE
-            and not issubclass(connector, LoadConnector),
+            input_type == InputType.LOAD_STATE and not issubclass(connector, LoadConnector),
             input_type == InputType.POLL and not issubclass(connector, PollConnector),
             input_type == InputType.EVENT and not issubclass(connector, EventConnector),
         ]

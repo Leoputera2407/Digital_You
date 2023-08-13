@@ -1,12 +1,12 @@
 import logging
 import traceback
-from logging import Logger
 from functools import wraps
+from logging import Logger
+
 from sqlalchemy.exc import SQLAlchemyError
 
-def setup_logger(
-    name: str = __name__, log_level: int = logging.INFO
-) -> Logger:
+
+def setup_logger(name: str = __name__, log_level: int = logging.INFO) -> Logger:
     logger = logging.getLogger(name)
 
     # If the logger already has handlers, assume it was already configured and return it.
@@ -42,7 +42,9 @@ def log_sqlalchemy_error(logger):
             except Exception as e:
                 logger.error(f"SQLAlchemy error in {func.__name__}: {str(e)}")
                 raise e
+
         return wrapped
+
     return decorator
 
 
@@ -59,5 +61,7 @@ def async_log_sqlalchemy_error(logger):
             except Exception as e:
                 logger.error(f"General error in {func.__name__}: {str(e)}")
                 raise e
+
         return wrapped
+
     return decorator

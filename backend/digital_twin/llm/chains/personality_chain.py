@@ -1,5 +1,6 @@
+from typing import List, Optional, Tuple
+
 from langchain import PromptTemplate
-from typing import Optional, List
 
 from digital_twin.llm.chains.base import BaseChain
 from digital_twin.utils.logging import setup_logger
@@ -12,45 +13,45 @@ NULL_EXAMPLE_TOKEN = "?[EXAMPLE]"
 EXAMPLE_SEP_PAT = "---NEW EXAMPLE---"
 
 PERSONALITY_MODEL_SETTINGS = {"temperature": 0.1, "max_output_tokens": 2000}
+
+
 class BasePersonalityChain(BaseChain):
     """
     Base class for Personality.
     """
-    def format_examples(self, examples: Optional[List[str]] = None) -> str:
+
+    def format_examples(self, examples: Optional[List[Tuple[str, str]]] = None) -> str:
         """Format the examples for the prompt."""
         if examples is None:
             return ""
-        return "".join(
-            f"{EXAMPLE_SEP_PAT}\n{example}\n"
-            for example in examples
-        ).strip()
-    
-    def get_filled_prompt(self, examples: Optional[List[str]] = None, **kwargs) -> str:
+        return "".join(f"{EXAMPLE_SEP_PAT}\n{example}\n" for example in examples).strip()
+
+    def get_filled_prompt(self, examples: Optional[List[Tuple[str, str]]] = None, **kwargs) -> str:
         if examples is None:
-           formatted_prompt = self.create_prompt(**kwargs) 
+            formatted_prompt = self.create_prompt(**kwargs)
         elif examples == []:
             kwargs["examples"] = NULL_EXAMPLE_TOKEN
             formatted_prompt = self.create_prompt(**kwargs)
         else:
             # Create a copy to avoid altering the original list
-            examples = list(examples)     
+            examples = list(examples)
             # Keep adding more examples until we hit the token limit
             for idx, _ in enumerate(examples):
-                kwargs["examples"] = self.format_examples(examples[:idx+1])
+                kwargs["examples"] = self.format_examples(examples[: idx + 1])
                 formatted_prompt = self.create_prompt(**kwargs)
                 if not self.tokens_within_limit(formatted_prompt):
                     examples.pop(idx)
                     break
             logger.debug(f"Stuffed {len(examples)} examples in the context")
         return formatted_prompt
-    
+
     @log_function_time()
-    def run(self, examples: Optional[List[str]] = None, **kwargs) -> str:
+    def run(self, examples: Optional[List[Tuple[str, str]]] = None, **kwargs) -> str:
         formatted_prompt = self.get_filled_prompt(examples, **kwargs)
         return self.llm.predict(formatted_prompt)
-    
+
     @log_function_time()
-    async def async_run(self, examples: Optional[List[str]] = None, **kwargs) -> str:
+    async def async_run(self, examples: Optional[List[Tuple[str, str]]] = None, **kwargs) -> str:
         formatted_prompt = self.get_filled_prompt(examples, **kwargs)
         return await self.llm.apredict(formatted_prompt)
 
@@ -77,9 +78,7 @@ class PersonalityChain(BasePersonalityChain):
             "Conversation style:\n"
             "% End Format %"
         )
-        return PromptTemplate(
-            template=prompt, input_variables=["examples", "slack_user_id"]
-        )
+        return PromptTemplate(template=prompt, input_variables=["examples", "slack_user_id"])
 
 
 class RephraseChain(BasePersonalityChain):
@@ -131,8 +130,15 @@ class RephraseChain(BasePersonalityChain):
         """
         return PromptTemplate(
             template=template,
-            input_variables=["examples", "conversation_style", "query", "slack_user_id", "document"],
+            input_variables=[
+                "examples",
+                "conversation_style",
+                "query",
+                "slack_user_id",
+                "document",
+            ],
         )
+
 
 class ShuffleChain(BasePersonalityChain):
     """

@@ -2,6 +2,7 @@ import re
 import time
 from collections.abc import Callable
 from typing import Any, cast
+
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.web import SlackResponse
@@ -14,17 +15,13 @@ logger = setup_logger()
 _SLACK_LIMIT = 900
 
 
-def get_message_link(
-    event: dict[str, Any], workspace: str, channel_id: str | None = None
-) -> str:
+def get_message_link(event: dict[str, Any], workspace: str, channel_id: str | None = None) -> str:
     channel_id = channel_id or cast(
         str, event["channel"]
     )  # channel must either be present in the event or passed in
     message_ts = cast(str, event["ts"])
     message_ts_without_dot = message_ts.replace(".", "")
-    return (
-        f"https://{workspace}.slack.com/archives/{channel_id}/p{message_ts_without_dot}"
-    )
+    return f"https://{workspace}.slack.com/archives/{channel_id}/p{message_ts_without_dot}"
 
 
 def make_slack_api_call_paginated(
@@ -90,18 +87,13 @@ class UserIdReplacer:
     def _get_slack_user_name(self, user_id: str) -> str:
         if user_id not in self._user_id_to_name_map:
             try:
-                response = make_slack_api_rate_limited(self._client.users_info)(
-                    user=user_id
-                )
+                response = make_slack_api_rate_limited(self._client.users_info)(user=user_id)
                 # prefer display name if set, since that is what is shown in Slack
                 self._user_id_to_name_map[user_id] = (
-                    response["user"]["profile"]["display_name"]
-                    or response["user"]["profile"]["real_name"]
+                    response["user"]["profile"]["display_name"] or response["user"]["profile"]["real_name"]
                 )
             except SlackApiError as e:
-                logger.exception(
-                    f"Error fetching data for user {user_id}: {e.response['error']}"
-                )
+                logger.exception(f"Error fetching data for user {user_id}: {e.response['error']}")
                 raise
 
         return self._user_id_to_name_map[user_id]
@@ -121,8 +113,6 @@ class UserIdReplacer:
                 # Replace the user ID with the username in the message
                 message = message.replace(f"<@{user_id}>", f"@{user_name}")
             except Exception:
-                logger.exception(
-                    f"Unable to replace user ID with username for user_id '{user_id}"
-                )
+                logger.exception(f"Unable to replace user ID with username for user_id '{user_id}")
 
         return message

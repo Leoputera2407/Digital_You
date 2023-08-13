@@ -1,5 +1,6 @@
 import json
 from uuid import UUID
+
 from nltk.corpus import stopwords  # type:ignore
 from nltk.stem import WordNetLemmatizer  # type:ignore
 from nltk.tokenize import word_tokenize  # type:ignore
@@ -25,6 +26,3 @@ def keyword_search_query_processing(query: str) -> str:
     query = " ".join(remove_stop_words(query))
     query = " ".join(lemmatize_text(query))
     return query
-
-
-

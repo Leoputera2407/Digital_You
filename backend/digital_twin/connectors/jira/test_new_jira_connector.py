@@ -1,7 +1,6 @@
-from typing import Any, List, Tuple, Optional
 from datetime import datetime
+from typing import Any, List, Optional, Tuple
 
-from digital_twin.connectors.jira.test_jira_client import JiraClient
 from digital_twin.config.app_config import INDEX_BATCH_SIZE
 from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.interfaces import (
@@ -10,7 +9,9 @@ from digital_twin.connectors.interfaces import (
     PollConnector,
     SecondsSinceUnixEpoch,
 )
+from digital_twin.connectors.jira.test_jira_client import JiraClient
 from digital_twin.connectors.model import Document, Section
+
 
 class JiraConnector(LoadConnector, PollConnector):
     def __init__(
@@ -32,25 +33,22 @@ class JiraConnector(LoadConnector, PollConnector):
         return None
 
     def fetch_jira_issues_batch(
-            self, 
-            start: SecondsSinceUnixEpoch, 
-            end: SecondsSinceUnixEpoch, 
-            startAt: int = 0
+        self, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch, startAt: int = 0
     ) -> Tuple[List[Document], int]:
         if self.jira_client is None:
-            raise PermissionError(
-                "Jira Client is not set up, was load_credentials called?"
-            )
-        
-        issues = self.jira_client.get_issues_and_comments(self.jira_project, start, end, startAt=startAt, maxResults=self.batch_size)
-        
+            raise PermissionError("Jira Client is not set up, was load_credentials called?")
+
+        issues = self.jira_client.get_issues_and_comments(
+            self.jira_project, start, end, startAt=startAt, maxResults=self.batch_size
+        )
+
         doc_batch = []
-        for issue in issues['issues']:
+        for issue in issues["issues"]:
             semantic_rep = (
                 f"Jira Ticket Summary: {issue['fields']['summary']}\n"
                 f"Description: {issue['fields']['description']}\n"
                 + "\n".join(
-                    [f"Comment: {comment['body']}" for comment in issue['fields']['comment']['comments']]
+                    [f"Comment: {comment['body']}" for comment in issue["fields"]["comment"]["comments"]]
                 )
             )
 
@@ -61,21 +59,21 @@ class JiraConnector(LoadConnector, PollConnector):
                     id=page_url,
                     sections=[Section(link=page_url, text=semantic_rep)],
                     source=DocumentSource.JIRA,
-                    semantic_identifier=issue['fields']['summary'],
+                    semantic_identifier=issue["fields"]["summary"],
                     metadata={},
                 )
             )
-        return doc_batch, len(issues['issues'])
+        return doc_batch, len(issues["issues"])
 
     def load_from_state(self) -> GenerateDocumentsOutput:
         if self.jira_client is None:
-            raise PermissionError(
-                "Jira Client is not set up, was load_credentials called?"
-            )
+            raise PermissionError("Jira Client is not set up, was load_credentials called?")
 
         start_ind = 0
         while True:
-            doc_batch, fetched_batch_size = self.fetch_jira_issues_batch(0, int(datetime.now().timestamp()), startAt=start_ind)
+            doc_batch, fetched_batch_size = self.fetch_jira_issues_batch(
+                0, int(datetime.now().timestamp()), startAt=start_ind
+            )
 
             if doc_batch:
                 yield doc_batch
@@ -88,9 +86,7 @@ class JiraConnector(LoadConnector, PollConnector):
         self, start: SecondsSinceUnixEpoch, end: SecondsSinceUnixEpoch
     ) -> GenerateDocumentsOutput:
         if self.jira_client is None:
-            raise PermissionError(
-                "Jira Client is not set up, was load_credentials called?"
-            )
+            raise PermissionError("Jira Client is not set up, was load_credentials called?")
 
         start_ind = 0
         while True:
