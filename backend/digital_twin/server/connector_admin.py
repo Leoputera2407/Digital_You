@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from digital_twin.auth.users import current_admin_for_org
+from digital_twin.connectors.confluence.connector import extract_confluence_keys_from_url
 from digital_twin.connectors.google_drive.connector_auth import (
     DB_CREDENTIALS_DICT_KEY,
     async_get_google_app_cred,
@@ -299,14 +300,20 @@ async def test_confluence_access_token(
     from atlassian.errors import ApiNotFoundError, ApiPermissionError
 
     try:
+        base_url, wiki_space = extract_confluence_keys_from_url(confluence_test_info.wiki_page_url)
         confluence_client = Confluence(
-            url=confluence_test_info.wiki_page_url,
+            url=base_url,
             username=confluence_test_info.confluence_username,
             password=confluence_test_info.confluence_access_token,
             cloud=True,
         )
         # If the token is invalid or we don't have access, this will raise an exception
-        _ = confluence_client.get_user_details_by_username(username=confluence_test_info.confluence_username)
+        _ = confluence_client.get_all_pages_from_space(
+            space=wiki_space,
+            start=0,
+            limit=1,
+            expand="body.storage.value,version",
+        )
         return StatusResponse[bool](
             success=True,
             message="Successfully validated Confluence access token.",

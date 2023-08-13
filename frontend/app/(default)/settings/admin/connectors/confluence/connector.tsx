@@ -65,7 +65,7 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
     "testing"
   );
   const [testingText, setTestingText] = useState<string | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState<bool>(false);
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
   const { axiosInstance } = useAxios();
 
@@ -138,7 +138,7 @@ const InitialConnectForm: FC<InitialConnectFormProps> = ({
               documentation from the given Confluence Wiki URL. To get the API
               Token, follow this &nbsp;
               <a
-                href="https://docs.github.com/en/enterprise-server@3.4/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                href="https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-red-600 underline"
