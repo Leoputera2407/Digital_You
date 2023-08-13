@@ -51,10 +51,10 @@ const hero_new = (): JSX.Element => {
         className="top-24 -z-0 flex flex-col gap-2 items-center justify-center pt-24"
       >
         <h1 className="text-5xl sm:text-6xl font-bold max-w-lg sm:max-w-xl">
-        Empowering Experts, Powering Knowledge. <span className="text-primary">Prosona.</span>
+        Breeze through your Slack and email inbox with <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-100 to-slate-200/60">Prosona.</span>
         </h1>
-        <p className="text-base max-w-sm text-gray-500 mb-5 sm:mb-5">
-        Your co-pilot for intelligent responses in Slack.
+        <p className="text-base max-w-sm text-white-500 mb-5 sm:mb-5">
+        Crafting precise responses, so you don't have to.
         </p>
 
         <div>
@@ -74,8 +74,8 @@ const hero_new = (): JSX.Element => {
           objectPosition: "center", 
           clipPath: "inset(0 0 0 0)"
         }}
-        className="rounded-md max-w-screen-lg shadow-lg dark:shadow-white/25 border dark:border-white/25 w-full bg-white dark:bg-black"
-        src="https://user-images.githubusercontent.com/34851861/253835923-d98e8240-2621-4d8e-b195-3b9fea5e7608.mp4"
+        className="rounded-2xl max-w-screen-lg shadow-lg dark:shadow-white/25 border dark:border-slate/25 w-full bg-white dark:bg-black"
+        src="https://user-images.githubusercontent.com/34851861/258572913-7944c2c6-ae68-4f77-abea-260c9624e838.mp4"
         autoPlay
         muted
         loop

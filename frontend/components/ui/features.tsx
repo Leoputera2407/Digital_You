@@ -35,7 +35,7 @@ const FeatureBox: React.FC<FeatureBoxProps> = ({
             <div className="absolute inset-0 translate-z-0 bg-slate-800 rounded-full blur-[80px]" />
           </div>
           {/* Text */}
-          <div className="h-48 md:max-w-[480px] shrink-0 order-1 md:order-none p-6 pt-0 md:p-8 md:pr-0 flex-grow">
+          <div className="h-48 md:max-w-[480px] shrink-0 order-1 md:order-none p-6 pt-0 md:p-8 md:pr-6 flex-grow">
             <div>
               <h3 className="inline-flex text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-1 overflow-hidden">
                 {title}
@@ -136,7 +136,7 @@ export default function Features() {
                           Privacy First
                         </h3>
                         <p className="text-slate-400">
-                          Your internal knowledge is your secret sauce which is
+                          Your knowledge and context is important which is
                           why Prosona is a privacy first system.{" "}
                         </p>
                       </div>

@@ -26,7 +26,7 @@ export default function Cta() {
               <div className="inline-flex font-medium bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-purple-200 pb-3">Your co-pilot for intelligent responses in Slack.</div>
             </div>
             <h2 className="h2 bg-clip-text text-transparent bg-gradient-to-r from-slate-200/60 via-slate-200 to-slate-200/60 pb-4">Focus on what truly matters</h2>
-            <p className="text-lg text-slate-400 mb-8">Meeting your OKRs, making an impact, or enjoying pastimes outside work. You no longer need to be burdened by crafting routine replies</p>
+            <p className="text-lg text-white-400 mb-8">Meeting your OKRs, making an impact, or enjoying pastimes outside work. You no longer need to be burdened by crafting routine replies</p>
             <div>
               <a className="btn p-4 text-slate-900 bg-gradient-to-r from-white/80 via-white to-white/80 hover:bg-white transition duration-150 ease-in-out group" href="https://9a04i53lzc4.typeform.com/to/E0H4xTzS">
                 Beta Waitlist <span className="tracking-normal text-purple-500 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">-&gt;</span>
