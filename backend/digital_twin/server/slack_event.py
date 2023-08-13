@@ -116,6 +116,7 @@ def register_listeners(slack_app: AsyncApp):
     # slack_app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     # slack_app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
     slack_app.command("/prosona")(ack=just_ack, lazy=[handle_prosona_command])
+    slack_app.command("/staging-prosona")(ack=just_ack, lazy=[handle_prosona_command])
     # slack_app.action(SHUFFLE_BUTTON_ACTION_ID)(ack=just_ack, lazy=[])
     # slack_app.view(MODAL_RESPONSE_CALLBACK_ID)(lazy=[])
 

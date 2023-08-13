@@ -65,12 +65,10 @@ def _run_drive_file_query(
 ) -> Generator[GoogleDriveFileType, None, None]:
     next_page_token = ""
     corpora = "drive" if is_public_connector else "user"
-    supportsAllDrives = True if is_public_connector else False
     while next_page_token is not None:
         logger.debug(f"Running Google Drive fetch with query: {query}")
         list_params = {
             "pageSize": batch_size,
-            "supportsAllDrives": supportsAllDrives,
             "fields": "nextPageToken, files(mimeType, id, name, webViewLink)",
             "pageToken": next_page_token,
             "q": query,
@@ -79,6 +77,8 @@ def _run_drive_file_query(
 
         if corpora == "drive" and driveId:
             list_params["driveId"] = driveId
+            list_params["includeItemsFromAllDrives"] = True
+            list_params["supportsAllDrives"] = True
 
         results = service.files().list(**list_params).execute()
         next_page_token = results.get("nextPageToken")
