@@ -43,3 +43,12 @@ cd frontend
 npm install 
 npm run dev
 ```
+
+
+Supported Connectors: 
+* Google Drive
+* Confluence
+* Github PRs
+* Slack (Public Channels)
+* Linear
+* Notion
