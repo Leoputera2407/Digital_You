@@ -98,12 +98,14 @@ class StuffVerify(BaseVerify):
         if context_doc:
             for ranked_doc in context_doc:
                 documents.append(ranked_doc)
-                formatted_prompt = self.create_prompt(question=query, context=documents)
+                formatted_prompt = self.create_prompt(
+                    question=query, context=self.format_documents(documents)
+                )
                 if not self.tokens_within_limit(formatted_prompt):
                     documents.pop()
                     break
 
         print(f"Stuffed {len(documents)} documents in the context")
-        formatted_prompt = self.create_prompt(question=query, context=documents)
+        formatted_prompt = self.create_prompt(question=query, context=self.format_documents(documents))
         self.log_filled_prompt(formatted_prompt)
         return formatted_prompt
