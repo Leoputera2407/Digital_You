@@ -58,3 +58,9 @@ async def retrieve_sorted_past_messages(
         )
 
     return past_messages_dict
+
+
+def format_source_type(source_type: str) -> str:
+    words = source_type.split("_")
+    capitalized_words = [word.capitalize() for word in words]
+    return " ".join(capitalized_words)

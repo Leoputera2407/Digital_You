@@ -1,6 +1,8 @@
 import json
 from typing import Collection, List, Mapping, Sequence, Union, cast
 
+from digital_twin.slack_bot.utils import format_source_type
+
 LOADING_TEXT = "Thinking..."
 PERSONALITY_TEXT = "Learning how you speak from your chat history...This will only happen once!"
 ERROR_TEXT = "Something went wrong. Please try again later."
@@ -142,7 +144,7 @@ def create_response_command_view(
     if search_docs:
         top_3_docs = "\n".join(
             [
-                f"<{doc.link}|{doc.source_type.capitalize()}>\n{doc.blurb}" if doc.link else ""
+                f"<{doc.link}|{format_source_type(doc.source_type)}>\n{doc.blurb}" if doc.link else ""
                 for doc in search_docs[:3]
             ]
         )

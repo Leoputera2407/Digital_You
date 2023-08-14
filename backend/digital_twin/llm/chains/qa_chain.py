@@ -113,7 +113,7 @@ class StuffQA(BaseQA):
                 documents.append(ranked_doc)
                 formatted_prompt = self.create_prompt(
                     question=input_str,
-                    context=documents,
+                    context=self.format_documents(documents),
                 )
                 if not self.tokens_within_limit(formatted_prompt):
                     documents.pop()
