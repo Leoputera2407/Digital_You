@@ -176,7 +176,7 @@ async def handle_credential_and_connector(
     # Add credentials for the admin slack user
     cred = CredentialBase(
         credential_json={
-            "slack_bot_token": slack_token,
+            "slack_token": slack_token,
         },
         public_doc=True,
     )

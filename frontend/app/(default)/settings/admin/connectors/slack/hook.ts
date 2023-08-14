@@ -39,7 +39,7 @@ interface SetupSlackArgs {
 function isSlackCredentialJson(
   credential: Credential<AnyCredentialJson>
 ): credential is Credential<SlackCredentialJson> {
-  return credential.credential_json.hasOwnProperty("slack_bot_token");
+  return credential.credential_json.hasOwnProperty("slack_token");
 }
 
 const setupSlackOAuth = async ({
@@ -116,7 +116,7 @@ export function useSlackConnectors({
   const slackPublicCredential = credentialsData?.find(
     (credential): credential is Credential<SlackCredentialJson> =>
       isSlackCredentialJson(credential) &&
-      !!credential.credential_json.slack_bot_token &&
+      !!credential.credential_json.slack_token &&
       credential.public_doc
   );
 

@@ -117,3 +117,8 @@ alembic-upgrade-prod:
 	@echo "Running Alembic migration with ENV set to prod..."
 	@ENV=prod alembic upgrade head
 	@echo "Migration completed and ENV unset."
+
+.PHONY: demo-index-prod
+demo-index-prod:
+	@echo "Running digital_twin/background/scheduled with UUID: ${UUID}"
+	@ENV=prod python digital_twin/background/scheduled.py ${UUID}
