@@ -120,7 +120,7 @@ class StuffQA(BaseQA):
                     break
 
         logger.info(f"Stuffed {len(documents)} documents in the context")
-        formatted_prompt = self.create_prompt(question=input_str, context=documents)
+        formatted_prompt = self.create_prompt(question=input_str, context=self.format_documents(documents))
         self.log_filled_prompt(formatted_prompt)
         return formatted_prompt
 
