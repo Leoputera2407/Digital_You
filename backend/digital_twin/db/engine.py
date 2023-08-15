@@ -62,7 +62,8 @@ def get_sqlalchemy_async_engine() -> AsyncEngine:
     global _ASYNC_ENGINE
     if _ASYNC_ENGINE is None:
         connection_string = build_connection_string()
-        _ASYNC_ENGINE = create_async_engine(connection_string)
+        # NOTE: pool_pre_ping as per https://stackoverflow.com/questions/70468354/fastapi-sqlalchemy-connection-was-closed-in-the-middle-of-operation
+        _ASYNC_ENGINE = create_async_engine(connection_string, pool_pre_ping=True)
     return _ASYNC_ENGINE
 
 

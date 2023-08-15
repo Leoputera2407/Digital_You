@@ -67,8 +67,10 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
         *,
         enterprise_id: Optional[str],
         team_id: Optional[str],
-        is_enterprise_install: Optional[bool],
+        is_enterprise_install: Optional[bool] = False,
     ) -> Optional[Bot]:
+        if is_enterprise_install or team_id is None:
+            team_id = ""
         try:
             async with get_async_session() as async_session:
                 bot = await async_find_bot_db(
