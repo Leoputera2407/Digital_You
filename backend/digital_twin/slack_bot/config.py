@@ -72,18 +72,24 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
         if is_enterprise_install or team_id is None:
             team_id = ""
         try:
-            async with get_async_session() as async_session:
+            logger.info(
+                f"Async find bot called with enterprise_id: {enterprise_id}, team_id: {team_id}, is_enterprise_install: {is_enterprise_install}"
+            )
+            async with get_async_session(pool_pre_ping=True) as async_session:
                 bot = await async_find_bot_db(
                     async_session,
                     enterprise_id,
                     team_id,
-                    is_enterprise_install,
                 )
+            if bot is None:
+                message = f"Failed to find bot: {enterprise_id}, {team_id}, {is_enterprise_install}"
+                return None
+            logger.info(f"Found bot: {bot.team_id}")
+            return bot
         except Exception as e:
             message = f"Failed to find bot: {enterprise_id}, {team_id}, {is_enterprise_install} - {e}"
             self.logger.warning(message)
             return None
-        return bot
 
 
 class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):

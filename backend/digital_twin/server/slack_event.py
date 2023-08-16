@@ -70,10 +70,13 @@ MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
 # this before_authorize function skips message changed/deleted events.
 # Especially, "message_changed" events can be triggered many times when the app rapidly updates its reply.
 async def before_authorize(
+    ack: AsyncAck,
     payload: Dict[str, Any],
     body: Dict[str, Any],
     next_: Callable[[], Awaitable[None]],
 ):
+    await ack()
+    logger.info("pre-authorize step")
     if (
         (
             is_event(body)
@@ -124,12 +127,6 @@ def register_listeners(slack_app: AsyncApp):
 register_listeners(slack_app)
 
 app_handler = AsyncSlackRequestHandler(slack_app)
-
-
-class SlackServerSignup(BaseModel):
-    supabase_user_id: str
-    team_id: str
-    slack_user_id: str
 
 
 @router.post("/slack/events")
@@ -272,6 +269,11 @@ async def set_user_info(
         if not slack_user_id or not team_id:
             # Wierd edge-case, just in case we get a bad payload
             raise ValueError(f"Error while verifying the slack token")
+        if "command" in payload:
+            trigger_id = payload["trigger_id"]
+            loading_view = create_general_text_command_view(text=LOADING_TEXT)
+            response = await client.views_open(trigger_id=trigger_id, view=loading_view)
+            context["view_id"] = response["view"]["id"]
 
         async with get_async_session() as async_db_session:
             # Look up user in our db using their Slack user ID
@@ -307,11 +309,6 @@ async def set_user_info(
                 channel_type=channel_type,
                 slack_user_token=slack_user.slack_user_token,
             )
-            if "command" in payload:
-                trigger_id = payload["trigger_id"]
-                loading_view = create_general_text_command_view(text=LOADING_TEXT)
-                response = await client.views_open(trigger_id=trigger_id, view=loading_view)
-                context["view_id"] = response["view"]["id"]
             context["SLACK_CHANNEL_TYPE"] = channel_type.value
             context["DB_USER_ID"] = slack_user.user_id
             context["SLACK_USER_TOKEN"] = slack_user.slack_user_token

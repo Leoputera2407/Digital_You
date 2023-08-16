@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, cast
 from uuid import UUID
 
 from slack_sdk.oauth.installation_store import Bot, Installation
-from sqlalchemy import and_, desc, select
+from sqlalchemy import and_, desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -27,21 +27,20 @@ async def async_find_bot_db(
     session: AsyncSession,
     enterprise_id: Optional[str],
     team_id: Optional[str],
-    is_enterprise_install: Optional[bool],
 ) -> Optional[Bot]:
     try:
-        query = (
-            select(SlackBots)
-            .where(
-                and_(
-                    SlackBots.enterprise_id == enterprise_id,
-                    SlackBots.team_id == team_id,
-                    SlackBots.is_enterprise_install == is_enterprise_install,
-                )
-            )
-            .order_by(desc(SlackBots.installed_at))
-            .limit(1)
-        )
+        conditions = []
+        if enterprise_id:
+            conditions.append(SlackBots.enterprise_id == enterprise_id)
+        else:
+            conditions.append(SlackBots.enterprise_id.is_(None))
+
+        if team_id:
+            conditions.append(SlackBots.team_id == team_id)
+        else:
+            conditions.append(SlackBots.team_id.is_(None))
+
+        query = select(SlackBots).where(and_(*conditions)).order_by(desc(SlackBots.installed_at)).limit(1)
 
         result = await session.execute(query)
         bot = result.fetchone()
@@ -62,6 +61,78 @@ async def async_find_bot_db(
             return None
     except Exception as e:
         logger.error(f"Error in async_find_bot: {e}")
+        return None
+
+
+@async_log_sqlalchemy_error(logger)
+async def async_find_installation_db(
+    session: AsyncSession,
+    enterprise_id: Optional[str] = None,
+    team_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> Optional[Installation]:
+    try:
+        conditions = []
+        if enterprise_id:
+            conditions.append(SlackInstallations.enterprise_id == enterprise_id)
+        else:
+            conditions.append(SlackInstallations.enterprise_id.is_(None))
+
+        if team_id:
+            conditions.append(SlackInstallations.team_id == team_id)
+        else:
+            conditions.append(SlackInstallations.team_id.is_(None))
+
+        # If user_id is provided, add it to the conditions
+        if user_id:
+            conditions.append(SlackInstallations.user_id == user_id)
+
+        query = (
+            select(SlackInstallations)
+            .where(and_(*conditions))
+            .order_by(desc(SlackInstallations.installed_at))
+            .limit(1)
+        )
+
+        result = await session.execute(query)
+        installation_row = result.fetchone()
+
+        if installation_row:
+            installation_data: SlackInstallations = installation_row[0]
+            installation = Installation(
+                app_id=installation_data.app_id,
+                enterprise_id=installation_data.enterprise_id,
+                enterprise_name=installation_data.enterprise_name,
+                enterprise_url=installation_data.enterprise_url,
+                team_id=installation_data.team_id,
+                team_name=installation_data.team_name,
+                bot_token=installation_data.bot_token,
+                bot_id=installation_data.bot_id,
+                bot_user_id=installation_data.bot_user_id,
+                bot_scopes=installation_data.bot_scopes,
+                bot_refresh_token=installation_data.bot_refresh_token,
+                bot_token_expires_at=installation_data.bot_token_expires_at,
+                user_id=installation_data.user_id,
+                user_token=installation_data.user_token,
+                user_scopes=installation_data.user_scopes,
+                user_refresh_token=installation_data.user_refresh_token,
+                user_token_expires_at=installation_data.user_token_expires_at,
+                incoming_webhook_url=installation_data.incoming_webhook_url,
+                incoming_webhook_channel=installation_data.incoming_webhook_channel,
+                incoming_webhook_channel_id=installation_data.incoming_webhook_channel_id,
+                incoming_webhook_configuration_url=installation_data.incoming_webhook_configuration_url,
+                is_enterprise_install=installation_data.is_enterprise_install,
+                token_type=installation_data.token_type,
+                installed_at=installation_data.installed_at,
+            )
+
+            # If user_id is provided, you can add any additional steps to modify the installation object here.
+
+            return installation
+        else:
+            return None
+    except Exception as e:
+        logger.error(f"Error in async_find_installation: {e}")
         return None
 
 

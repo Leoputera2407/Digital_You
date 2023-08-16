@@ -50,7 +50,7 @@ def build_connection_string(
     return f"postgresql+{db_api}://{user}:{password}@{host}:{port}/{db}"
 
 
-def get_sqlalchemy_engine() -> Engine:
+def get_sqlalchemy_engine(pool_pre_ping: bool = False) -> Engine:
     global _SYNC_ENGINE
     if _SYNC_ENGINE is None:
         connection_string = build_connection_string(db_api=SYNC_DB_API)
@@ -58,17 +58,17 @@ def get_sqlalchemy_engine() -> Engine:
     return _SYNC_ENGINE
 
 
-def get_sqlalchemy_async_engine() -> AsyncEngine:
+def get_sqlalchemy_async_engine(pool_pre_ping: bool = False) -> AsyncEngine:
     global _ASYNC_ENGINE
     if _ASYNC_ENGINE is None:
         connection_string = build_connection_string()
         # NOTE: pool_pre_ping as per https://stackoverflow.com/questions/70468354/fastapi-sqlalchemy-connection-was-closed-in-the-middle-of-operation
-        _ASYNC_ENGINE = create_async_engine(connection_string, pool_pre_ping=True)
+        _ASYNC_ENGINE = create_async_engine(connection_string, pool_pre_ping=pool_pre_ping)
     return _ASYNC_ENGINE
 
 
-def get_session() -> Generator[Session, None, None]:
-    with Session(get_sqlalchemy_engine(), expire_on_commit=False) as session:
+def get_session(pool_pre_ping: bool = False) -> Generator[Session, None, None]:
+    with Session(get_sqlalchemy_engine(pool_pre_ping), expire_on_commit=False) as session:
         yield session
 
 
@@ -77,5 +77,5 @@ async def get_async_session_generator() -> AsyncGenerator[AsyncSession, None]:
         yield async_session
 
 
-def get_async_session() -> AsyncSession:
-    return AsyncSession(get_sqlalchemy_async_engine(), expire_on_commit=False)
+def get_async_session(pool_pre_ping: bool = False) -> AsyncSession:
+    return AsyncSession(get_sqlalchemy_async_engine(pool_pre_ping), expire_on_commit=False)
