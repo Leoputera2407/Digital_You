@@ -31,14 +31,14 @@ async def async_find_bot_db(
     try:
         conditions = []
         if enterprise_id:
-            conditions.append(SlackInstallations.enterprise_id == enterprise_id)
+            conditions.append(SlackBots.enterprise_id == enterprise_id)
         else:
-            conditions.append(SlackInstallations.enterprise_id.is_(None))
+            conditions.append(SlackBots.enterprise_id.is_(None))
 
         if team_id:
-            conditions.append(SlackInstallations.team_id == team_id)
+            conditions.append(SlackBots.team_id == team_id)
         else:
-            conditions.append(SlackInstallations.team_id.is_(None))
+            conditions.append(SlackBots.team_id.is_(None))
 
         query = select(SlackBots).where(and_(*conditions)).order_by(desc(SlackBots.installed_at)).limit(1)
 
