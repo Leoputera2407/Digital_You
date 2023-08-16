@@ -76,6 +76,7 @@ async def before_authorize(
     next_: Callable[[], Awaitable[None]],
 ):
     await ack()
+    logger.info("pre-authorize step")
     if (
         (
             is_event(body)
@@ -126,12 +127,6 @@ def register_listeners(slack_app: AsyncApp):
 register_listeners(slack_app)
 
 app_handler = AsyncSlackRequestHandler(slack_app)
-
-
-class SlackServerSignup(BaseModel):
-    supabase_user_id: str
-    team_id: str
-    slack_user_id: str
 
 
 @router.post("/slack/events")
