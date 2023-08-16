@@ -70,10 +70,12 @@ MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
 # this before_authorize function skips message changed/deleted events.
 # Especially, "message_changed" events can be triggered many times when the app rapidly updates its reply.
 async def before_authorize(
+    ack: AsyncAck,
     payload: Dict[str, Any],
     body: Dict[str, Any],
     next_: Callable[[], Awaitable[None]],
 ):
+    await ack()
     if (
         (
             is_event(body)
