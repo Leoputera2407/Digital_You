@@ -1,6 +1,7 @@
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from functools import wraps
 from typing import Any, cast
 
 from slack_sdk import WebClient
@@ -24,21 +25,33 @@ def get_message_link(event: dict[str, Any], workspace: str, channel_id: str | No
     return f"https://{workspace}.slack.com/archives/{channel_id}/p{message_ts_without_dot}"
 
 
+def make_slack_api_call_logged(
+    call: Callable[..., SlackResponse],
+) -> Callable[..., SlackResponse]:
+    @wraps(call)
+    def logged_call(**kwargs: Any) -> SlackResponse:
+        logger.debug(f"Making call to Slack API '{call.__name__}' with args '{kwargs}'")
+        result = call(**kwargs)
+        logger.debug(f"Call to Slack API '{call.__name__}' returned '{result}'")
+        return result
+
+    return logged_call
+
+
 def make_slack_api_call_paginated(
     call: Callable[..., SlackResponse],
-) -> Callable[..., list[dict[str, Any]]]:
+) -> Callable[..., Generator[dict[str, Any], None, None]]:
     """Wraps calls to slack API so that they automatically handle pagination"""
 
-    def paginated_call(**kwargs: Any) -> list[dict[str, Any]]:
-        results: list[dict[str, Any]] = []
+    @wraps(call)
+    def paginated_call(**kwargs: Any) -> Generator[dict[str, Any], None, None]:
         cursor: str | None = None
         has_more = True
         while has_more:
-            for result in call(cursor=cursor, limit=_SLACK_LIMIT, **kwargs):
-                has_more = result.get("has_more", False)
-                cursor = result.get("response_metadata", {}).get("next_cursor", "")
-                results.append(cast(dict[str, Any], result))
-        return results
+            response = call(cursor=cursor, limit=_SLACK_LIMIT, **kwargs)
+            yield cast(dict[str, Any], response.validate())
+            cursor = cast(dict[str, Any], response.get("response_metadata", {})).get("next_cursor", "")
+            has_more = bool(cursor)
 
     return paginated_call
 
@@ -48,22 +61,25 @@ def make_slack_api_rate_limited(
 ) -> Callable[..., SlackResponse]:
     """Wraps calls to slack API so that they automatically handle rate limiting"""
 
+    @wraps(call)
     def rate_limited_call(**kwargs: Any) -> SlackResponse:
         for _ in range(max_retries):
             try:
                 # Make the API call
                 response = call(**kwargs)
 
-                # Check for errors in the response
-                if response.get("ok"):
-                    return response
-                else:
-                    raise SlackApiError("", response)
+                # Check for errors in the response, will raise `SlackApiError`
+                # if anything went wrong
+                response.validate()
+                return response
 
             except SlackApiError as e:
                 if e.response["error"] == "ratelimited":
                     # Handle rate limiting: get the 'Retry-After' header value and sleep for that duration
                     retry_after = int(e.response.headers.get("Retry-After", 1))
+                    logger.info(
+                        f"Slack call rate limited, retrying after {retry_after} seconds. Exception: {e}"
+                    )
                     time.sleep(retry_after)
                 else:
                     # Raise the error for non-transient errors
