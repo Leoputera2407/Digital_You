@@ -90,6 +90,8 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
             message = f"Failed to find bot: {enterprise_id}, {team_id}, {is_enterprise_install} - {e}"
             self.logger.warning(message)
             return None
+        finally:
+            await async_session.close()
 
 
 class AsyncSQLAlchemyOAuthStateStore(AsyncOAuthStateStore):
