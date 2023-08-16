@@ -80,7 +80,6 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
                     async_session,
                     enterprise_id,
                     team_id,
-                    is_enterprise_install,
                 )
             if bot is None:
                 message = f"Failed to find bot: {enterprise_id}, {team_id}, {is_enterprise_install}"
