@@ -52,6 +52,11 @@ export interface WhitelistDataResponse extends StatusResponse {
 export interface OrganizationDataResponse extends StatusResponse {
   data: OrganizationData | null;
 };
+
+export interface VerifyOrgResponse extends StatusResponse {
+  data: OrganizationAssociationBase | null;
+}
+
 export interface UserByEmail {
     user_email: string;
 }
@@ -81,6 +86,7 @@ export interface OrganizationUpdateInfo{
 export interface UserOrgResponse {
   organizations: OrganizationAssociationBase[];
 }
+
 
 
 export type ValidSources =
