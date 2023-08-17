@@ -70,13 +70,10 @@ MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
 # this before_authorize function skips message changed/deleted events.
 # Especially, "message_changed" events can be triggered many times when the app rapidly updates its reply.
 async def before_authorize(
-    ack: AsyncAck,
     payload: Dict[str, Any],
     body: Dict[str, Any],
     next_: Callable[[], Awaitable[None]],
 ):
-    await ack()
-    logger.info("pre-authorize step")
     if (
         (
             is_event(body)
@@ -274,6 +271,10 @@ async def set_user_info(
             loading_view = create_general_text_command_view(text=LOADING_TEXT)
             response = await client.views_open(trigger_id=trigger_id, view=loading_view)
             context["view_id"] = response["view"]["id"]
+            return BoltResponse(
+                status=200,
+                body="Prosona is not enabled for this workspace. Please contact your administrator.",
+            )
 
         async with get_async_session() as async_db_session:
             # Look up user in our db using their Slack user ID
