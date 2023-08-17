@@ -15,7 +15,7 @@ export default function Header() {
   const [isPending, setIsPending] = useState(false);
   const isLive = process.env.NEXT_PUBLIC_IS_LIVE === "true";
   const [isDesktopOrLaptop, setIsDesktopOrLaptop] = useState(true);  // default state
-  const reDirectURLAfterAuth = constructURL(process.env.WEB_DOMAIN || '', '/settings/admin/connectors');
+  const reDirectURLAfterAuth = constructURL(process.env.NEXT_PUBLIC_WEB_DOMAIN || '', '/settings/admin/connectors');
   
   async function Refresh() {
     // remove query parameters from URL
