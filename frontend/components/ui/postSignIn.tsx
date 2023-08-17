@@ -22,8 +22,8 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
   const [hasOrganization, setHasOrganization] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   
-  const excludedRoutesFromEnv = process.env.NEXT_PUBLIC_EXCLUDED_ROUTES 
-    ? process.env.NEXT_PUBLIC_EXCLUDED_ROUTES.split(',').map(route => route.trim()) 
+  const excludedRoutesFromEnv = process.env.NEXT_PUBLIC_EXCLUDED_PATHS_POSTSIGNIN_CHECK 
+    ? process.env.NEXT_PUBLIC_EXCLUDED_PATHS_POSTSIGNIN_CHECK.split(',').map(route => route.trim()) 
     : [];
   const excludedRoutes = [...excludedRoutesFromEnv];
   
