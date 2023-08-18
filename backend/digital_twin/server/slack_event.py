@@ -297,10 +297,9 @@ async def set_user_info(
                 slack_user_first_name = slack_user_full_name.split(" ")[0] if slack_user_full_name else None
 
                 if slack_user_first_name:
-                    no_associated_user_text = f"{slack_user_first_name}, you're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona"
+                    no_associated_user_text = f"{slack_user_first_name}, you're almost there! Please sign in <{normalized_domain}|here> and integrate to Slack to start using Prosona"
                 else:
-                    no_associated_user_text = f"You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona"
-                no_associated_user_text = f"{slack_user_full_name}, you're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona"
+                    no_associated_user_text = f"You're almost there! Please sign in <{normalized_domain}|here> and integrate to Slack to start using Prosona"
                 # body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
                 no_associated_user_view = create_general_text_command_view(text=no_associated_user_text)
                 await client.views_update(view_id=context["view_id"], view=no_associated_user_view)
