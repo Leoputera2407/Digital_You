@@ -435,6 +435,7 @@ async def handle_selection_button(
             view_slack_token=view_slack_token,
             query=selected_question,
             channel_id=channel_id,
+            channel_type=channel_type,
             team_id=team_id,
             view_id=view_id,
             client=client,

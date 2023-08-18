@@ -41,6 +41,7 @@ logger = setup_logger()
 async def qa_and_response(
     query: str,
     channel_id: str,
+    channel_type: str,
     team_id: str,
     view_id: str,
     client: AsyncWebClient,
@@ -143,6 +144,7 @@ async def qa_and_response(
         {
             "response": processed_response,
             "channel_id": channel_id,
+            "channel_type": channel_type,
             "slack_user_token": slack_user_token,
             "view_slack_token": view_slack_token,
             "conversation_style": conversation_style,
@@ -173,6 +175,7 @@ async def qa_and_response(
             "response": processed_response,
             "rephrased_response": rephrased_response,
             "channel_id": channel_id,
+            "channel_type": channel_type,
             "slack_user_token": slack_user_token,
             "view_slack_token": view_slack_token,
             "conversation_style": conversation_style,
