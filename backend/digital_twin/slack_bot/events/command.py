@@ -2,18 +2,21 @@ import asyncio
 import json
 from typing import Any, List, Optional
 
+from slack_bolt import BoltResponse
 from slack_bolt.async_app import AsyncAck, AsyncBoltContext
 from slack_sdk.web.async_client import AsyncWebClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from digital_twin.config.app_config import MIN_CHAT_PAIRS_THRESHOLD
+from digital_twin.config.app_config import MIN_CHAT_PAIRS_THRESHOLD, WEB_DOMAIN
 from digital_twin.db.async_slack_bot import async_get_chat_pairs
 from digital_twin.db.engine import get_async_session
+from digital_twin.db.model import SlackUser
 from digital_twin.db.user import (
+    async_get_organization_id_from_team_id,
     async_get_qdrant_collection_for_slack,
+    async_get_slack_user_by_email,
     async_get_typesense_collection_for_slack,
 )
-from digital_twin.indexdb.chunking.models import IndexChunk
 from digital_twin.indexdb.qdrant.store import QdrantVectorDB
 from digital_twin.indexdb.typesense.store import TypesenseIndex
 from digital_twin.qa import async_get_default_backend_qa_model
@@ -23,12 +26,13 @@ from digital_twin.slack_bot.personality import async_handle_user_conversation_st
 from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
 from digital_twin.slack_bot.views import (
     ERROR_TEXT,
+    LOADING_TEXT,
     create_general_text_command_view,
     create_response_command_view,
     create_selection_command_view,
 )
 from digital_twin.utils.logging import setup_logger
-from digital_twin.utils.slack import format_openai_to_slack
+from digital_twin.utils.slack import format_openai_to_slack, get_slack_channel_type, use_appropriate_token
 from digital_twin.utils.timing import log_function_time
 
 logger = setup_logger()
@@ -87,7 +91,6 @@ async def qa_and_response(
     Returns:
     None: This function doesn't return anything but updates the view with the AI generated response.
     """
-
     async with get_async_session() as async_db_session:
         (
             conversation_style,
@@ -197,14 +200,56 @@ async def handle_prosona_command(
     context: AsyncBoltContext,
     ack: AsyncAck,
     command: dict[str, Any],
+    payload: dict[str, Any],
     client: AsyncWebClient,
 ) -> None:
     await ack()
     slack_user_id = command["user_id"]
+    slack_team_id = command["team_id"]
     channel_id = command["channel_id"]
     channel_name = command["channel_name"]
     view_id = context["view_id"]
     try:
+        async with get_async_session() as async_db_session:
+            # Look up user in our db using their Slack user ID
+            organization_id = await async_get_organization_id_from_team_id(
+                session=async_db_session,
+                team_id=slack_team_id,
+            )
+            if not organization_id:
+                return BoltResponse(
+                    status=200,
+                    body="Prosona is not enabled for this workspace. Please contact your administrator.",
+                )
+
+            slack_user_info = await client.users_info(user=slack_user_id)
+            slack_user_email = slack_user_info.get("user", {}).get("profile", {}).get("email", None)
+            if not slack_user_email:
+                raise ValueError(f"Cannot find email for slack user")
+            slack_user: SlackUser = await async_get_slack_user_by_email(async_db_session, slack_user_email)
+            if slack_user is None:
+                normalized_domain = WEB_DOMAIN.rstrip("/")
+                return BoltResponse(
+                    status=200,
+                    body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
+                )
+
+            channel_type = await get_slack_channel_type(
+                client=client,
+                payload=payload,
+                slack_user_token=slack_user.slack_user_token,
+            )
+            use_appropriate_token(
+                client=client,
+                channel_type_str=channel_type.value,
+                slack_user_token=slack_user.slack_user_token,
+            )
+
+        trigger_id = payload["trigger_id"]
+        loading_view = create_general_text_command_view(text=LOADING_TEXT)
+        response = await client.views_open(trigger_id=trigger_id, view=loading_view)
+        view_id = response["view"]["id"]
+
         # Get the latest message from the channel
         past_messages = await retrieve_sorted_past_messages(
             client=client,
@@ -228,6 +273,8 @@ async def handle_prosona_command(
         private_metadata_str = json.dumps(
             {
                 "channel_id": channel_id,
+                "channel_type": channel_type.value,
+                "slack_user_token": slack_user.slack_user_token,
             }
         )
         # Create the selection modal view and open it
