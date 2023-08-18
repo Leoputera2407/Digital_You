@@ -208,6 +208,10 @@ async def handle_prosona_command(
     slack_team_id = command["team_id"]
     channel_id = command["channel_id"]
     try:
+        trigger_id = payload["trigger_id"]
+        loading_view = create_general_text_command_view(text=LOADING_TEXT)
+        response = await client.views_open(trigger_id=trigger_id, view=loading_view)
+        view_id = response["view"]["id"]
         async with get_async_session() as async_db_session:
             # Look up user in our db using their Slack user ID
             organization_id = await async_get_organization_id_from_team_id(
@@ -215,10 +219,10 @@ async def handle_prosona_command(
                 team_id=slack_team_id,
             )
             if not organization_id:
-                return BoltResponse(
-                    status=200,
-                    body="Prosona is not enabled for this workspace. Please contact your administrator.",
-                )
+                no_org_text = "Prosona is not enabled for this workspace. Please contact your administrator."
+                no_org_view = create_general_text_command_view(text=no_org_text)
+                await client.views_update(view_id=view_id, view=no_org_view)
+                return BoltResponse(status=200)
 
             slack_user_info = await client.users_info(user=slack_user_id)
             slack_user_email = slack_user_info.get("user", {}).get("profile", {}).get("email", None)
@@ -227,9 +231,12 @@ async def handle_prosona_command(
             slack_user: SlackUser = await async_get_slack_user_by_email(async_db_session, slack_user_email)
             if slack_user is None:
                 normalized_domain = WEB_DOMAIN.rstrip("/")
+                no_associated_user_text = f"You're almost there! Please sign in <{normalized_domain}|here> and integrate to Slack to start using Prosona"
+                # body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
+                no_associated_user_view = create_general_text_command_view(text=no_associated_user_text)
+                await client.views_update(view_id=view_id, view=no_associated_user_view)
                 return BoltResponse(
                     status=200,
-                    body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
                 )
 
             channel_type = await get_slack_channel_type(
@@ -242,11 +249,6 @@ async def handle_prosona_command(
                 channel_type_str=channel_type.value,
                 slack_user_token=slack_user.slack_user_token,
             )
-
-        trigger_id = payload["trigger_id"]
-        loading_view = create_general_text_command_view(text=LOADING_TEXT)
-        response = await client.views_open(trigger_id=trigger_id, view=loading_view)
-        view_id = response["view"]["id"]
 
         # Get the latest message from the channel
         past_messages = await retrieve_sorted_past_messages(
