@@ -195,11 +195,11 @@ async def handle_prosona_command(
     slack_user_id = command["user_id"]
     slack_team_id = command["team_id"]
     channel_id = command["channel_id"]
+    trigger_id = payload["trigger_id"]
+    loading_view = create_general_text_command_view(text=LOADING_TEXT)
+    response = await client.views_open(trigger_id=trigger_id, view=loading_view)
+    view_id = response["view"]["id"]
     try:
-        trigger_id = payload["trigger_id"]
-        loading_view = create_general_text_command_view(text=LOADING_TEXT)
-        response = await client.views_open(trigger_id=trigger_id, view=loading_view)
-        view_id = response["view"]["id"]
         async with get_async_session() as async_db_session:
             # Look up user in our db using their Slack user ID
             organization_id = await async_get_organization_id_from_team_id(
