@@ -4,16 +4,22 @@ import { NextResponse } from "next/server";
 
 
 function startsWithExcludedPath(pathname: string): boolean {
-  const excludedPaths = [
+  // Permanent excluded paths
+  const permanentExcludedPaths = [
     "/_next",
-    "/api/auth",
-    "/settings/admin/connectors/google-drive/auth/callback", 
-    "/settings/admin/connectors/notion/auth/callback",
-    "/settings/admin/connectors/linear/auth/callback",
-    "/privacy",
-    "/terms",
+    "/api/auth"
   ];
-  return excludedPaths.some(excludedPath => pathname.startsWith(excludedPath));
+
+  const excludedPathsEnv = process.env.NEXT_PUBLIC_EXCLUDED_PATHS_SUPABASE_MIDDLEWARE || "";
+  const envExcludedPaths = excludedPathsEnv.split(',').map(path => path.trim());
+  
+  const allExcludedPaths = [...permanentExcludedPaths, ...envExcludedPaths];
+
+  return allExcludedPaths.some(excludedPath => pathname.startsWith(excludedPath));
+}
+
+function hasCodeQueryParam(nextUrl: URL): boolean {
+  return Boolean(nextUrl.searchParams.get('code'));
 }
 
 export const middleware = async (req: NextRequest): Promise<NextResponse> => {
@@ -33,15 +39,23 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
     return res
   }
 
-  // If there is a session, redirect the user to the settings page
+  // If there is a session, redirect the user to the /settings/admin/connectors page
   if (session && (req.nextUrl.pathname === '/' || req.nextUrl.pathname === '')) {
-    const redirectUrl = new URL('/settings', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000')
+    const redirectUrl = new URL('/settings/admin/connectors', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000')
     redirectUrl.search = req.nextUrl.search
     return NextResponse.redirect(redirectUrl)
   }
 
   // If there is no session and the user is not on the home page, redirect them to the home page
-  if (!session && req.nextUrl.pathname !== '/' && req.nextUrl.pathname !== '') {
+  if (
+    !session 
+    && req.nextUrl.pathname !== '/' 
+    && req.nextUrl.pathname !== ''
+    && !(
+      req.nextUrl.pathname === '/settings/admin/connectors' && hasCodeQueryParam(req.nextUrl)
+    )
+  ) {
+    console.log("went here")
     const redirectUrl = new URL('/', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000')
     return NextResponse.redirect(redirectUrl)
   }

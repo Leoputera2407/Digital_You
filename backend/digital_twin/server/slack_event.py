@@ -70,13 +70,10 @@ MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
 # this before_authorize function skips message changed/deleted events.
 # Especially, "message_changed" events can be triggered many times when the app rapidly updates its reply.
 async def before_authorize(
-    ack: AsyncAck,
     payload: Dict[str, Any],
     body: Dict[str, Any],
     next_: Callable[[], Awaitable[None]],
 ):
-    await ack()
-    logger.info("pre-authorize step")
     if (
         (
             is_event(body)
@@ -282,10 +279,10 @@ async def set_user_info(
                 team_id=team_id,
             )
             if not organization_id:
-                return BoltResponse(
-                    status=200,
-                    body="Prosona is not enabled for this workspace. Please contact your administrator.",
-                )
+                no_org_text = "Prosona is not enabled for this workspace. Please contact your administrator."
+                no_org_view = create_general_text_command_view(text=no_org_text)
+                await client.views_update(view_id=context["view_id"], view=no_org_view)
+                return BoltResponse(status=200)
 
             slack_user_info = await client.users_info(user=slack_user_id)
             slack_user_email = slack_user_info.get("user", {}).get("profile", {}).get("email", None)
@@ -294,10 +291,22 @@ async def set_user_info(
             slack_user: SlackUser = await async_get_slack_user_by_email(async_db_session, slack_user_email)
             if slack_user is None:
                 normalized_domain = WEB_DOMAIN.rstrip("/")
+                slack_user_full_name = (
+                    slack_user_info.get("user", {}).get("profile", {}).get("real_name", None)
+                )
+                slack_user_first_name = slack_user_full_name.split(" ")[0] if slack_user_full_name else None
+
+                if slack_user_first_name:
+                    no_associated_user_text = f"{slack_user_first_name.capitalize()}, you're almost there! Please sign in <{normalized_domain}|here> and integrate to Slack to start using Prosona"
+                else:
+                    no_associated_user_text = f"You're almost there! Please sign in <{normalized_domain}|here> and integrate to Slack to start using Prosona"
+                # body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
+                no_associated_user_view = create_general_text_command_view(text=no_associated_user_text)
+                await client.views_update(view_id=context["view_id"], view=no_associated_user_view)
                 return BoltResponse(
                     status=200,
-                    body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
                 )
+
             channel_type = await get_slack_channel_type(
                 client=client,
                 payload=payload,

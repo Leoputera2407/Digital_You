@@ -22,7 +22,7 @@ def create_general_text_command_view(text: str) -> VIEW_TYPE:
         "callback_id": "text_modal",
         "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "title": {"type": "plain_text", "text": "Prosona"},
-        "blocks": [{"type": "section", "text": {"type": "plain_text", "text": text}}],
+        "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": text}}],
     }
 
 

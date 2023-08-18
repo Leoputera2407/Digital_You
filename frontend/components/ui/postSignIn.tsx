@@ -3,7 +3,11 @@ import AuthLogo from "@/components/ui/auth-logo";
 import { useSupabase } from "@/lib/context/authProvider";
 import { fetcher } from "@/lib/fetcher";
 import { useAxios } from "@/lib/hooks/useAxios";
-import { OrganizationDataResponse } from "@/lib/types";
+import {
+  OrganizationDataResponse,
+  UserRole,
+  VerifyOrgResponse,
+} from "@/lib/types";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import useSWR from "swr";
@@ -14,24 +18,41 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const maxRetries = 3;
 
   const [hasOrganization, setHasOrganization] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
-
+  
+  const excludedRoutesFromEnv = process.env.NEXT_PUBLIC_EXCLUDED_PATHS_POSTSIGNIN_CHECK 
+    ? process.env.NEXT_PUBLIC_EXCLUDED_PATHS_POSTSIGNIN_CHECK.split(',').map(route => route.trim()) 
+    : [];
+  const excludedRoutes = [...excludedRoutesFromEnv];
+  
+  if (excludedRoutes.includes(pathname)) {
+    return <>{children}</>;
+  }
+  
   const { data, error, isValidating } = useSWR<OrganizationDataResponse>(
     session && !hasOrganization ? "/api/organization//verify-org-exists-by-domain" : null, 
     (url) => fetcher(url, axiosInstance),
   );
 
-  const verifyUserInOrg = (organizationId: string, attempt = 0) => {
-    axiosInstance.get(`/api/organization/${organizationId}/verify-user-in-org`)
+  function checkAdminAndRedirect(role: UserRole | undefined, path: string): string {
+    if (path.startsWith('/settings/admin/') && role !== UserRole.ADMIN) {
+      return '/settings';
+    }
+    return path;
+  }
+  
+  const verifyUserInOrg = (organizationId: string) => {
+    axiosInstance.get<VerifyOrgResponse>(`/api/organization/${organizationId}/verify-user-in-org`)
       .then((response) => {
         if (response.data.success) {
           setHasOrganization(true);
-          // This is to help deal with cases where there are re-direction
+          // This is to deal with cases where there are re-direction
           const searchParamsString = searchParams.toString();
-          const fullPath = searchParamsString ? `${pathname}?${searchParamsString}` : pathname;
+          let fullPath = searchParamsString ? `${pathname}?${searchParamsString}` : pathname;
+          fullPath = checkAdminAndRedirect(response.data.data?.role, fullPath);
+
           router.push(fullPath)
         } else {
           router.push("/log-in/join-organization");
@@ -39,17 +60,11 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
         setLoading(false);
       })
       .catch((error) => {
-        console.error("Error verifying organization membership: ", error);
-        if (attempt < maxRetries) {
-          setTimeout(() => {
-            verifyUserInOrg(organizationId, attempt + 1);
-          }, 3000);
-        } else {
-          router.push("/error");
-          setLoading(false);
-        }
-      }); 
-    }    
+        console.error("Error verifying organization membership:", error);
+        setLoading(false);
+        router.push("/error");
+    }); 
+  }    
   useEffect(() => {
     if (data?.success) {
       const organizationId = data?.data!.id;
@@ -59,11 +74,6 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
       setLoading(false);
     }
   }, [data, router]);
-
-  const excludedRoutes = ['/', '/privacy', '/terms'];
-  if (excludedRoutes.includes(pathname)) {
-    return <>{children}</>;
-  }
 
   if (loading || isValidating) {
     return (

@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
 
+
+export const constructURL = (baseURL: string, path: string) => {
+  // Ensure there's a single slash between baseURL and path
+  return `${baseURL.replace(/\/$/, '')}/${path.startsWith('/') ? path.slice(1) : path}`;
+}
+
 export const getDomain = (request: NextRequest) => {
   // use env variable if set
   if (process.env.WED_DOMAIN) {

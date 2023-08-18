@@ -143,7 +143,7 @@ async def verify_if_user_in_org(
     organization_id: UUID,
     current_user: User = Depends(current_user),
     db_session: AsyncSession = Depends(get_async_session_generator),
-) -> StatusResponse:
+) -> StatusResponse[OrganizationAssociationBase]:
     result = await db_session.execute(
         select(UserOrganizationAssociation).where(
             UserOrganizationAssociation.user_id == current_user.id,
@@ -154,8 +154,13 @@ async def verify_if_user_in_org(
 
     # If the association exists, the user is in the organization.
     if association is not None:
-        return StatusResponse(success=True, message="User is in the organization.")
-
+        data = OrganizationAssociationBase(
+            id=association.organization.id,
+            name=association.organization.name,
+            role=association.role,
+            joined_at=association.joined_at,
+        )
+        return StatusResponse(success=True, message="User is in the organization.", data=data)
     # If the association does not exist, the user is not in the organization.
     else:
         return StatusResponse(
