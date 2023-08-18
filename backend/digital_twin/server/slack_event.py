@@ -302,11 +302,12 @@ async def set_user_info(
                     no_associated_user_text = f"You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona"
                 no_associated_user_text = f"{slack_user_full_name}, you're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona"
                 # body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
-                no_org_view = create_general_text_command_view(text=no_associated_user_text)
-
+                no_associated_user_view = create_general_text_command_view(text=no_associated_user_text)
+                await client.views_update(view_id=context["view_id"], view=no_associated_user_view)
                 return BoltResponse(
                     status=200,
                 )
+
             channel_type = await get_slack_channel_type(
                 client=client,
                 payload=payload,
@@ -318,7 +319,6 @@ async def set_user_info(
                 channel_type=channel_type,
                 slack_user_token=slack_user.slack_user_token,
             )
-
             context["SLACK_CHANNEL_TYPE"] = channel_type.value
             context["DB_USER_ID"] = slack_user.user_id
             context["SLACK_USER_TOKEN"] = slack_user.slack_user_token
