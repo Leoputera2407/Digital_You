@@ -38,32 +38,6 @@ from digital_twin.utils.timing import log_function_time
 logger = setup_logger()
 
 
-async def async_gather_preprocess_tasks(
-    async_db_session: AsyncSession,
-    client: AsyncWebClient,
-    context: AsyncBoltContext,
-    slack_user_id: str,
-    team_id: str,
-    view_id: str,
-) -> List[str]:
-    preprocess_tasks = {
-        "conversation_style": async_handle_user_conversation_style(
-            async_db_session, client, context, slack_user_id, team_id, view_id
-        ),
-        "qdrant_collection_name": async_get_qdrant_collection_for_slack(
-            async_db_session, slack_user_id, team_id
-        ),
-        "typesense_collection_name": async_get_typesense_collection_for_slack(
-            async_db_session, slack_user_id, team_id
-        ),
-    }
-    results = await asyncio.gather(*preprocess_tasks.values(), return_exceptions=True)
-    for task_name, result in zip(preprocess_tasks.keys(), results):
-        if isinstance(result, Exception):
-            raise Exception(f"Error in {task_name} coroutine: {result}")
-    return results
-
-
 async def qa_and_response(
     query: str,
     channel_id: str,
@@ -92,15 +66,27 @@ async def qa_and_response(
     Returns:
     None: This function doesn't return anything but updates the view with the AI generated response.
     """
-    async with get_async_session() as async_db_session:
+    async with get_async_session() as session1, get_async_session() as session2, get_async_session() as session3, get_async_session() as session4:
+        preprocess_tasks = {
+            "conversation_style": async_handle_user_conversation_style(
+                session1, client, context, slack_user_id, team_id, view_id
+            ),
+            "qdrant_collection_name": async_get_qdrant_collection_for_slack(session2, slack_user_id, team_id),
+            "typesense_collection_name": async_get_typesense_collection_for_slack(
+                session3, slack_user_id, team_id
+            ),
+        }
+        results = await asyncio.gather(*preprocess_tasks.values(), return_exceptions=True)
+        for task_name, result in zip(preprocess_tasks.keys(), results):
+            if isinstance(result, Exception):
+                raise Exception(f"Error in {task_name} coroutine: {result}")
         (
             conversation_style,
             qdrant_collection_name,
             typesense_collection_name,
-        ) = await async_gather_preprocess_tasks(
-            async_db_session, client, context, slack_user_id, team_id, view_id
-        )
-        slack_chat_pairs = await async_get_chat_pairs(async_db_session, slack_user_id, team_id)
+        ) = results
+
+        slack_chat_pairs = await async_get_chat_pairs(session4, slack_user_id, team_id)
 
     is_using_default_conversation_style = False
     if len(slack_chat_pairs) < MIN_CHAT_PAIRS_THRESHOLD:
@@ -179,6 +165,7 @@ async def qa_and_response(
             "response": processed_response,
             "rephrased_response": rephrased_response,
             "channel_id": channel_id,
+            "slack_user_token": slack_user_token,
             "conversation_style": conversation_style,
             "is_docs_revelant": is_docs_revelant,
             "confidence_score": confidence_score,
@@ -199,7 +186,6 @@ async def qa_and_response(
 
 @log_function_time()
 async def handle_prosona_command(
-    context: AsyncBoltContext,
     ack: AsyncAck,
     command: dict[str, Any],
     payload: dict[str, Any],
@@ -261,6 +247,7 @@ async def handle_prosona_command(
             channel_type=channel_type.value,
             limit_scanned_messages=5,
         )
+        logger.info(f"Past messages are {past_messages}")
         if not past_messages:
             error_view = create_general_text_command_view(
                 text="Cannot find any messages in the channel. Please try again later!"
