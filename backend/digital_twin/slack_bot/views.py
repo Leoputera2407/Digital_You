@@ -62,7 +62,7 @@ def create_response_command_view(
             rephrase_text = (
                 metadata_dict["rephrased_response"]
                 if is_rephrase_answer_available
-                else "Rephrasing to sound like you"
+                else "Rephrasing to sound like you :hourglass:"
             )
             metadata_dict["source"] = "ai_response"
             rephrase_section = {

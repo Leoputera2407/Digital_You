@@ -257,9 +257,6 @@ async def handle_prosona_command(
                 channel_type_str=channel_type.value,
                 slack_user_token=slack_user.slack_user_token,
             )
-        logger.info(f"Slack user token is {slack_user.slack_user_token}")
-        logger.info(f"Current channel type is {channel_type.value}")
-        logger.info(f"Current token is {client.token}")
         # Get the latest message from the channel
         past_messages = await retrieve_sorted_past_messages(
             client=client,
@@ -267,7 +264,6 @@ async def handle_prosona_command(
             channel_type=channel_type.value,
             limit_scanned_messages=5,
         )
-        logger.info(f"Past messages are {past_messages}")
         if not past_messages:
             error_view = create_general_text_command_view(
                 text="Cannot find any messages in the channel. Please try again later!"
@@ -291,16 +287,12 @@ async def handle_prosona_command(
                 "view_slack_token": view_slack_token,
             }
         )
-        logger.info(f"View_id {view_id}")
-        logger.info(f"Private_metadata_str {private_metadata_str}")
-
         # Create the selection modal view and open it
         selection_view = create_selection_command_view(
             past_messages=past_messages,
             private_metadata_str=private_metadata_str,
             in_thread=False,
         )
-        logger.info(f"Just before update now")
         await view_update_with_appropriate_token(
             client=client, view=selection_view, view_id=view_id, view_slack_token=view_slack_token
         )
@@ -308,7 +300,6 @@ async def handle_prosona_command(
     except Exception as e:
         logger.info(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = create_general_text_command_view(text=ERROR_TEXT)
-        logger.info(f"went to exception flow, with view_id {view_id}")
         await view_update_with_appropriate_token(
             client=client, view=error_view, view_id=view_id, view_slack_token=view_slack_token
         )
