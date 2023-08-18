@@ -268,16 +268,21 @@ async def handle_prosona_command(
                 "slack_user_token": slack_user.slack_user_token,
             }
         )
+        logger.info(f"View_id {view_id}")
+        logger.info(f"Private_metadata_str {private_metadata_str}")
+
         # Create the selection modal view and open it
         selection_view = create_selection_command_view(
             past_messages=past_messages,
             private_metadata_str=private_metadata_str,
             in_thread=False,
         )
+        logger.info(f"Just before update now")
         await client.views_update(view_id=view_id, view=selection_view)
         return
     except Exception as e:
         logger.info(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = create_general_text_command_view(text=ERROR_TEXT)
+        logger.info(f"went to exception flow, with view_id {view_id}")
         await client.views_update(view_id=view_id, view=error_view)
         return
