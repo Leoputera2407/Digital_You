@@ -396,6 +396,7 @@ async def handle_selection_button(
         # (2) answer a message in a thread
         await qa_and_response(
             slack_user_id=slack_user_id,
+            slack_user_token=slack_user_token,
             query=selected_question,
             channel_id=channel_id,
             team_id=team_id,

@@ -72,6 +72,7 @@ async def qa_and_response(
     client: AsyncWebClient,
     context: AsyncBoltContext,
     slack_user_id: str,
+    slack_user_token: str,
     thread_ts: Optional[str],
     ts: Optional[str],
 ) -> None:
@@ -151,6 +152,7 @@ async def qa_and_response(
         {
             "response": processed_response,
             "channel_id": channel_id,
+            "slack_user_token": slack_user_token,
             "conversation_style": conversation_style,
             "is_docs_revelant": is_docs_revelant,
             "confidence_score": confidence_score,
@@ -249,7 +251,9 @@ async def handle_prosona_command(
                 channel_type_str=channel_type.value,
                 slack_user_token=slack_user.slack_user_token,
             )
-
+        logger.info(f"Slack user token is {slack_user.slack_user_token}")
+        logger.info(f"Current channel type is {channel_type.value}")
+        logger.info(f"Current token is {client.token}")
         # Get the latest message from the channel
         past_messages = await retrieve_sorted_past_messages(
             client=client,
