@@ -16,6 +16,7 @@ from digital_twin.llm.chains.personality_chain import (
 )
 from digital_twin.llm.interface import get_llm
 from digital_twin.slack_bot.scrape import scrape_and_store_chat_history_from_dm
+from digital_twin.slack_bot.utils import view_update_with_appropriate_token
 from digital_twin.slack_bot.views import PERSONALITY_TEXT, create_general_text_command_view
 from digital_twin.utils.logging import setup_logger
 
@@ -75,6 +76,7 @@ async def async_handle_user_conversation_style(
     client: AsyncWebClient,
     context: AsyncBoltContext,
     slack_user_id: str,
+    view_slack_token: str,
     team_id: str,
     view_id: str,
 ) -> str:
@@ -89,7 +91,9 @@ async def async_handle_user_conversation_style(
             personality_view = create_general_text_command_view(
                 text=PERSONALITY_TEXT,
             )
-            await client.views_update(view_id=view_id, view=personality_view)
+            await view_update_with_appropriate_token(
+                client=client, view=personality_view, view_id=view_id, view_slack_token=view_slack_token
+            )
             _, chat_pairs = await scrape_and_store_chat_history_from_dm(
                 db_session,
                 slack_user_id,

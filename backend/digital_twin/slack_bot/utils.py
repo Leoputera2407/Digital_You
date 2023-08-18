@@ -1,19 +1,17 @@
 from typing import Dict, List, Optional
 
-from slack_bolt.async_app import AsyncBoltContext
 from slack_sdk.web.async_client import AsyncWebClient
 
-from digital_twin.slack_bot.defs import ChannelType
+from digital_twin.slack_bot.defs import VIEW_TYPE, ChannelType
 
 
 async def retrieve_sorted_past_messages(
     client: AsyncWebClient,
     channel_id: str,
-    context: AsyncBoltContext,
+    channel_type: str,
     thread_ts: Optional[str] = None,  # Not in thread if None
     limit_scanned_messages: int = 1000,
 ) -> List[Dict[str, str]]:
-    channel_type = context["SLACK_CHANNEL_TYPE"]
     # Join the channel if it's not a direct message
     if channel_type == ChannelType.PUBLIC_CHANNEL.value:
         await client.conversations_join(
@@ -64,3 +62,13 @@ def format_source_type(source_type: str) -> str:
     words = source_type.split("_")
     capitalized_words = [word.capitalize() for word in words]
     return " ".join(capitalized_words)
+
+
+async def view_update_with_appropriate_token(
+    client: AsyncWebClient, view: VIEW_TYPE, view_id: str, view_slack_token: str
+):
+    original_client_token = client.token
+    client.token = view_slack_token
+    await client.views_update(view_id=view_id, view=view)
+    client.token = original_client_token
+    return

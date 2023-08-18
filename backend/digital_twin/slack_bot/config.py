@@ -72,9 +72,6 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
         if is_enterprise_install or team_id is None:
             team_id = ""
         try:
-            logger.info(
-                f"Async find bot called with enterprise_id: {enterprise_id}, team_id: {team_id}, is_enterprise_install: {is_enterprise_install}"
-            )
             async with get_async_session(pool_pre_ping=True) as async_session:
                 bot = await async_find_bot_db(
                     async_session,

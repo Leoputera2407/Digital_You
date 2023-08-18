@@ -1,6 +1,7 @@
 import json
-from typing import Collection, List, Mapping, Sequence, Union, cast
+from typing import List, cast
 
+from digital_twin.slack_bot.defs import BLOCK_TYPE, VIEW_TYPE
 from digital_twin.slack_bot.utils import format_source_type
 
 LOADING_TEXT = "Thinking..."
@@ -11,9 +12,6 @@ EDIT_BUTTON_ACTION_ID = "edit_response"
 SHUFFLE_BUTTON_ACTION_ID = "shuffle_response"
 SELECTION_BUTTON_ACTION_ID = "selection_response"
 EDIT_BLOCK_ID = "edit_block"
-
-BLOCK_TYPE = Mapping[str, bool | Collection[str | Collection[str]]]
-VIEW_TYPE = Mapping[str, Union[str, BLOCK_TYPE, Sequence[BLOCK_TYPE]]]
 
 
 def create_general_text_command_view(text: str) -> VIEW_TYPE:
@@ -64,7 +62,7 @@ def create_response_command_view(
             rephrase_text = (
                 metadata_dict["rephrased_response"]
                 if is_rephrase_answer_available
-                else "Rephrasing to sound like you"
+                else "Rephrasing to sound like you :hourglass:"
             )
             metadata_dict["source"] = "ai_response"
             rephrase_section = {
@@ -162,15 +160,19 @@ def create_response_command_view(
         )
 
     private_metadata_str = json.dumps(metadata_dict)
-    return {
+    modal_dict = {
         "type": "modal",
         "callback_id": MODAL_RESPONSE_CALLBACK_ID,
         "title": {"type": "plain_text", "text": "Prosona"},
-        "submit": {"type": "plain_text", "text": "Share", "emoji": True},
         "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "private_metadata": private_metadata_str,
         "blocks": blocks,
     }
+    # Can only submit if we're on edit view or only after rephrase is available
+    if is_edit_view or is_rephrase_answer_available:
+        modal_dict["submit"] = {"type": "plain_text", "text": "Share", "emoji": True}
+
+    return cast(VIEW_TYPE, modal_dict)
 
 
 def create_selection_command_view(

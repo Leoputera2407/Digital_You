@@ -539,16 +539,9 @@ def format_openai_to_slack(content: str) -> str:
 async def get_slack_channel_type(
     client: AsyncWebClient,
     payload: Dict[str, Any],
-    body: Dict[str, Any],
     slack_user_token: str,
 ) -> ChannelType:
-    # Check if it's a button action and read channel_id from private_metadata
-    if body.get("type") == "block_actions" or body.get("type") == "view_submission":
-        private_metadata = body.get("view", {}).get("private_metadata", "{}")
-        metadata = json.loads(private_metadata)
-        channel_id = metadata.get("channel_id")
-    else:
-        channel_id = payload.get("channel_id")
+    channel_id = payload.get("channel_id")
 
     if channel_id is None:
         raise ValueError("channel_id not found. Either a non-button or non-command is called")
@@ -577,13 +570,13 @@ async def get_slack_channel_type(
 
 def use_appropriate_token(
     client: AsyncWebClient,
-    channel_type: ChannelType,
+    channel_type_str: str,
     slack_user_token: str,
 ) -> None:
     if (
-        channel_type == ChannelType.DM
-        or channel_type == ChannelType.GROUP_DM
-        or channel_type == ChannelType.PRIVATE_CHANNEL
+        channel_type_str == ChannelType.DM.value
+        or channel_type_str == ChannelType.GROUP_DM.value
+        or channel_type_str == ChannelType.PRIVATE_CHANNEL.value
     ):
         client.token = slack_user_token
     return
