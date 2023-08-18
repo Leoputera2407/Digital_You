@@ -286,8 +286,7 @@ async def handle_prosona_command(
         await client.views_update(view_id=view_id, view=selection_view)
         return
     except Exception as e:
-        logger.error(f"Error handling Prosona for {slack_user_id}: {e}")
-        logger.info(f"The view_id is {view_id}")
+        logger.info(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = create_general_text_command_view(text=ERROR_TEXT)
         await client.views_update(view_id=view_id, view=error_view)
         return
