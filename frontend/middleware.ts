@@ -18,6 +18,10 @@ function startsWithExcludedPath(pathname: string): boolean {
   return allExcludedPaths.some(excludedPath => pathname.startsWith(excludedPath));
 }
 
+function hasCodeQueryParam(nextUrl: URL): boolean {
+  return Boolean(nextUrl.searchParams.get('code'));
+}
+
 export const middleware = async (req: NextRequest): Promise<NextResponse> => {
   const res = NextResponse.next()
 
@@ -35,7 +39,7 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
     return res
   }
 
-  // If there is a session, redirect the user to the settings page
+  // If there is a session, redirect the user to the /settings/admin/connectors page
   if (session && (req.nextUrl.pathname === '/' || req.nextUrl.pathname === '')) {
     const redirectUrl = new URL('/settings/admin/connectors', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000')
     redirectUrl.search = req.nextUrl.search
@@ -43,7 +47,15 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
   }
 
   // If there is no session and the user is not on the home page, redirect them to the home page
-  if (!session && req.nextUrl.pathname !== '/' && req.nextUrl.pathname !== '') {
+  if (
+    !session 
+    && req.nextUrl.pathname !== '/' 
+    && req.nextUrl.pathname !== ''
+    && !(
+      req.nextUrl.pathname === '/settings/admin/connectors' && hasCodeQueryParam(req.nextUrl)
+    )
+  ) {
+    console.log("went here")
     const redirectUrl = new URL('/', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000')
     return NextResponse.redirect(redirectUrl)
   }
