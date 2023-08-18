@@ -273,6 +273,13 @@ async def handle_view_submission(
     channel_id = payload["channel_id"]
     thread_ts = payload["ts"]
     slack_user_token = payload["slack_user_token"]
+    channel_type = payload["channel_type"]
+    slack_user_token = payload["slack_user_token"]
+    use_appropriate_token(
+        client=client,
+        channel_type_str=channel_type,
+        slack_user_token=slack_user_token,
+    )
 
     # Check if the submission is from the edit view
     if payload.get("source") == "edit":
@@ -307,11 +314,18 @@ async def handle_shuffle_click(
                 max_output_tokens=int(PERSONALITY_MODEL_SETTINGS["max_output_tokens"]),
             )
         )
+        slack_user_id = body["user"]["id"]
         private_metadata_str = body["view"]["private_metadata"]
         private_metadata = json.loads(body["view"]["private_metadata"])
         old_response = format_slack_to_openai(private_metadata["rephrased_response"])
         conversation_style = private_metadata["conversation_style"]
-        slack_user_id = body["user"]["id"]
+        channel_type = private_metadata["channel_type"]
+        slack_user_token = private_metadata["slack_user_token"]
+        use_appropriate_token(
+            client=client,
+            channel_type_str=channel_type,
+            slack_user_token=slack_user_token,
+        )
 
         response = await shuffle_chain.async_run(
             old_response=old_response,
@@ -344,6 +358,13 @@ async def handle_edit_response(
         view_id = body["container"]["view_id"]
         private_metadata = body["view"]["private_metadata"]
         metadata_dict = json.loads(private_metadata)
+        channel_type = metadata_dict["channel_type"]
+        slack_user_token = metadata_dict["slack_user_token"]
+        use_appropriate_token(
+            client=client,
+            channel_type_str=channel_type,
+            slack_user_token=slack_user_token,
+        )
         response_view = create_response_command_view(
             private_metadata_str=private_metadata,
             is_using_default_conversation_style=metadata_dict["is_using_default_conversation_style"],
