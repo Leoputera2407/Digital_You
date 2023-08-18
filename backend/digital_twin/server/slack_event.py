@@ -6,13 +6,12 @@ from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
 from slack_bolt import BoltResponse
 from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
 from slack_bolt.async_app import AsyncAck, AsyncApp, AsyncBoltContext
 from slack_bolt.error import BoltError
 from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
-from slack_bolt.request.payload_utils import is_action, is_event, is_view
+from slack_bolt.request.payload_utils import is_action, is_event
 from slack_sdk.http_retry.builtin_async_handlers import AsyncRateLimitErrorRetryHandler
 from slack_sdk.web.async_client import AsyncWebClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +29,7 @@ from digital_twin.server.model import AuthUrl
 from digital_twin.slack_bot.config import get_oauth_settings
 from digital_twin.slack_bot.events.command import handle_prosona_command, qa_and_response
 from digital_twin.slack_bot.events.home_tab import build_home_tab
-from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
+from digital_twin.slack_bot.utils import retrieve_sorted_past_messages, view_update_with_appropriate_token
 from digital_twin.slack_bot.views import (
     EDIT_BLOCK_ID,
     EDIT_BUTTON_ACTION_ID,
@@ -321,6 +320,7 @@ async def handle_shuffle_click(
         conversation_style = private_metadata["conversation_style"]
         channel_type = private_metadata["channel_type"]
         slack_user_token = private_metadata["slack_user_token"]
+        view_slack_token = private_metadata["view_slack_token"]
         use_appropriate_token(
             client=client,
             channel_type_str=channel_type,
@@ -342,11 +342,15 @@ async def handle_shuffle_click(
             is_rephrase_answer_available=True,
             search_docs=[],
         )
-        await client.views_update(view_id=view_id, view=response_view)
+        await view_update_with_appropriate_token(
+            client=client, view=response_view, view_id=view_id, view_slack_token=view_slack_token
+        )
     except Exception as e:
         logger.error(f"Error in shuffle click: {e}")
         error_view = create_general_text_command_view(text=ERROR_TEXT)
-        await client.views_update(view_id=view_id, view=error_view)
+        await view_update_with_appropriate_token(
+            client=client, view=error_view, view_id=view_id, view_slack_token=view_slack_token
+        )
 
 
 @slack_app.action(EDIT_BUTTON_ACTION_ID)
@@ -360,6 +364,7 @@ async def handle_edit_response(
         metadata_dict = json.loads(private_metadata)
         channel_type = metadata_dict["channel_type"]
         slack_user_token = metadata_dict["slack_user_token"]
+        view_slack_token = metadata_dict["view_slack_token"]
         use_appropriate_token(
             client=client,
             channel_type_str=channel_type,
@@ -373,11 +378,15 @@ async def handle_edit_response(
             is_edit_view=True,
             search_docs=[],
         )
-        await client.views_update(view_id=view_id, view=response_view)
+        await view_update_with_appropriate_token(
+            client=client, view=response_view, view_id=view_id, view_slack_token=view_slack_token
+        )
     except Exception as e:
         logger.error(f"Error in edit response: {e}")
         error_view = create_general_text_command_view(text=ERROR_TEXT)
-        await client.views_update(view_id=view_id, view=error_view)
+        await view_update_with_appropriate_token(
+            client=client, view=error_view, view_id=view_id, view_slack_token=view_slack_token
+        )
 
 
 @slack_app.action(SELECTION_BUTTON_ACTION_ID)
@@ -388,9 +397,6 @@ async def handle_selection_button(
     context: AsyncBoltContext,
 ) -> None:
     await ack()
-    view_id = body["container"]["view_id"]
-    loading_view = create_general_text_command_view(text=LOADING_TEXT)
-    await client.views_update(view_id=view_id, view=loading_view)
 
     slack_user_id = body["user"]["id"]
     team_id = body["team"]["id"]
@@ -405,6 +411,14 @@ async def handle_selection_button(
     channel_id = metadata_dict["channel_id"]
     channel_type = metadata_dict["channel_type"]
     slack_user_token = metadata_dict["slack_user_token"]
+    view_slack_token = metadata_dict["view_slack_token"]
+
+    view_id = body["container"]["view_id"]
+    loading_view = create_general_text_command_view(text=LOADING_TEXT)
+    await view_update_with_appropriate_token(
+        client=client, view=loading_view, view_id=view_id, view_slack_token=view_slack_token
+    )
+
     use_appropriate_token(
         client=client,
         channel_type_str=channel_type,
@@ -418,6 +432,7 @@ async def handle_selection_button(
         await qa_and_response(
             slack_user_id=slack_user_id,
             slack_user_token=slack_user_token,
+            view_slack_token=view_slack_token,
             query=selected_question,
             channel_id=channel_id,
             team_id=team_id,
@@ -445,5 +460,7 @@ async def handle_selection_button(
             private_metadata_str=private_metadata,
             in_thread=True,
         )
-        await client.views_update(view_id=view_id, view=selection_view)
+        await view_update_with_appropriate_token(
+            client=client, view=selection_view, view_id=view_id, view_slack_token=view_slack_token
+        )
         return

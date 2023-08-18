@@ -23,7 +23,7 @@ from digital_twin.qa import async_get_default_backend_qa_model
 from digital_twin.search.interface import async_retrieve_hybrid_reranked_documents
 from digital_twin.search.utils import chunks_to_search_docs
 from digital_twin.slack_bot.personality import async_handle_user_conversation_style, async_rephrase_response
-from digital_twin.slack_bot.utils import retrieve_sorted_past_messages
+from digital_twin.slack_bot.utils import retrieve_sorted_past_messages, view_update_with_appropriate_token
 from digital_twin.slack_bot.views import (
     ERROR_TEXT,
     LOADING_TEXT,
@@ -47,6 +47,7 @@ async def qa_and_response(
     context: AsyncBoltContext,
     slack_user_id: str,
     slack_user_token: str,
+    view_slack_token: str,
     thread_ts: Optional[str],
     ts: Optional[str],
 ) -> None:
@@ -69,7 +70,7 @@ async def qa_and_response(
     async with get_async_session() as session1, get_async_session() as session2, get_async_session() as session3, get_async_session() as session4:
         preprocess_tasks = {
             "conversation_style": async_handle_user_conversation_style(
-                session1, client, context, slack_user_id, team_id, view_id
+                session1, client, context, slack_user_id, view_slack_token, team_id, view_id
             ),
             "qdrant_collection_name": async_get_qdrant_collection_for_slack(session2, slack_user_id, team_id),
             "typesense_collection_name": async_get_typesense_collection_for_slack(
@@ -110,7 +111,9 @@ async def qa_and_response(
             is_rephrasing_stage=False,
             search_docs=search_docs,
         )
-        await client.views_update(view_id=view_id, view=display_doc_view)
+        await view_update_with_appropriate_token(
+            client=client, view=display_doc_view, view_id=view_id, view_slack_token=view_slack_token
+        )
         return
 
     private_metadata_str = json.dumps({"response": "Synthezing AI generated response..."})
@@ -120,7 +123,9 @@ async def qa_and_response(
         is_rephrasing_stage=False,
         search_docs=search_docs,
     )
-    await client.views_update(view_id=view_id, view=display_doc_view)
+    await view_update_with_appropriate_token(
+        client=client, view=display_doc_view, view_id=view_id, view_slack_token=view_slack_token
+    )
 
     qa_model = await async_get_default_backend_qa_model(model_timeout=10)
     (
@@ -139,6 +144,7 @@ async def qa_and_response(
             "response": processed_response,
             "channel_id": channel_id,
             "slack_user_token": slack_user_token,
+            "view_slack_token": view_slack_token,
             "conversation_style": conversation_style,
             "is_docs_revelant": is_docs_revelant,
             "confidence_score": confidence_score,
@@ -151,7 +157,9 @@ async def qa_and_response(
         is_rephrase_answer_available=False,
         search_docs=search_docs,
     )
-    await client.views_update(view_id=view_id, view=response_view)
+    await view_update_with_appropriate_token(
+        client=client, view=response_view, view_id=view_id, view_slack_token=view_slack_token
+    )
 
     rephrased_response = await async_rephrase_response(
         conversation_style=conversation_style,
@@ -166,6 +174,7 @@ async def qa_and_response(
             "rephrased_response": rephrased_response,
             "channel_id": channel_id,
             "slack_user_token": slack_user_token,
+            "view_slack_token": view_slack_token,
             "conversation_style": conversation_style,
             "is_docs_revelant": is_docs_revelant,
             "confidence_score": confidence_score,
@@ -180,7 +189,9 @@ async def qa_and_response(
         is_rephrase_answer_available=True,
         search_docs=search_docs,
     )
-    await client.views_update(view_id=view_id, view=response_view)
+    await view_update_with_appropriate_token(
+        client=client, view=response_view, view_id=view_id, view_slack_token=view_slack_token
+    )
     return
 
 
@@ -196,7 +207,10 @@ async def handle_prosona_command(
     slack_team_id = command["team_id"]
     channel_id = command["channel_id"]
     trigger_id = payload["trigger_id"]
-
+    view_slack_token = client.token
+    loading_view = create_general_text_command_view(text=LOADING_TEXT)
+    response = await client.views_open(trigger_id=trigger_id, view=loading_view)
+    view_id = response["view"]["id"]
     try:
         async with get_async_session() as async_db_session:
             # Look up user in our db using their Slack user ID
@@ -205,10 +219,12 @@ async def handle_prosona_command(
                 team_id=slack_team_id,
             )
             if not organization_id:
-                return BoltResponse(
-                    status=200,
-                    body="Prosona is not enabled for this workspace. Please contact your administrator.",
+                no_org_text = "Prosona is not enabled for this workspace. Please contact your administrator."
+                no_org_view = create_general_text_command_view(text=no_org_text)
+                await view_update_with_appropriate_token(
+                    client=client, view=no_org_view, view_id=view_id, view_slack_token=view_slack_token
                 )
+                return BoltResponse(status=200)
 
             slack_user_info = await client.users_info(user=slack_user_id)
             slack_user_email = slack_user_info.get("user", {}).get("profile", {}).get("email", None)
@@ -217,10 +233,16 @@ async def handle_prosona_command(
             slack_user: SlackUser = await async_get_slack_user_by_email(async_db_session, slack_user_email)
             if slack_user is None:
                 normalized_domain = WEB_DOMAIN.rstrip("/")
-                return BoltResponse(
-                    status=200,
-                    body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
+                no_associated_user_text = f"You're almost there! Please sign in <{normalized_domain}|here> and integrate to Slack to start using Prosona"
+                # body=f"<@{slack_user_id}> You're almost there! Please sign in <{normalized_domain} | here> and integrate to Slack to start using Prosona",
+                no_associated_user_view = create_general_text_command_view(text=no_associated_user_text)
+                await view_update_with_appropriate_token(
+                    client=client,
+                    view=no_associated_user_view,
+                    view_id=view_id,
+                    view_slack_token=view_slack_token,
                 )
+                return BoltResponse(status=200)
 
             channel_type = await get_slack_channel_type(
                 client=client,
@@ -232,9 +254,6 @@ async def handle_prosona_command(
                 channel_type_str=channel_type.value,
                 slack_user_token=slack_user.slack_user_token,
             )
-            loading_view = create_general_text_command_view(text=LOADING_TEXT)
-            response = await client.views_open(trigger_id=trigger_id, view=loading_view)
-            view_id = response["view"]["id"]
         logger.info(f"Slack user token is {slack_user.slack_user_token}")
         logger.info(f"Current channel type is {channel_type.value}")
         logger.info(f"Current token is {client.token}")
@@ -250,7 +269,9 @@ async def handle_prosona_command(
             error_view = create_general_text_command_view(
                 text="Cannot find any messages in the channel. Please try again later!"
             )
-            await client.views_update(view_id=view_id, view=error_view)
+            await view_update_with_appropriate_token(
+                client=client, view=error_view, view_id=view_id, view_slack_token=view_slack_token
+            )
             return
 
         # NOTE: Due to the async interaction of slack actions, i.e. button clicks,
@@ -264,6 +285,7 @@ async def handle_prosona_command(
                 "channel_id": channel_id,
                 "channel_type": channel_type.value,
                 "slack_user_token": slack_user.slack_user_token,
+                "view_slack_token": view_slack_token,
             }
         )
         logger.info(f"View_id {view_id}")
@@ -276,11 +298,15 @@ async def handle_prosona_command(
             in_thread=False,
         )
         logger.info(f"Just before update now")
-        await client.views_update(view_id=view_id, view=selection_view)
+        await view_update_with_appropriate_token(
+            client=client, view=selection_view, view_id=view_id, view_slack_token=view_slack_token
+        )
         return
     except Exception as e:
         logger.info(f"Error handling Prosona for {slack_user_id}: {e}")
         error_view = create_general_text_command_view(text=ERROR_TEXT)
         logger.info(f"went to exception flow, with view_id {view_id}")
-        await client.views_update(view_id=view_id, view=error_view)
+        await view_update_with_appropriate_token(
+            client=client, view=error_view, view_id=view_id, view_slack_token=view_slack_token
+        )
         return

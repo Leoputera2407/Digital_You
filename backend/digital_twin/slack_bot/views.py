@@ -1,6 +1,7 @@
 import json
-from typing import Collection, List, Mapping, Sequence, Union, cast
+from typing import List, cast
 
+from digital_twin.slack_bot.defs import BLOCK_TYPE, VIEW_TYPE
 from digital_twin.slack_bot.utils import format_source_type
 
 LOADING_TEXT = "Thinking..."
@@ -11,9 +12,6 @@ EDIT_BUTTON_ACTION_ID = "edit_response"
 SHUFFLE_BUTTON_ACTION_ID = "shuffle_response"
 SELECTION_BUTTON_ACTION_ID = "selection_response"
 EDIT_BLOCK_ID = "edit_block"
-
-BLOCK_TYPE = Mapping[str, bool | Collection[str | Collection[str]]]
-VIEW_TYPE = Mapping[str, Union[str, BLOCK_TYPE, Sequence[BLOCK_TYPE]]]
 
 
 def create_general_text_command_view(text: str) -> VIEW_TYPE:
