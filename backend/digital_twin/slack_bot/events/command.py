@@ -207,8 +207,6 @@ async def handle_prosona_command(
     slack_user_id = command["user_id"]
     slack_team_id = command["team_id"]
     channel_id = command["channel_id"]
-    channel_name = command["channel_name"]
-    view_id = context["view_id"]
     try:
         async with get_async_session() as async_db_session:
             # Look up user in our db using their Slack user ID

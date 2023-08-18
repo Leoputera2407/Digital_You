@@ -263,7 +263,6 @@ async def render_home_tab(client: AsyncWebClient, context: AsyncBoltContext) -> 
 
 @slack_app.view(MODAL_RESPONSE_CALLBACK_ID)
 async def handle_view_submission(
-    context: AsyncBoltContext,
     ack: AsyncAck,
     client: AsyncWebClient,
     body: Dict[str, Any],
