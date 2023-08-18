@@ -252,7 +252,7 @@ async def handle_prosona_command(
         past_messages = await retrieve_sorted_past_messages(
             client=client,
             channel_id=channel_id,
-            context=context,
+            channel_type=channel_type.value,
             limit_scanned_messages=5,
         )
         if not past_messages:

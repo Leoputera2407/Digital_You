@@ -9,11 +9,10 @@ from digital_twin.slack_bot.defs import ChannelType
 async def retrieve_sorted_past_messages(
     client: AsyncWebClient,
     channel_id: str,
-    context: AsyncBoltContext,
+    channel_type: str,
     thread_ts: Optional[str] = None,  # Not in thread if None
     limit_scanned_messages: int = 1000,
 ) -> List[Dict[str, str]]:
-    channel_type = context["SLACK_CHANNEL_TYPE"]
     # Join the channel if it's not a direct message
     if channel_type == ChannelType.PUBLIC_CHANNEL.value:
         await client.conversations_join(

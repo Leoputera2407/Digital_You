@@ -410,7 +410,7 @@ async def handle_selection_button(
         past_messages = await retrieve_sorted_past_messages(
             client,
             channel_id,
-            context=context,
+            channel_type=channel_type,
             thread_ts=thread_ts,
             limit_scanned_messages=50,
         )
