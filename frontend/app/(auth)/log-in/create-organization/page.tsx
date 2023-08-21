@@ -69,7 +69,7 @@ export default function CreateOrg() {
           variant: "success",
           text: "Successfully created organization and added admin!",
         });
-        router.push("/settings");
+        router.push("/settings/admin/connectors");
       } else {
         // Publish error toast
         publish({

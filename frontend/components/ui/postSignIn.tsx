@@ -52,7 +52,6 @@ const PostSignInOrganizationCheck = ({ children }: { children: ReactNode}) => {
           const searchParamsString = searchParams.toString();
           let fullPath = searchParamsString ? `${pathname}?${searchParamsString}` : pathname;
           fullPath = checkAdminAndRedirect(response.data.data?.role, fullPath);
-
           router.push(fullPath)
         } else {
           router.push("/log-in/join-organization");
