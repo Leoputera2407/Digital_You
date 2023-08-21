@@ -2,10 +2,12 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useSupabase } from "@/lib/context/authProvider";
 import { useToast } from "@/lib/hooks/useToast";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function SignedInUser() {
   const { user, supabase } = useSupabase();
+  const router = useRouter();
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const { publish } = useToast();
 
@@ -16,6 +18,8 @@ export default function SignedInUser() {
         variant: "danger",
         text: error.message,
       });
+    } else {
+      router.push("/");
     }
   };
 

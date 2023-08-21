@@ -55,9 +55,14 @@ export const middleware = async (req: NextRequest): Promise<NextResponse> => {
       req.nextUrl.pathname === '/settings/admin/connectors' && hasCodeQueryParam(req.nextUrl)
     )
   ) {
-    console.log("went here")
     const redirectUrl = new URL('/', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000')
     return NextResponse.redirect(redirectUrl)
+  }
+
+  if (session && req.nextUrl.pathname === '/settings/admin/connectors' && hasCodeQueryParam(req.nextUrl)) {
+    const redirectUrl = new URL('/settings/admin/connectors', process.env.NEXT_PUBLIC_WEB_DOMAIN || 'http://localhost:3000');
+    redirectUrl.searchParams.delete('code');
+    return NextResponse.redirect(redirectUrl);
   }
 
   return res
