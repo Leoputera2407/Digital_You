@@ -1,10 +1,10 @@
 from typing import List, Sequence
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from digital_twin.auth.invitation import generate_invitation_token, send_user_invitation_email
 from digital_twin.auth.users import current_admin_for_org, current_user
@@ -145,7 +145,9 @@ async def verify_if_user_in_org(
     db_session: AsyncSession = Depends(get_async_session_generator),
 ) -> StatusResponse[OrganizationAssociationBase]:
     result = await db_session.execute(
-        select(UserOrganizationAssociation).where(
+        select(UserOrganizationAssociation)
+        .options(joinedload(UserOrganizationAssociation.organization))
+        .where(
             UserOrganizationAssociation.user_id == current_user.id,
             UserOrganizationAssociation.organization_id == organization_id,
         )
