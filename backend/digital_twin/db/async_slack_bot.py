@@ -5,9 +5,9 @@ from typing import List, Optional, Tuple, cast
 from uuid import UUID
 
 from slack_sdk.oauth.installation_store import Bot, Installation
-from sqlalchemy import and_, desc, or_, select
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
 
 from digital_twin.db.model import (
     SlackBots,
@@ -17,7 +17,7 @@ from digital_twin.db.model import (
     SlackOrganizationAssociation,
     SlackUser,
 )
-from digital_twin.utils.logging import async_log_sqlalchemy_error, setup_logger
+from digital_twin.utils.logging import async_log_sqlalchemy_error, log_sqlalchemy_error, setup_logger
 
 logger = setup_logger()
 
@@ -61,6 +61,50 @@ async def async_find_bot_db(
             return None
     except Exception as e:
         logger.error(f"Error in async_find_bot: {e}")
+        return None
+
+
+@log_sqlalchemy_error(
+    logger
+)  # Assuming the synchronous version of the decorator is called `log_sqlalchemy_error`
+def find_bot_db(
+    session: Session,  # Note: Here, Session is the regular, synchronous session from SQLAlchemy
+    enterprise_id: Optional[str],
+    team_id: Optional[str],
+) -> Optional[Bot]:
+    try:
+        conditions = []
+        if enterprise_id:
+            conditions.append(SlackBots.enterprise_id == enterprise_id)
+        else:
+            conditions.append(SlackBots.enterprise_id.is_(None))
+
+        if team_id:
+            conditions.append(SlackBots.team_id == team_id)
+        else:
+            conditions.append(SlackBots.team_id.is_(None))
+
+        query = select(SlackBots).where(and_(*conditions)).order_by(desc(SlackBots.installed_at)).limit(1)
+
+        result = session.execute(query)
+        bot = result.fetchone()
+
+        if bot:
+            slack_bot: SlackBots = bot[0]
+            return Bot(
+                app_id=slack_bot.app_id,
+                enterprise_id=slack_bot.enterprise_id,
+                team_id=slack_bot.team_id,
+                bot_token=slack_bot.bot_token,
+                bot_id=slack_bot.bot_id,
+                bot_user_id=slack_bot.bot_user_id,
+                bot_scopes=slack_bot.bot_scopes,
+                installed_at=slack_bot.installed_at,
+            )
+        else:
+            return None
+    except Exception as e:
+        logger.error(f"Error in find_bot_db: {e}")
         return None
 
 

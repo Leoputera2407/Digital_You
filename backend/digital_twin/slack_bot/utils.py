@@ -55,6 +55,9 @@ async def retrieve_sorted_past_messages(
             }
         )
 
+    # Reverse the order of the message, so newest messages are at the top (menu style)
+    past_messages_dict = list(reversed(past_messages_dict))
+
     return past_messages_dict
 
 
