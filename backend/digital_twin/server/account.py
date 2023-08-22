@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from digital_twin.auth.invitation import generate_invitation_token, send_user_invitation_email
 from digital_twin.auth.users import current_admin_for_org, current_user
 from digital_twin.db.async_slack_bot import async_get_associated_slack_user
-from digital_twin.db.engine import get_async_session_generator, get_session
+from digital_twin.db.engine import get_async_session_generator, get_session_generator
 from digital_twin.db.model import (
     Invitation,
     InvitationStatus,
@@ -350,7 +350,7 @@ async def add_user_to_org(
     organization_id: UUID,
     user_email: UserByEmail,
     admin_user: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: Session = Depends(get_session_generator),
 ) -> StatusResponse:
     if is_user_in_organization(db_session, user_email.user_email, organization_id):
         raise HTTPException(status_code=404, detail="User is already in the organization")
@@ -391,7 +391,7 @@ def remove_user_from_org(
     organization_id: UUID,
     user_email: UserByEmail,
     _: User = Depends(current_admin_for_org),
-    db_session: Session = Depends(get_session),
+    db_session: Session = Depends(get_session_generator),
 ) -> StatusResponse:
     user_to_remove = get_user_by_email(db_session, user_email.user_email)
     if not user_to_remove:

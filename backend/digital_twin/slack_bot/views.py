@@ -185,7 +185,7 @@ def create_selection_command_view(
             "type": "button",
             "text": {
                 "type": "plain_text",
-                "text": "Answer This!" if m["thread_ts"] is None or in_thread else "Go to Thread",
+                "text": "Answer This" if m["thread_ts"] is None or in_thread else "Go to Thread",
                 "emoji": True,
             },
             "style": "primary",  # Make the button green

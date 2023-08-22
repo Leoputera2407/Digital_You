@@ -1,4 +1,4 @@
-import sys
+import argparse
 import time
 from uuid import UUID
 
@@ -25,5 +25,9 @@ def batch_update(organization_id: UUID | None = None) -> None:
 
 
 if __name__ == "__main__":
-    organization_id = UUID(sys.argv[1]) if len(sys.argv) > 1 else None
+    parser = argparse.ArgumentParser(description="Batch update for digital twin.")
+    parser.add_argument("--organization_id", type=str, help="The UUID of the organization.")
+    args = parser.parse_args()
+
+    organization_id = UUID(args.organization_id) if args.organization_id else None
     batch_update(organization_id=organization_id)

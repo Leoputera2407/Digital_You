@@ -67,8 +67,8 @@ def get_sqlalchemy_async_engine(pool_pre_ping: bool = False) -> AsyncEngine:
     return _ASYNC_ENGINE
 
 
-def get_session(pool_pre_ping: bool = False) -> Generator[Session, None, None]:
-    with Session(get_sqlalchemy_engine(pool_pre_ping), expire_on_commit=False) as session:
+def get_session_generator() -> Generator[Session, None, None]:
+    with Session(get_sqlalchemy_engine(), expire_on_commit=False) as session:
         yield session
 
 
@@ -79,3 +79,7 @@ async def get_async_session_generator() -> AsyncGenerator[AsyncSession, None]:
 
 def get_async_session(pool_pre_ping: bool = False) -> AsyncSession:
     return AsyncSession(get_sqlalchemy_async_engine(pool_pre_ping), expire_on_commit=False)
+
+
+def get_session(pool_pre_ping: bool = False) -> Session:
+    return Session(get_sqlalchemy_engine(pool_pre_ping), expire_on_commit=False)

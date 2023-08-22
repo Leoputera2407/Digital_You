@@ -11,7 +11,11 @@ description: "Update job periodically."
 
 # A list of inputs to your task. Parameters can be passed into the docker command
 # as {{params.slug}}, e.g. command: /bin/my_command --id {{params.user_id}}.
-parameters: []
+parameters: 
+  - slug: organization_id
+    name: Organization ID
+    description: "The UUID of the organization."
+    type: shorttext
 
 # Configuration for a Docker task.
 docker:
@@ -20,7 +24,7 @@ docker:
 
   # The Docker command to run. Supports JavaScript templates
   # (https://docs.airplane.dev/runbooks/javascript-templates).
-  command: python digital_twin/background/scheduled.py
+  command: python digital_twin/background/scheduled.py --organization_id {{params.organization_id}}
 
   # A map of environment variables to use when running the task. The value
   # should be an object; if specifying raw values, the value must be an object
