@@ -18,7 +18,7 @@ from digital_twin.db.async_slack_bot import (
     async_save_slack_installation,
     find_bot_db,
 )
-from digital_twin.db.engine import get_session
+from digital_twin.db.engine import get_async_session, get_session
 from digital_twin.db.model import SlackIntegration
 from digital_twin.utils.logging import setup_logger
 
@@ -74,8 +74,8 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
             team_id = ""
         try:
             logger.info(f"Finding bot for team_id {team_id}")
-            with get_session() as db_session:
-                bot = find_bot_db(
+            async with get_async_session(pool_pre_ping=True) as db_session:
+                bot = await async_find_bot_db(
                     db_session,
                     enterprise_id,
                     team_id,
