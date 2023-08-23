@@ -164,3 +164,11 @@ COHERE_KEY = os.environ.get("COHERE_KEY", "")
 # PromptLayer      #
 #####################
 PROMPTLAYER_API_KEY = os.environ.get("PROMPTLAYER_API_KEY", "")
+
+
+#####################
+# Upstash REDIS       #
+#####################
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = os.environ.get("REDIS_PORT", "45466")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "")

@@ -53,6 +53,8 @@ airplanesdk = "^0.3.36"
 pre-commit = "^3.3.3"
 mypy = "^1.4.1"
 isort = "^5.12.0"
+redis = "^5.0.0"
+types-redis = "^4.6.0.5"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

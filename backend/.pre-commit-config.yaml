@@ -42,7 +42,8 @@ repos:
           types-regex==2023.3.23.1, 
           types-requests==2.28.11.17, 
           types-retry==0.9.9.3, 
-          types-urllib3==1.26.25.11
+          types-urllib3==1.26.25.11,
+          types-redis==4.6.0.5,
         ]
         # TODO: add back once errors are addressed
         # args: [--strict]  
