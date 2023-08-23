@@ -156,7 +156,6 @@ class AsyncHackyRedisInstallationStore(AsyncInstallationStore):
             "token_type": installation.token_type or "",
             "installed_at": str(installation.installed_at),
         }
-
         return installation_dict
 
     def _serialize_bot(self, bot: Bot) -> HSET_TYPE:
