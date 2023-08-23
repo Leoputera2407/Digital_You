@@ -41,8 +41,13 @@ async def async_find_bot_db(
             conditions.append(SlackBots.team_id.is_(None))
 
         query = select(SlackBots).where(and_(*conditions)).order_by(desc(SlackBots.installed_at)).limit(1)
+        import time
 
+        logger.info(f"Starting query execution for async_find_bot for team_id {team_id}")
+        start_time = time.time()
         result = await session.execute(query)
+        elapsed_time = time.time() - start_time
+        logger.info(f"Query execution time for async_find_bot: {elapsed_time:.4f} seconds")
         bot = result.fetchone()
 
         if bot:
