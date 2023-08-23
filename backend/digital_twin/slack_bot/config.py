@@ -75,15 +75,16 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
         try:
             logger.info(f"Finding bot for team_id {team_id}")
             async with get_async_session(pool_pre_ping=True) as db_session:
+                logger.info(f"We're in the async")
                 bot = await async_find_bot_db(
                     db_session,
                     enterprise_id,
                     team_id,
                 )
+                logger.info(f"Found bot: {bot.team_id if bot else None}")
             if bot is None:
                 message = f"Failed to find bot: {enterprise_id}, {team_id}, {is_enterprise_install}"
                 return None
-            logger.info(f"Found bot: {bot.team_id}")
             return bot
         except Exception as e:
             message = f"Failed to find bot: {enterprise_id}, {team_id}, {is_enterprise_install} - {e}"
