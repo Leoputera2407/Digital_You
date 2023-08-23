@@ -75,7 +75,7 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
         try:
             logger.info(f"Finding bot for team_id {team_id}")
             with get_session(pool_pre_ping=True) as db_session:
-                logger.info(f"We're in the async")
+                logger.info(f"We're in the sync")
                 bot = find_bot_db(
                     db_session,
                     enterprise_id,

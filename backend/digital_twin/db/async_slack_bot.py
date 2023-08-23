@@ -69,9 +69,7 @@ async def async_find_bot_db(
         return None
 
 
-@log_sqlalchemy_error(
-    logger
-)  # Assuming the synchronous version of the decorator is called `log_sqlalchemy_error`
+@log_sqlalchemy_error(logger)
 def find_bot_db(
     session: Session,  # Note: Here, Session is the regular, synchronous session from SQLAlchemy
     enterprise_id: Optional[str],
@@ -91,7 +89,11 @@ def find_bot_db(
 
         query = select(SlackBots).where(and_(*conditions)).order_by(desc(SlackBots.installed_at)).limit(1)
 
+        logger.info(f"Starting query execution for async_find_bot for team_id {team_id}")
+        start_time = time.time()
         result = session.execute(query)
+        elapsed_time = time.time() - start_time
+        logger.info(f"Query execution time for async_find_bot: {elapsed_time:.4f} seconds")
         bot = result.fetchone()
 
         if bot:
