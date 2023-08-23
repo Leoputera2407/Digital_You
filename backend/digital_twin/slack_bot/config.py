@@ -88,10 +88,8 @@ class AsyncHackyRedisInstallationStore(AsyncInstallationStore):
 
         except Exception as e:
             self._logger.warning(f"Failed to save installation: {installation} - {e}")
-            return None
         finally:
             await redis.close()
-            return None
 
     async def async_find_bot_redis(
         self, enterprise_id: Optional[str] = None, team_id: Optional[str] = None
@@ -126,7 +124,6 @@ class AsyncHackyRedisInstallationStore(AsyncInstallationStore):
             return None
         finally:
             await redis.close()
-            return None
 
     def _serialize_installation(self, installation: Installation) -> HSET_TYPE:
         installation_dict: HSET_TYPE = {
