@@ -11,7 +11,7 @@ from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
 from slack_bolt.async_app import AsyncAck, AsyncApp, AsyncBoltContext
 from slack_bolt.error import BoltError
 from slack_bolt.oauth.async_oauth_flow import AsyncOAuthFlow
-from slack_bolt.request.payload_utils import is_action, is_event
+from slack_bolt.request.payload_utils import is_event
 from slack_sdk.http_retry.builtin_async_handlers import AsyncRateLimitErrorRetryHandler
 from slack_sdk.web.async_client import AsyncWebClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,6 +117,21 @@ def register_listeners(slack_app: AsyncApp):
 register_listeners(slack_app)
 
 app_handler = AsyncSlackRequestHandler(slack_app)
+
+
+@router.get("/slack/check-installation")
+async def check_installation():
+    """
+    This endpoint is used to check if the installation is successful.
+    """
+    oauth_settings = get_oauth_settings()
+    installation_store = oauth_settings.installation_store
+    await installation_store.async_find_bot(
+        enterprise_id=None,
+        team_id="T057MQ6BEBX",
+        is_enterprise_install=False,
+    )
+    return {"status": "success"}
 
 
 @router.post("/slack/events")
