@@ -74,7 +74,7 @@ async def async_generate_and_store_user_or_default_conversation_style(
 async def async_handle_user_conversation_style(
     db_session: AsyncSession,
     client: AsyncWebClient,
-    context: AsyncBoltContext,
+    slack_user_token: str,
     slack_user_id: str,
     view_slack_token: str,
     team_id: str,
@@ -99,7 +99,7 @@ async def async_handle_user_conversation_style(
                 slack_user_id,
                 team_id,
                 client,
-                context,
+                slack_user_token,
             )
             conversation_style = await async_generate_and_store_user_or_default_conversation_style(
                 db_session,

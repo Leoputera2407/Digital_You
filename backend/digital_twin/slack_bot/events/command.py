@@ -71,7 +71,7 @@ async def qa_and_response(
     async with get_async_session() as session1, get_async_session() as session2, get_async_session() as session3, get_async_session() as session4:
         preprocess_tasks = {
             "conversation_style": async_handle_user_conversation_style(
-                session1, client, context, slack_user_id, view_slack_token, team_id, view_id
+                session1, client, slack_user_token, slack_user_id, view_slack_token, team_id, view_id
             ),
             "qdrant_collection_name": async_get_qdrant_collection_for_slack(session2, slack_user_id, team_id),
             "typesense_collection_name": async_get_typesense_collection_for_slack(
