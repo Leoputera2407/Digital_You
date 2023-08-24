@@ -286,7 +286,6 @@ async def handle_view_submission(
     payload: Dict[str, Any] = json.loads(body["view"]["private_metadata"])
     channel_id = payload["channel_id"]
     thread_ts = payload["ts"]
-    slack_user_token = payload["slack_user_token"]
     channel_type = payload["channel_type"]
     slack_user_token = payload["slack_user_token"]
     use_appropriate_token(

@@ -236,7 +236,7 @@ async def scrape_and_store_chat_history_from_dm(
     slack_user_id: str,
     team_id: str,
     client: AsyncWebClient,
-    context: AsyncBoltContext,
+    slack_user_token: str,
     target_users: Optional[List[str]] = None,
     min_transcript_length: int = MIN_SCRAPED_THRESHOLD,
     min_chat_pairs_len: int = MIN_CHAT_PAIRS_THRESHOLD,
@@ -245,7 +245,7 @@ async def scrape_and_store_chat_history_from_dm(
     # We need to ensure that we use slack_user_token
     # to scrape the DMs
     default_token = client.token
-    client.token = context["SLACK_USER_TOKEN"]
+    client.token = slack_user_token
 
     validate_target_users(target_users, slack_user_id)
     channel_ids = await join_user_channels(
