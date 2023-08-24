@@ -38,7 +38,7 @@ class AsyncHackyRedisInstallationStore(AsyncInstallationStore):
     def __init__(self, logger):
         self._logger = logger
 
-    async def async_save_to_redis(self, installation: Installation, bot: Bot) -> None:
+    async def async_save_to_redis(self, installation: Installation) -> None:
         redis: Redis = await aioredis.Redis(
             host=REDIS_HOST,
             port=int(REDIS_PORT),
@@ -67,7 +67,7 @@ class AsyncHackyRedisInstallationStore(AsyncInstallationStore):
             await redis.hmset(installation_key, serialized_installation_dict)
 
             # Serialize and save bot
-            serialized_bot_dict = self._serialize_bot(bot)
+            serialized_bot_dict = self._serialize_bot(installation)
             team_id = (
                 serialized_bot_dict["team_id"].decode("utf-8")
                 if isinstance(serialized_bot_dict["team_id"], bytes)
@@ -241,6 +241,8 @@ class AsyncSQLAlchemyInstallationStore(AsyncInstallationStore):
                 prosona_org_id=prosona_org_id,
                 client_id=self.client_id,
             )
+            await self.redis_hack_store.async_save_to_redis(installation=installation)
+
         except Exception as e:
             message = f"Failed to save installation: {installation} - {e}"
             self.logger.warning(message)

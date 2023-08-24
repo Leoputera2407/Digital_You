@@ -453,7 +453,6 @@ async def handle_selection_button(
             team_id=team_id,
             view_id=view_id,
             client=client,
-            context=context,
             thread_ts=thread_ts,
             ts=ts,
         )

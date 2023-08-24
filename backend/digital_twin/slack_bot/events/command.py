@@ -45,7 +45,6 @@ async def qa_and_response(
     team_id: str,
     view_id: str,
     client: AsyncWebClient,
-    context: AsyncBoltContext,
     slack_user_id: str,
     slack_user_token: str,
     view_slack_token: str,
