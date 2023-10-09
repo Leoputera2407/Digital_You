@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from digital_twin.config.constants import DocumentSource
 from digital_twin.connectors.factory import CONNECTOR_MAP, instantiate_connector
 from digital_twin.connectors.interfaces import LoadConnector, PollConnector
 from digital_twin.connectors.model import InputType
@@ -60,10 +61,15 @@ def should_create_new_indexing(
 
 
 def create_indexing_jobs(
-    db_session: Session, is_daemon: bool = True, organization_id: UUID | None = None
+    db_session: Session,
+    is_daemon: bool = True,
+    organization_id: UUID | None = None,
+    allowed_document_source: list[DocumentSource] | None = None,
 ) -> None:
     connectors = fetch_connectors(db_session, disabled_status=False, organization_id=organization_id)
     for connector in connectors:
+        if allowed_document_source and connector.source not in allowed_document_source:
+            continue
         in_progress_indexing_attempts = get_inprogress_index_attempts(connector.id, db_session)
         if in_progress_indexing_attempts:
             logger.error("Found incomplete indexing attempts")
@@ -126,11 +132,19 @@ def create_indexing_jobs(
             )
 
 
-def run_indexing_jobs(db_session: Session, organization_id: UUID | None = None) -> None:
+def run_indexing_jobs(
+    db_session: Session,
+    organization_id: UUID | None = None,
+    allowed_document_source: list[DocumentSource] | None = None,
+) -> None:
     new_indexing_attempts = get_not_started_index_attempts(db_session)
 
     if organization_id:
         connectors = fetch_connectors(db_session, disabled_status=False, organization_id=organization_id)
+        if allowed_document_source:
+            connectors = [
+                connector for connector in connectors if connector.source in allowed_document_source
+            ]
         new_indexing_attempts = [
             attempt for attempt in new_indexing_attempts if attempt.connector in connectors
         ]
